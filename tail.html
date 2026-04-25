@@ -1,0 +1,1134 @@
+
+<!-- Recipe Modal -->
+<div class="modal-overlay" id="recipe-modal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="recipe-modal-title">Recipe</div>
+    <div id="recipe-modal-body" style="font-size:13px;line-height:1.7"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Close</button>
+      <button class="btn btn-primary" id="recipe-cook-btn" onclick="">👨‍🍳 Cook This!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal Split Modal -->
+<div class="modal-overlay" id="split-modal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-title">&#127919; Split Transaction Toward Goals</div>
+    <input type="hidden" id="split-txn-id">
+    <div id="split-txn-info" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px"></div>
+    <div class="hint-mb">Designate portions of this transaction to your savings goals. Splits will appear as separate goal-categorized entries.</div>
+    <div id="split-rows"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="addSplitRow()">+ Add another goal</button>
+    <div id="split-remaining" style="margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;background:var(--surface);border:1px solid var(--border)"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('split-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoalSplit()">Save Splits</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category Split Modal -->
+<div class="modal-overlay" id="cat-split-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-title">&#9889; Split Transaction</div>
+    <input type="hidden" id="cat-split-txn-id">
+    <div id="cat-split-txn-info" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px"></div>
+    <div class="hint-mb">Divide this transaction across multiple categories and/or descriptions. All split amounts must add up to the full transaction total.</div>
+    <div id="cat-split-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="addCatSplitRow()">+ Add another split</button>
+    <div id="cat-split-remaining" style="margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;background:var(--surface);border:1px solid var(--border)"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cat-split-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCatSplit()">&#10003; Save Split</button>
+    </div>
+  </div>
+</div>
+
+<!-- Theme Picker Modal -->
+<div class="modal-overlay" id="theme-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">🎨 Colour Theme</div>
+
+    <!-- Preset swatches -->
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Presets</div>
+    <div id="theme-presets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px"></div>
+
+    <!-- Dark mode toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px">
+      <div>
+        <div style="font-weight:800;font-size:13px">🌙 Dark Mode</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Switches backgrounds to dark while keeping your accent colour</div>
+      </div>
+      <button id="theme-dark-btn" class="btn btn-ghost btn-sm" onclick="toggleThemeDark()" style="white-space:nowrap;min-width:80px">Off</button>
+    </div>
+
+    <!-- Custom accent -->
+    <div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:18px">
+      <div style="flex:1">
+        <div style="font-weight:800;font-size:13px">🖌️ Custom Accent Colour</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Overrides the accent for any preset. Buttons, links, highlights.</div>
+      </div>
+      <input type="color" id="theme-accent-input" value="#c97d5a" oninput="previewAccent(this.value)" style="width:44px;height:38px;border:2px solid var(--border);border-radius:8px;cursor:pointer;padding:2px;background:none">
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('theme-modal')">Close</button>
+      <button class="btn btn-primary" onclick="saveThemePick()">✓ Apply & Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- API Key Modal -->
+<div class="modal-overlay" id="api-key-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">&#x1F511; Anthropic API Key</div>
+    <div class="alert alert-info" style="font-size:12px;margin-bottom:14px">
+      AI features (meal plan, flyer scan, PDF statements) require an Anthropic API key — this works in <strong>any browser</strong> or the Claude Desktop App.<br><br>
+      <strong>How to get one (free):</strong><br>
+      1. Go to <strong>console.anthropic.com</strong><br>
+      2. Sign up / log in &rarr; click <strong>API Keys</strong><br>
+      3. Click <strong>Create Key</strong> &rarr; copy it<br>
+      4. Paste it below &darr;<br><br>
+      <span style="color:var(--muted)">Your key is stored locally in your browser and never sent anywhere except Anthropic's API.</span>
+    </div>
+    <div class="form-row">
+      <label>API Key</label>
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+    </div>
+    <div id="api-key-status" class="result-text"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="clearApiKey()" style="margin-right:auto">Clear Key</button>
+      <button class="btn btn-ghost" onclick="closeModal('api-key-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveApiKey()">&#x2713; Save Key</button>
+    </div>
+  </div>
+</div>
+<!-- Custom Alert/Confirm Dialog (cross-browser, replaces native alert/confirm) -->
+<div id="hh-dialog-overlay">
+  <div id="hh-dialog-box">
+    <div id="hh-dialog-icon">ℹ️</div>
+    <div id="hh-dialog-title"></div>
+    <div id="hh-dialog-message"></div>
+    <div id="hh-dialog-btns"></div>
+  </div>
+</div>
+
+
+<!-- Features Modal -->
+<div class="modal-overlay hidden" id="features-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ Features</div>
+      <button class="modal-close" onclick="closeModal('features-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px">
+      <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Turn features on or off for your household. Hidden features won't appear in the navigation.</p>
+      <div id="features-toggle-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveFeatures()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('features-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- WEDDING VENDOR MODAL -->
+<div class="modal-overlay hidden" id="wedding-vendor-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="wedding-vendor-modal-title">💍 Add Vendor</div>
+      <button class="modal-close" onclick="closeModal('wedding-vendor-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <input type="hidden" id="wedding-vendor-edit-id">
+      <div class="form-row">
+        <label>Category</label>
+        <select id="wv-category">
+          <option value="Venue">🏛️ Venue</option>
+          <option value="Catering">🍽️ Catering</option>
+          <option value="Photography">📷 Photography</option>
+          <option value="Videography">🎥 Videography</option>
+          <option value="Flowers">💐 Flowers & Décor</option>
+          <option value="Music">🎵 Music & DJ</option>
+          <option value="Attire">👗 Attire & Rings</option>
+          <option value="Hair & Makeup">💄 Hair & Makeup</option>
+          <option value="Cake">🎂 Cake & Desserts</option>
+          <option value="Transport">🚗 Transport</option>
+          <option value="Invitations">💌 Invitations & Stationery</option>
+          <option value="Officiant">⛪ Officiant</option>
+          <option value="Accommodation">🏨 Accommodation</option>
+          <option value="Other">📦 Other</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Vendor Name</label><input type="text" id="wv-name" placeholder="e.g. Kingston Yacht Club"></div>
+      <div class="form-row"><label>Contact / Website</label><input type="text" id="wv-contact" placeholder="e.g. vendor@email.com or phone"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>Total Cost ($)</label><input type="number" id="wv-total" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="form-row"><label>Deposit Amount ($)</label><input type="number" id="wv-deposit" placeholder="0.00" min="0" step="0.01"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>Deposit Due Date</label><input type="date" id="wv-deposit-due"></div>
+        <div class="form-row" style="justify-content:flex-start;flex-direction:row;align-items:center;gap:10px;padding-top:22px">
+          <input type="checkbox" id="wv-paid" style="width:16px;height:16px;accent-color:var(--green)">
+          <label for="wv-paid" style="font-weight:600;font-size:13px;cursor:pointer">Deposit Paid</label>
+        </div>
+      </div>
+      <div class="form-row"><label>Notes</label><input type="text" id="wv-notes" placeholder="e.g. Includes appetizers, $500 min spend..."></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveWeddingVendor()">Save Vendor</button>
+      <button class="btn btn-ghost" onclick="closeModal('wedding-vendor-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- WEDDING SETTINGS MODAL -->
+<div class="modal-overlay hidden" id="wedding-settings-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ Wedding Settings</div>
+      <button class="modal-close" onclick="closeModal('wedding-settings-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-row"><label>Total Wedding Budget ($)</label><input type="number" id="ws-budget" placeholder="e.g. 25000" min="0" step="100"></div>
+      <div class="form-row"><label>Wedding Date</label><input type="date" id="ws-date"></div>
+      <div class="form-row"><label>Venue / Location</label><input type="text" id="ws-venue" placeholder="e.g. Kingston, Ontario"></div>
+      <div class="form-row"><label>Notes / Vision</label><textarea id="ws-notes" rows="3" placeholder="e.g. Outdoor summer wedding, rustic theme, ~80 guests..." style="resize:vertical"></textarea></div>
+      <div class="form-row">
+        <label>Link to Savings Goal</label>
+        <select id="ws-linked-goal" style="width:100%"></select>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Links your wedding goal so the savings progress bar here matches the Goals page exactly.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveWeddingSettings()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('wedding-settings-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- HOUSE SETTINGS MODAL -->
+<!-- HOUSE UNIFIED SETTINGS MODAL -->
+<div class="modal-overlay hidden" id="house-unified-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">🏡 House Settings</div>
+      <button class="modal-close" onclick="closeModal('house-unified-modal')">✕</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border);padding:0 20px">
+      <button id="hu-tab-home" type="button" onclick="huSwitchTab('home')"
+        style="background:none;border:none;border-bottom:2px solid var(--accent);padding:10px 16px;font-size:13px;font-weight:800;color:var(--text);cursor:pointer">🏠 Home Details</button>
+      <button id="hu-tab-mortgage" type="button" onclick="huSwitchTab('mortgage')"
+        style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;font-size:13px;font-weight:400;color:var(--text);cursor:pointer">🏦 Mortgage Terms</button>
+    </div>
+
+    <!-- Panel: Home Details -->
+    <div id="hu-panel-home" style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-row"><label>Target Home Price ($)</label><input type="number" id="hu-price" placeholder="e.g. 550000" min="0" step="1000"></div>
+      <div class="form-row"><label>Current Down Payment Saved ($)</label><input type="number" id="hu-saved" placeholder="e.g. 30000" min="0" step="100">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">This tracks your savings progress. Down payment used in the mortgage calculator is set on the Mortgage Terms tab.</div>
+      </div>
+      <div class="form-row"><label>Monthly Contribution ($)</label><input type="number" id="hu-monthly" placeholder="e.g. 1500" min="0" step="50"></div>
+      <div class="form-row"><label>Notes</label><textarea id="hu-notes" rows="2" placeholder="e.g. Targeting Kingston or Napanee, detached home" style="resize:vertical"></textarea></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+        <input type="checkbox" id="hu-new-construction" style="width:18px;height:18px;cursor:pointer">
+        <div>
+          <div style="font-size:13px;font-weight:700">🏗️ New Construction / Pre-Build</div>
+          <div style="font-size:11px;color:var(--muted)">Enables GST/HST New Home Rebate calculations including Ontario&#39;s 8% provincial top-up.</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Link to Savings Goal</label>
+        <select id="hu-linked-goal" style="width:100%"></select>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Transactions categorized as this goal automatically count toward your down payment progress.</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);padding:8px;background:var(--surface);border-radius:8px">💡 Update FHSA and RRSP HBP balances using the ✏️ buttons on the House page after saving.</div>
+    </div>
+
+    <!-- Panel: Mortgage Terms -->
+    <div id="hu-panel-mortgage" style="padding:18px 20px 8px;display:none;flex-direction:column;gap:12px">
+      <div style="font-size:12px;color:var(--muted);padding:8px;background:var(--surface);border-radius:8px">Uses Canadian mortgage rules: semi-annual compounding. All calculations on this page use these settings.</div>
+      <div class="form-row">
+        <label>Interest Rate (%)</label>
+        <input type="number" id="hu-rate" placeholder="e.g. 4.99" min="0.1" max="25" step="0.05">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Current 5-year fixed rates in Ontario are typically 4.5%–5.5%. Check ratehub.ca for live rates.</div>
+      </div>
+      <div class="form-row">
+        <label>Amortization Period (years)</label>
+        <select id="hu-amort" style="width:100%">
+          <option value="10">10 years</option>
+          <option value="15">15 years</option>
+          <option value="20">20 years</option>
+          <option value="25" selected>25 years (max for insured / CMHC)</option>
+          <option value="30">30 years (20%+ down payment required)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Payment Frequency</label>
+        <select id="hu-freq" style="width:100%">
+          <option value="monthly">Monthly (12 payments/yr)</option>
+          <option value="semi-monthly">Semi-Monthly (24 payments/yr)</option>
+          <option value="bi-weekly">Bi-Weekly (26 payments/yr)</option>
+          <option value="accel-bi-weekly">Accelerated Bi-Weekly ⭐ (pays off faster)</option>
+          <option value="weekly">Weekly (52 payments/yr)</option>
+          <option value="accel-weekly">Accelerated Weekly (pays off fastest)</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Accelerated options make the equivalent of one extra monthly payment per year.</div>
+      </div>
+      <div class="form-row">
+        <label>Down Payment ($)</label>
+        <input type="number" id="hu-down" placeholder="e.g. 50000" min="0" step="1000">
+        <div id="hu-down-hint" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost btn-sm" id="hu-btn-mindown" onclick="document.getElementById('hu-down').value=this.dataset.val">⬇️ Min Required</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="hu-btn-saved"   onclick="document.getElementById('hu-down').value=this.dataset.val">💰 Saved Amount</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="hu-btn-20pct"   onclick="document.getElementById('hu-down').value=this.dataset.val">🏆 20% No CMHC</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+        <input type="checkbox" id="hu-hst-in-price" style="width:18px;height:18px;margin-top:2px;cursor:pointer" checked>
+        <div>
+          <div style="font-size:13px;font-weight:700">HST rebate already included in purchase price</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Most builders quote a price <strong>already net of the HST rebate</strong>. Uncheck this only if your price is quoted before the rebate (e.g. a pre-construction contract) — the rebate will then be deducted from the mortgage principal.</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">🔄 Reverse Calculator — What Can We Afford?</div>
+        <div class="form-row">
+          <label>Comfortable Payment Amount ($)</label>
+          <input type="number" id="hu-comfort" placeholder="e.g. 2200" min="0" step="50">
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Enter the payment you&#39;re comfortable making at the selected frequency. The reverse calculator shows the maximum home price this supports — using the exact same rules as the mortgage calculator above.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveHouseUnified()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('house-unified-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PET VET VISIT MODAL -->
+<div class="modal-overlay hidden" id="pet-vet-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">🏥 Log Vet Visit</div>
+      <button class="modal-close" onclick="closeModal('pet-vet-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-row"><label>Pet</label><select id="pvet-pet-select"></select></div>
+      <div class="form-row"><label>Date</label><input type="date" id="pvet-date"></div>
+      <div class="form-row"><label>Reason / Diagnosis</label><input type="text" id="pvet-reason" placeholder="e.g. Annual checkup, ear infection, vaccines"></div>
+      <div class="form-row"><label>Cost ($)</label><input type="number" id="pvet-cost" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="form-row"><label>Notes</label><input type="text" id="pvet-notes" placeholder="e.g. Dr. Smith, follow-up in 2 weeks"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="savePetVetVisit()">Save Visit</button>
+      <button class="btn btn-ghost" onclick="closeModal('pet-vet-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PET VACCINATION MODAL -->
+<div class="modal-overlay hidden" id="pet-vacc-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">💉 Add Vaccination</div>
+      <button class="modal-close" onclick="closeModal('pet-vacc-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-row"><label>Pet</label><select id="pvacc-pet-select"></select></div>
+      <div class="form-row"><label>Vaccine Name</label><input type="text" id="pvacc-name" placeholder="e.g. Rabies, DHPP, Bordetella, FVRCP"></div>
+      <div class="form-row"><label>Last Given</label><input type="date" id="pvacc-last"></div>
+      <div class="form-row"><label>Next Due</label><input type="date" id="pvacc-next"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="savePetVacc()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('pet-vacc-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PET MEDICATION MODAL -->
+<div class="modal-overlay hidden" id="pet-med-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">💊 Add Medication / Treatment</div>
+      <button class="modal-close" onclick="closeModal('pet-med-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-row"><label>Pet</label><select id="pmed-pet-select"></select></div>
+      <div class="form-row"><label>Medication / Treatment Name</label><input type="text" id="pmed-name" placeholder="e.g. Heartgard, Nexgard, Bravecto, Apoquel"></div>
+      <div class="form-row"><label>Dose</label><input type="text" id="pmed-dose" placeholder="e.g. 1 tablet, 0.5ml"></div>
+      <div class="form-row"><label>Frequency</label><input type="text" id="pmed-freq" placeholder="e.g. Monthly, Every 3 months, Daily"></div>
+      <div class="form-row"><label>Next Due Date</label><input type="date" id="pmed-next"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="savePetMed()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('pet-med-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PET PROFILE MODAL -->
+<div class="modal-overlay hidden" id="pet-profile-modal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <div class="modal-title" id="pprof-title">✏️ Pet Profile</div>
+      <button class="modal-close" onclick="closeModal('pet-profile-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <input type="hidden" id="pprof-id">
+      <div class="form-row"><label>Date of Birth</label><input type="date" id="pprof-dob"></div>
+      <div class="form-row"><label>Weight (kg)</label><input type="number" id="pprof-weight" placeholder="e.g. 12.5" min="0" step="0.1"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="savePetProfile()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('pet-profile-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- RETIREMENT INPUT MODAL -->
+<div class="modal-overlay hidden" id="ret-input-modal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <div class="modal-title">📊 Retirement Inputs</div>
+      <button class="modal-close" onclick="closeModal('ret-input-modal')">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:8px">
+      Enter current ages, savings balances, and pension details. Projections update when you save.
+    </div>
+
+    <!-- Matt -->
+    <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">👔 Matt</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="form-row" style="margin:0">
+        <label>Current Age</label>
+        <input type="number" id="ret-matt-age" placeholder="e.g. 32" min="18" max="80">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Target Retirement Age</label>
+        <input type="number" id="ret-matt-retire-age" placeholder="e.g. 60" min="50" max="75">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Current Salary ($/yr)</label>
+        <input type="number" id="ret-matt-salary" placeholder="e.g. 85000" min="0" step="1000" oninput="retUpdateDcPreview('matt')">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Pension Type</label>
+        <select id="ret-matt-pension-mode" style="width:100%" onchange="retUpdatePensionMode('matt')">
+          <option value="db">🏛️ Defined Benefit (guaranteed income)</option>
+          <option value="dc">💼 Defined Contribution / Group RRSP (% of salary)</option>
+          <option value="none">❌ No pension</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Matt DB panel -->
+    <div id="ret-matt-db-panel" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+      <div style="grid-column:1/-1;font-size:11px;color:var(--muted);font-weight:700">🏛️ Defined Benefit — pension pays a % of salary × years of service</div>
+      <div class="form-row" style="margin:0">
+        <label>Accrual Rate (% per year)</label>
+        <input type="number" id="ret-matt-pension-pct" placeholder="e.g. 2" min="0" max="5" step="0.1">
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Typically 1.5–2% per year of service</div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Projected Service Years at Retirement</label>
+        <input type="number" id="ret-matt-pension-years" placeholder="e.g. 30" min="0" max="45">
+      </div>
+    </div>
+
+    <!-- Matt DC panel -->
+    <div id="ret-matt-dc-panel" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+      <div style="grid-column:1/-1;font-size:11px;color:var(--muted);font-weight:700">💼 Defined Contribution — you and your employer both contribute % of your salary each paycheque</div>
+      <div class="form-row" style="margin:0">
+        <label>Your Contribution (% of salary)</label>
+        <input type="number" id="ret-matt-emp-pct" placeholder="e.g. 3" min="0" max="20" step="0.5" oninput="retUpdateDcPreview('matt')">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Employer Match (% of salary)</label>
+        <input type="number" id="ret-matt-match-pct" placeholder="e.g. 3" min="0" max="20" step="0.5" oninput="retUpdateDcPreview('matt')">
+      </div>
+      <div id="ret-matt-dc-preview" style="grid-column:1/-1;font-size:12px;color:var(--green);font-weight:700;padding:6px 8px;background:color-mix(in srgb,var(--green) 8%,var(--card));border-radius:6px"></div>
+    </div>
+
+    <!-- Matt savings -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="form-row" style="margin:0">
+        <label>Current RRSP Balance ($)</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="ret-matt-rrsp" placeholder="e.g. 45000" min="0" step="500" style="flex:1">
+          <select id="ret-matt-rrsp-acct" style="flex:1;font-size:12px" title="Link to account for live balance"></select>
+        </div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label id="ret-matt-rrsp-monthly-label">Extra Monthly RRSP ($)</label>
+        <input type="number" id="ret-matt-rrsp-monthly" placeholder="e.g. 200" min="0" step="50">
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Additional contributions on top of your pension</div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Current TFSA Balance ($)</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="ret-matt-tfsa" placeholder="e.g. 20000" min="0" step="500" style="flex:1">
+          <select id="ret-matt-tfsa-acct" style="flex:1;font-size:12px" title="Link to account for live balance"></select>
+        </div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Monthly TFSA Contribution ($)</label>
+        <input type="number" id="ret-matt-tfsa-monthly" placeholder="e.g. 250" min="0" step="50">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Est. CPP at 65 ($/mo)</label>
+        <input type="number" id="ret-cpp-matt" placeholder="e.g. 900" min="0" step="50">
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Check My Service Canada Account</div>
+      </div>
+    </div>
+
+    <!-- Holly -->
+    <div style="font-size:12px;font-weight:700;color:var(--member2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💅 Holly</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="form-row" style="margin:0">
+        <label>Current Age</label>
+        <input type="number" id="ret-holly-age" placeholder="e.g. 30" min="18" max="80">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Target Retirement Age</label>
+        <input type="number" id="ret-holly-retire-age" placeholder="e.g. 60" min="50" max="75">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Current Annual Income ($)</label>
+        <input type="number" id="ret-holly-income" placeholder="e.g. 38000" min="0" step="1000" oninput="retUpdateDcPreview('holly')">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Pension Type</label>
+        <select id="ret-holly-pension-mode" style="width:100%" onchange="retUpdatePensionMode('holly')">
+          <option value="none">❌ No pension</option>
+          <option value="db">🏛️ Defined Benefit (guaranteed income)</option>
+          <option value="dc">💼 Defined Contribution / Group RRSP (% of salary)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Holly DB panel -->
+    <div id="ret-holly-db-panel" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+      <div style="grid-column:1/-1;font-size:11px;color:var(--muted);font-weight:700">🏛️ Defined Benefit — pension pays a % of salary × years of service</div>
+      <div class="form-row" style="margin:0">
+        <label>Accrual Rate (% per year)</label>
+        <input type="number" id="ret-holly-pension-pct" placeholder="e.g. 2" min="0" max="5" step="0.1">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Projected Service Years at Retirement</label>
+        <input type="number" id="ret-holly-pension-years" placeholder="e.g. 25" min="0" max="45">
+      </div>
+    </div>
+
+    <!-- Holly DC panel -->
+    <div id="ret-holly-dc-panel" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+      <div style="grid-column:1/-1;font-size:11px;color:var(--muted);font-weight:700">💼 Defined Contribution — you and your employer both contribute % of salary each paycheque</div>
+      <div class="form-row" style="margin:0">
+        <label>Your Contribution (% of salary)</label>
+        <input type="number" id="ret-holly-emp-pct" placeholder="e.g. 3" min="0" max="20" step="0.5" oninput="retUpdateDcPreview('holly')">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Employer Match (% of salary)</label>
+        <input type="number" id="ret-holly-match-pct" placeholder="e.g. 3" min="0" max="20" step="0.5" oninput="retUpdateDcPreview('holly')">
+      </div>
+      <div id="ret-holly-dc-preview" style="grid-column:1/-1;font-size:12px;color:var(--green);font-weight:700;padding:6px 8px;background:color-mix(in srgb,var(--green) 8%,var(--card));border-radius:6px"></div>
+    </div>
+
+    <!-- Holly savings -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="form-row" style="margin:0">
+        <label>Current RRSP Balance ($)</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="ret-holly-rrsp" placeholder="e.g. 10000" min="0" step="500" style="flex:1">
+          <select id="ret-holly-rrsp-acct" style="flex:1;font-size:12px" title="Link to account for live balance"></select>
+        </div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Extra Monthly RRSP ($)</label>
+        <input type="number" id="ret-holly-rrsp-monthly" placeholder="e.g. 100" min="0" step="50">
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Additional contributions on top of pension</div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Current TFSA Balance ($)</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="ret-holly-tfsa" placeholder="e.g. 15000" min="0" step="500" style="flex:1">
+          <select id="ret-holly-tfsa-acct" style="flex:1;font-size:12px" title="Link to account for live balance"></select>
+        </div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Monthly TFSA Contribution ($)</label>
+        <input type="number" id="ret-holly-tfsa-monthly" placeholder="e.g. 200" min="0" step="50">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Est. CPP at 65 ($/mo)</label>
+        <input type="number" id="ret-cpp-holly" placeholder="e.g. 600" min="0" step="50">
+      </div>
+    </div>
+
+    <!-- Assumptions -->
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Assumptions</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0">
+        <label>Annual Portfolio Growth Rate (%)</label>
+        <input type="number" id="ret-growth-rate" placeholder="5" min="0" max="15" step="0.5">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Inflation Rate (%)</label>
+        <input type="number" id="ret-inflation-rate" placeholder="2.5" min="0" max="10" step="0.5">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('ret-input-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRetirementModal()">Save & Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAX INPUT MODAL -->
+<div class="modal-overlay hidden" id="tax-input-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">🧾 Tax Inputs — <span id="tax-input-year"></span></div>
+      <button class="modal-close" onclick="closeModal('tax-input-modal')">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:8px">
+      Enter figures from your T4 slips and CRA My Account. All values are saved per tax year and never shared.
+    </div>
+    <!-- Matt section -->
+    <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">👔 Matt</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="form-row" style="margin:0">
+        <label>Employment Income (T4 Box 14)</label>
+        <input type="number" id="tax-matt-employment" placeholder="e.g. 85000" min="0" step="100">
+        <div id="tax-matt-employment-hint" style="font-size:11px;color:var(--accent);margin-top:3px;display:none">📋 Pre-filled from Setup profile — verify against your T4</div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Pension Adjustment (T4 Box 52)</label>
+        <input type="number" id="tax-matt-pension-adj" placeholder="e.g. 8000" min="0" step="100">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>RRSP Room (from CRA My Account)</label>
+        <input type="number" id="tax-matt-rrsp-room" placeholder="e.g. 15000" min="0" step="100">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>RRSP Contributions Made</label>
+        <input type="number" id="tax-matt-rrsp-contrib" placeholder="e.g. 5000" min="0" step="100">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>CPP Contributions (T4 Box 16)</label>
+        <input type="number" id="tax-matt-cpp" placeholder="e.g. 3867" min="0" step="1">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>EI Premiums (T4 Box 18)</label>
+        <input type="number" id="tax-matt-ei" placeholder="e.g. 1049" min="0" step="1">
+      </div>
+      <div class="form-row" style="margin:0;grid-column:1/-1">
+        <label>Income Tax Withheld (T4 Box 22)</label>
+        <input type="number" id="tax-matt-tax-withheld" placeholder="e.g. 22000" min="0" step="100">
+      </div>
+    </div>
+    <!-- Holly section -->
+    <div style="font-size:12px;font-weight:700;color:var(--member2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💅 Holly</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
+      <div class="form-row" style="margin:0">
+        <label>Employment Income (T4 Box 14)</label>
+        <input type="number" id="tax-holly-employment" placeholder="e.g. 32000" min="0" step="100">
+        <div id="tax-holly-employment-hint" style="font-size:11px;color:var(--accent);margin-top:3px;display:none">📋 Pre-filled from Setup profile — verify against your T4</div>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>CPP Contributions (T4 Box 16)</label>
+        <input type="number" id="tax-holly-cpp" placeholder="e.g. 1800" min="0" step="1">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>EI Premiums (T4 Box 18)</label>
+        <input type="number" id="tax-holly-ei" placeholder="e.g. 600" min="0" step="1">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Income Tax Withheld (T4 Box 22)</label>
+        <input type="number" id="tax-holly-tax-withheld" placeholder="e.g. 4000" min="0" step="100">
+      </div>
+      <div class="form-row" style="margin:0;grid-column:1/-1">
+        <label>CRA Instalments Paid (total for year)</label>
+        <input type="number" id="tax-holly-instalments" placeholder="e.g. 2400" min="0" step="100">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Mar 15 + Jun 15 + Sep 15 + Dec 15 combined</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);padding:8px 10px;background:var(--bg);border-radius:8px;margin-top:10px">
+      💡 Tips income is pulled automatically from Holly's Tips tracker — no need to enter it here.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('tax-input-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTaxInputModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAINTENANCE MODAL -->
+<div class="modal-overlay hidden" id="maint-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="maint-modal-title">🔧 Add Maintenance Task</div>
+      <button class="modal-close" onclick="closeModal('maint-modal')">✕</button>
+    </div>
+    <div class="form-row">
+      <label>Task Name <span style="color:var(--red)">*</span></label>
+      <input type="text" id="maint-name" placeholder="e.g. Change Furnace Filter">
+    </div>
+    <div class="form-row">
+      <label>Emoji</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="maint-emoji" maxlength="4" style="width:58px;font-size:20px;text-align:center" placeholder="🔧">
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🔧'">🔧</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🌬️'">🌬️</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🔥'">🔥</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🧯'">🧯</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🚿'">🚿</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🏠'">🏠</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🍂'">🍂</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='❄️'">❄️</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🌿'">🌿</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-emoji').value='🧹'">🧹</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Category</label>
+      <select id="maint-category" style="width:100%">
+        <option>Seasonal</option>
+        <option>Monthly</option>
+        <option>Appliances</option>
+        <option>Exterior</option>
+        <option>Safety</option>
+        <option>Plumbing</option>
+        <option selected>Other</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Repeat Every (days) <span style="color:var(--red)">*</span></label>
+      <input type="number" id="maint-interval" placeholder="e.g. 90" min="1" step="1">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-interval').value=30">30 days</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-interval').value=60">60 days</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-interval').value=90">3 months</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-interval').value=180">6 months</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('maint-interval').value=365">1 year</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Last Completed</label>
+      <input type="date" id="maint-lastdone">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Leave blank if never done — task will show as due immediately.</div>
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <input type="text" id="maint-notes" placeholder="e.g. Use 3M Filtrete 1500, check behind fridge coils too">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('maint-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMaintenanceTask()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CAR FUND MODAL -->
+<div class="modal-overlay hidden" id="car-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title" id="car-modal-title">🚗 Add Vehicle Goal</div>
+      <button class="modal-close" onclick="closeModal('car-modal')">✕</button>
+    </div>
+    <div class="form-row">
+      <label>Vehicle Name <span style="color:var(--red)">*</span></label>
+      <input type="text" id="car-name" placeholder="e.g. Honda Civic, Family SUV">
+    </div>
+    <div class="form-row">
+      <label>Emoji</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="car-emoji" maxlength="4" style="width:64px;font-size:20px;text-align:center" placeholder="🚗">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('car-emoji').value='🚗'">🚗</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('car-emoji').value='🚙'">🚙</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('car-emoji').value='🛻'">🛻</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('car-emoji').value='🚐'">🚐</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('car-emoji').value='🏎️'">🏎️</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('car-emoji').value='🚕'">🚕</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Target / Sticker Price ($) <span style="color:var(--red)">*</span></label>
+      <input type="number" id="car-target" placeholder="e.g. 25000" min="0" step="500">
+    </div>
+    <!-- Financing toggle -->
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:12px">
+      <input type="checkbox" id="car-financing-toggle" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer" onchange="toggleCarFinancing()">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">💳 I plan to finance this vehicle</div>
+        <div style="font-size:12px;color:var(--muted)">Enables down payment tracking and monthly payment calculations.</div>
+      </div>
+    </div>
+    <!-- Financing fields (hidden by default) -->
+    <div id="car-financing-fields" style="display:none;background:color-mix(in srgb,var(--accent) 7%,transparent);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Financing Details</div>
+      <div class="form-row" style="margin-bottom:10px">
+        <label>Down Payment Target ($) <span style="color:var(--red)">*</span></label>
+        <input type="number" id="car-down" placeholder="e.g. 5000" min="0" step="250">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Your savings goal. The progress bar tracks toward this amount.</div>
+      </div>
+      <div class="form-row" style="margin-bottom:10px">
+        <label>Trade-In Value ($)</label>
+        <input type="number" id="car-tradein" placeholder="0 if no trade-in" min="0" step="250">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-row" style="margin-bottom:0">
+          <label>Interest Rate (%)</label>
+          <input type="number" id="car-rate" placeholder="e.g. 6.99" min="0" step="0.01" max="30">
+        </div>
+        <div class="form-row" style="margin-bottom:0">
+          <label>Loan Term</label>
+          <select id="car-term" style="width:100%">
+            <option value="24">24 months (2 yr)</option>
+            <option value="36">36 months (3 yr)</option>
+            <option value="48">48 months (4 yr)</option>
+            <option value="60" selected>60 months (5 yr)</option>
+            <option value="72">72 months (6 yr)</option>
+            <option value="84">84 months (7 yr)</option>
+            <option value="96">96 months (8 yr)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label id="car-saved-label">Already Saved ($)</label>
+      <input type="number" id="car-saved" placeholder="0" min="0" step="100">
+    </div>
+    <div class="form-row">
+      <label>Monthly Contribution ($)</label>
+      <input type="number" id="car-monthly" placeholder="e.g. 400" min="0" step="50">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px" id="car-monthly-hint">Used to project your purchase date.</div>
+    </div>
+    <div class="form-row">
+      <label>Accent Colour</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="color" id="car-color" value="#4f8ef7" style="width:48px;height:36px;border:none;border-radius:8px;cursor:pointer;background:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" style="background:#4f8ef7;color:#fff;border-color:#4f8ef7" onclick="document.getElementById('car-color').value='#4f8ef7'">Blue</button>
+          <button class="btn btn-ghost btn-sm" style="background:#22c55e;color:#fff;border-color:#22c55e" onclick="document.getElementById('car-color').value='#22c55e'">Green</button>
+          <button class="btn btn-ghost btn-sm" style="background:#f59e0b;color:#fff;border-color:#f59e0b" onclick="document.getElementById('car-color').value='#f59e0b'">Amber</button>
+          <button class="btn btn-ghost btn-sm" style="background:#ec4899;color:#fff;border-color:#ec4899" onclick="document.getElementById('car-color').value='#ec4899'">Pink</button>
+          <button class="btn btn-ghost btn-sm" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6" onclick="document.getElementById('car-color').value='#8b5cf6'">Purple</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <input type="text" id="car-notes" placeholder="e.g. Used, max 80k km, prefer Honda or Toyota">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('car-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCarFund()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- BILL MODAL -->
+<div class="modal-overlay hidden" id="bill-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="bill-modal-title">🧾 Add Bill</div>
+      <button class="modal-close" onclick="_billSuggestQueue=[];_billSuggestCleanup();closeModal('bill-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <input type="hidden" id="bill-edit-id">
+      <input type="hidden" id="bill-source-desc">
+      <div class="form-row"><label>Name</label><input type="text" id="bill-name" placeholder="e.g. Netflix, Telus, GoodLife, Allstate"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>Amount ($)</label><input type="number" id="bill-amount" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="form-row"><label>Frequency</label>
+          <select id="bill-frequency">
+            <option>Weekly</option><option>Bi-weekly</option><option selected>Monthly</option>
+            <option>Bi-monthly</option><option>Quarterly</option><option>Semi-annual</option><option>Annual</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label style="display:flex;justify-content:space-between;align-items:center">Category <a href="#" onclick="openModal('category-modal');return false;" style="font-size:11px;color:var(--accent);font-weight:600">⚙️ Manage</a></label>
+          <select id="bill-category"></select>
+        </div>
+        <div class="form-row"><label>Next Due Date</label><input type="date" id="bill-next-due"></div>
+      </div>
+      <div class="form-row"><label>Account / Card</label><input type="text" id="bill-account" placeholder="e.g. TD Visa, RBC Chequing"></div>
+      <div class="form-row"><label>Notes</label><input type="text" id="bill-notes" placeholder="e.g. Shared with Matt, cancel after wedding"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveBill()">Save Bill</button>
+      <button class="btn btn-ghost" onclick="_billSuggestQueue=[];_billSuggestCleanup();closeModal('bill-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL ASSET MODAL -->
+<div class="modal-overlay hidden" id="manual-asset-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">💰 Add Manual Asset / Liability</div>
+      <button class="modal-close" onclick="closeModal('manual-asset-modal')">✕</button>
+    </div>
+    <div style="padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px">
+      <input type="hidden" id="ma-edit-id">
+      <div style="font-size:12px;color:var(--muted);padding:8px;background:var(--surface);border-radius:8px">Use this for items not tracked by bank statements: pension estimated value, car market value, FHSA balance, RRSP, investments, property, student loans, etc.</div>
+      <div class="form-row"><label>Name</label><input type="text" id="ma-name" placeholder="e.g. Pension Value, Matt's Car, RRSP, Student Loan"></div>
+      <div class="form-row"><label>Current Value ($)</label><input type="number" id="ma-value" placeholder="0.00" min="0" step="100"></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border-radius:8px">
+        <input type="checkbox" id="ma-isdebt" style="width:16px;height:16px;accent-color:var(--red)">
+        <label for="ma-isdebt" style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text)">This is a debt / liability (counts against net worth)</label>
+      </div>
+      <div class="form-row"><label>Notes</label><input type="text" id="ma-notes" placeholder="e.g. Estimated pension commuted value, updated Mar 2026"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveManualAsset()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('manual-asset-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT RECIPE MODAL -->
+<div class="modal-overlay hidden" id="add-recipe-modal">
+  <div class="modal" style="max-width:580px;max-height:92vh;overflow-y:auto">
+    <div class="modal-title" id="add-recipe-modal-title">+ Add Recipe</div>
+
+    <!-- Tab strip -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <button id="recipe-tab-manual-btn" onclick="_switchRecipeFormTab('manual')"
+        style="background:none;border:none;border-bottom:2px solid var(--accent);padding:8px 18px;font-size:13px;font-weight:800;color:var(--accent);cursor:pointer">✍️ Manual Entry</button>
+      <button id="recipe-tab-ai-btn" onclick="_switchRecipeFormTab('ai')"
+        style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 18px;font-size:13px;font-weight:400;color:var(--muted);cursor:pointer">🤖 Paste & Parse with AI</button>
+    </div>
+
+    <!-- AI PANEL -->
+    <div id="recipe-tab-ai-panel" style="display:none">
+      <div class="alert alert-info" style="font-size:12px;margin-bottom:12px">
+        Copy the full recipe from any website (select all text, Ctrl+C) and paste it below. Claude AI will extract the name, ingredients, steps and timing automatically. Requires your API key.
+      </div>
+      <div class="form-row">
+        <label>Paste Recipe Text (from any website, cookbook scan, etc.)</label>
+        <textarea id="recipe-ai-paste" rows="10" placeholder="Paste the full recipe page text here — ingredients, steps, everything..." style="resize:vertical;font-size:12px"></textarea>
+      </div>
+      <div id="recipe-ai-status" style="min-height:18px;font-size:13px;margin-bottom:10px"></div>
+      <button class="btn btn-primary" onclick="parseRecipeWithAI()">🤖 Parse with AI → Fill Form</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">After parsing, switch to Manual Entry to review and edit before saving.</div>
+    </div>
+
+    <!-- MANUAL PANEL -->
+    <div id="recipe-tab-manual-panel">
+      <div class="form-row"><label>Recipe Name <span style="color:var(--red)">*</span></label><input type="text" id="recipe-form-name" placeholder="e.g. Chicken Stir-Fry, Pasta Bolognese"></div>
+      <div class="form-row"><label>Source URL (optional)</label><input type="url" id="recipe-form-url" placeholder="https://... (paste the link to the original recipe)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="form-row" style="margin:0"><label>Servings</label><input type="text" id="recipe-form-servings" placeholder="e.g. 4"></div>
+        <div class="form-row" style="margin:0"><label>Prep Time</label><input type="text" id="recipe-form-prep" placeholder="e.g. 10 min"></div>
+        <div class="form-row" style="margin:0"><label>Cook Time</label><input type="text" id="recipe-form-cook" placeholder="e.g. 25 min"></div>
+        <div class="form-row" style="margin:0">
+          <label>Type</label>
+          <select id="recipe-form-tag">
+            <option value="normal">🍽️ Normal</option>
+            <option value="quick">⚡ Quick (&lt;30 min)</option>
+            <option value="slow-cooker">🍲 Slow Cooker</option>
+            <option value="make-ahead">⏰ Make Ahead</option>
+            <option value="special">✨ Special Occasion</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Ingredients — one per line, include quantity</label>
+        <textarea id="recipe-form-ingredients" rows="8" placeholder="2 chicken breasts&#10;1 cup rice&#10;2 tbsp soy sauce&#10;1 tsp garlic powder&#10;Mixed vegetables" style="resize:vertical;font-size:13px"></textarea>
+      </div>
+      <div class="form-row">
+        <label>Steps — one per line</label>
+        <textarea id="recipe-form-steps" rows="6" placeholder="Heat oil in pan over medium heat&#10;Season chicken with salt and pepper&#10;Cook chicken 6-7 min per side&#10;Serve over rice" style="resize:vertical;font-size:13px"></textarea>
+      </div>
+      <div class="form-row"><label>Notes (optional)</label><input type="text" id="recipe-form-notes" placeholder="e.g. Holly loves this with extra garlic. Double the sauce."></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('add-recipe-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRecipeFromForm()">💾 Save Recipe</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECIPE DETAIL MODAL -->
+<div class="modal-overlay hidden" id="recipe-detail-modal">
+  <div class="modal" style="max-width:600px;max-height:92vh;overflow-y:auto">
+    <div class="modal-title" id="recipe-detail-title">Recipe</div>
+    <div id="recipe-detail-body" style="font-size:13px;line-height:1.7"></div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-ghost" onclick="closeModal('recipe-detail-modal')">Close</button>
+      <button class="btn btn-ghost" id="recipe-detail-plan-btn">📅 Add to Meal Plan</button>
+      <button class="btn btn-ghost" id="recipe-detail-shop-btn">🛒 Add to Shopping List</button>
+      <button class="btn btn-primary" id="recipe-detail-cook-btn">🍳 Cook It!</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CAREER MODALS
+══════════════════════════════════════════════ -->
+
+<!-- Career Settings Modal -->
+<div class="modal-overlay hidden" id="career-settings-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">⚙️ Career Settings</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:8px">
+      These details are pre-filled from your Setup profile. Edit them here anytime — changes reflect across the Career, Retirement, and Forecast pages.
+    </div>
+    <input type="hidden" id="cs-member-id">
+    <div class="form-row"><label>Member</label><select id="cs-member-select" onchange="loadCareerSettingsForMember(this.value)"></select></div>
+    <div class="form-row"><label>Current Job Title</label><input type="text" id="cs-title" placeholder="e.g. Senior Account Manager, Breakfast Server"></div>
+    <div class="form-row"><label>Employer</label><input type="text" id="cs-employer" placeholder="e.g. RBC Royal Bank, The Elmwood Café"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Employment Type</label>
+        <select id="cs-emptype">
+          <option value="salary">💼 Salaried</option>
+          <option value="hourly">⏰ Hourly / Wage</option>
+          <option value="selfemployed">🧾 Self-Employed</option>
+          <option value="parttime">🕐 Part-Time</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Start Date (at this employer)</label><input type="date" id="cs-startdate"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Current Gross Salary / Annual ($)</label><input type="number" id="cs-salary" placeholder="e.g. 85000" min="0" step="500"></div>
+      <div class="form-row" id="cs-hourlyrate-row"><label>Current Hourly Rate ($)</label><input type="number" id="cs-hourlyrate" placeholder="e.g. 18.50" min="0" step="0.25"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Pension / DB Plan?</label>
+        <select id="cs-pension">
+          <option value="db">🏛️ Defined Benefit (DB)</option>
+          <option value="dc">💼 Defined Contribution (DC)</option>
+          <option value="none">❌ No Pension</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Health Benefits?</label>
+        <select id="cs-benefits">
+          <option value="full">✅ Full Employer Benefits</option>
+          <option value="partial">⚡ Partial Benefits</option>
+          <option value="none">❌ No Benefits</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label>Years of Service (current employer)</label><input type="number" id="cs-yearsservice" placeholder="e.g. 4" min="0" step="0.5"></div>
+    <div class="form-row"><label>Industry / Department</label><input type="text" id="cs-industry" placeholder="e.g. Financial Services — Retail Banking, Hospitality"></div>
+    <div class="form-row"><label>Notes</label><textarea id="cs-notes" rows="2" placeholder="e.g. Working toward branch manager, want to try a different role in 2 years" style="resize:vertical"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('career-settings-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCareerSettings()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Milestone Modal -->
+<div class="modal-overlay hidden" id="career-milestone-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title" id="career-milestone-modal-title">+ Add Career Milestone</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">
+      A milestone is any planned career event: a promotion, role change, raise, certification completion, or retirement. Future salary from milestones flows into the Financial Forecast and Retirement projections automatically.
+    </div>
+    <input type="hidden" id="cm-edit-id">
+    <input type="hidden" id="cm-member-id">
+    <div class="form-row"><label>Milestone Title <span style="color:var(--red)">*</span></label><input type="text" id="cm-title" placeholder="e.g. Promotion to Branch Manager, Supervisor Role, Pay Review"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Type</label>
+        <select id="cm-type" onchange="toggleMilestoneType()">
+          <option value="promotion">🏆 Promotion</option>
+          <option value="raise">💰 Salary Raise</option>
+          <option value="role_change">🔄 Role / Job Change</option>
+          <option value="certification">📜 Certification Earned</option>
+          <option value="retirement">🌅 Retirement</option>
+          <option value="other">📌 Other</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Target Date</label><input type="date" id="cm-date"></div>
+    </div>
+    <div id="cm-salary-block" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>New Salary / Annual ($)</label><input type="number" id="cm-salary" placeholder="e.g. 95000" min="0" step="500" oninput="calcMilestoneIncrease()"></div>
+      <div class="form-row"><label>New Hourly Rate ($)</label><input type="number" id="cm-hourlyrate" placeholder="e.g. 20.00" min="0" step="0.25"></div>
+    </div>
+    <div id="cm-increase-preview" style="display:none;margin-bottom:10px;padding:8px 12px;background:var(--green-light);border-radius:8px;border:1px solid var(--green);font-size:13px;font-weight:700;color:var(--green)"></div>
+    <div class="form-row"><label>Likelihood</label>
+      <select id="cm-likelihood">
+        <option value="planned">✅ Planned / Certain</option>
+        <option value="likely" selected>📈 Likely</option>
+        <option value="possible">🤔 Possible</option>
+      </select>
+    </div>
+    <div class="form-row"><label>New Job Title (if changing)</label><input type="text" id="cm-newtitle" placeholder="e.g. Branch Manager, Head Server"></div>
+    <div class="form-row"><label>Notes</label><textarea id="cm-notes" rows="2" placeholder="e.g. Requires CFA Level 1, need 2 more years of service..." style="resize:vertical"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('career-milestone-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCareerMilestone()">💾 Save Milestone</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Training Modal -->
+<div class="modal-overlay hidden" id="career-training-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title" id="career-training-modal-title">📚 Add Training / Course</div>
+    <input type="hidden" id="ct-edit-id">
+    <input type="hidden" id="ct-member-id">
+    <div class="form-row"><label>Course / Certification Name <span style="color:var(--red)">*</span></label><input type="text" id="ct-name" placeholder="e.g. CFA Level 1, ServSafe, PMP, First Aid"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Provider / Institution</label><input type="text" id="ct-provider" placeholder="e.g. CFA Institute, LinkedIn Learning"></div>
+      <div class="form-row"><label>Category</label>
+        <select id="ct-category">
+          <option value="certification">📜 Certification / Designation</option>
+          <option value="course">📖 Course / Training</option>
+          <option value="degree">🎓 Degree / Diploma</option>
+          <option value="mandatory">⚠️ Mandatory / Compliance</option>
+          <option value="skills">🛠️ Skills Development</option>
+          <option value="license">🪪 License / Registration</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Status</label>
+        <select id="ct-status">
+          <option value="not_started">🔲 Not Started</option>
+          <option value="in_progress">⏳ In Progress</option>
+          <option value="completed">✅ Completed</option>
+          <option value="expired">⚠️ Expired / Renewal Needed</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Target / Completion Date</label><input type="date" id="ct-date"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row"><label>Cost ($)</label><input type="number" id="ct-cost" placeholder="0.00" min="0" step="10"></div>
+      <div class="form-row" style="justify-content:flex-start;flex-direction:row;align-items:center;gap:10px;padding-top:22px">
+        <input type="checkbox" id="ct-reimbursed" style="width:16px;height:16px;accent-color:var(--green)">
+        <label for="ct-reimbursed" style="font-size:13px;font-weight:600;cursor:pointer">Employer Reimbursed</label>
+      </div>
+    </div>
+    <div class="form-row"><label>Linked to Milestone (optional)</label>
+      <select id="ct-linked-milestone">
+        <option value="">— None —</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Notes</label><input type="text" id="ct-notes" placeholder="e.g. Study 2 hrs/week, exam in June"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('career-training-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCareerTraining()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#main-content -->
+</div><!-- /#app-shell -->
+</body>

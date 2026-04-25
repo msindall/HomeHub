@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Hub V6.24</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Nunito:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --bg: #fdf8f4;
+  --surface: #fff9f5;
+  --card: #ffffff;
+  --border: #eeddd0;
+  --accent: #c97d5a;
+  --accent-dark: #a5623e;
+  --accent2: #e8a87c;
+  --pink: #e07a9a;
+  --pink-light: #fce8f0;
+  --purple: #9b7fbd;
+  --green: #5a9e7a;
+  --green-light: #e8f5ee;
+  --red: #d95f5f;
+  --red-light: #fdeaea;
+  --yellow: #d4a017;
+  --yellow-light: #fdf3e0;
+  --text: #3d2b1f;
+  --text2: #7a5a48;
+  --muted: #b8957a;
+  --member1: #9b7fbd;
+  --member1-light: #f0ebf8;
+  --member2: #e07a9a;
+  --member2-light: #fce8f0;
+  --shadow: 0 2px 20px rgba(180,100,60,0.08);
+  --shadow-md: 0 4px 24px rgba(180,100,60,0.11);
+  --shadow-lg: 0 8px 40px rgba(180,100,60,0.16);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+  --spring: cubic-bezier(0.34,1.56,0.64,1);
+  --ease: cubic-bezier(0.4,0,0.2,1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+/* ── App shell layout ─────────────────────────────── */
+#app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+#sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--card);
+  border-right: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 200;
+  transition: width 0.22s var(--ease), min-width 0.22s var(--ease);
+  box-shadow: 2px 0 20px rgba(180,100,60,0.07);
+}
+#sidebar.collapsed {
+  width: 56px;
+  min-width: 56px;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 12px;
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  min-height: 56px;
+}
+.sidebar-brand-text { transition: opacity 0.15s var(--ease); }
+#sidebar.collapsed .sidebar-brand-text { opacity: 0; width: 0; overflow: hidden; }
+.sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--muted);
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: color 0.15s;
+}
+.sidebar-toggle:hover { color: var(--accent); }
+#sidebar.collapsed .sidebar-toggle { margin-left: 0; }
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+  gap: 2px;
+  overflow: hidden;
+}
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 10px 10px;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  transition: all 0.18s var(--ease);
+  white-space: nowrap;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+}
+.nav-btn .nav-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
+.nav-btn .nav-label { transition: opacity 0.15s var(--ease); }
+#sidebar.collapsed .nav-btn .nav-label { opacity: 0; width: 0; overflow: hidden; }
+#sidebar.collapsed .nav-btn { justify-content: center; padding: 10px 0; }
+.nav-btn:hover { color: var(--accent); background: var(--surface); }
+.nav-btn.active { color: var(--accent); background: var(--accent)1a; font-weight: 800; }
+.nav-btn.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sidebar-section-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  padding: 10px 10px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.15s var(--ease);
+}
+#sidebar.collapsed .sidebar-section-label { opacity: 0; height: 0; padding: 0; }
+.sidebar-utils {
+  border-top: 1px solid var(--border);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+.sidebar-utils .nav-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px;
+}
+#main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+#topbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 8px rgba(180,100,60,0.06);
+}
+#topbar-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: var(--accent);
+  margin-right: auto;
+  font-weight: 600;
+}
+.topbar-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.15s var(--ease);
+  white-space: nowrap;
+}
+.topbar-btn:hover { color: var(--accent); border-color: var(--accent); }
+.topbar-btn.danger { color: var(--red); border-color: var(--red); }
+.topbar-btn.danger:hover { background: var(--red-light); }
+/* Mobile sidebar overlay */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 199;
+}
+.page { display: none; padding: 28px 24px; max-width: 1200px; margin: 0 auto; }
+.page.active { display: block; animation: pageFadeIn 0.3s var(--ease); }
+@keyframes pageFadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width: 768px) {
+  #sidebar { position: fixed; left: 0; top: 0; height: 100vh; transform: translateX(-100%); transition: transform 0.22s var(--ease), width 0.22s var(--ease); }
+  #sidebar.mobile-open { transform: translateX(0); }
+  #sidebar-overlay.mobile-open { display: block; }
+  #app-shell { flex-direction: column; }
+  #topbar { padding: 0 16px; }
+  .page { padding: 16px; }
+  #mobile-menu-btn { display: flex !important; }
+}
+.card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.card:hover { box-shadow: var(--shadow-md); }
+.card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: var(--accent);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+@media(max-width:768px) { .grid-2,.grid-3,.grid-4 { grid-template-columns: 1fr; } }
+.stat {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  transition: transform 0.25s var(--spring), box-shadow 0.2s var(--ease), border-color 0.2s;
+  cursor: default;
+}
+.stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--accent2); }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; font-weight: 800; }
+.stat-value { font-family: 'Playfair Display', serif; font-size: 28px; line-height: 1.1; }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 600; }
+.clr-green { color: var(--green); }
+.clr-red { color: var(--red); }
+.clr-yellow { color: var(--yellow); }
+.clr-accent { color: var(--accent); }
+.clr-member1 { color: var(--member1); }
+.clr-member2 { color: var(--member2); }
+input, select, textarea {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(201,125,90,0.12);
+}
+label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-row { margin-bottom: 14px; }
+.form-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width:600px) { .form-group { grid-template-columns: 1fr; } }
+.btn {
+  padding: 10px 20px;
+  border-radius: 30px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  transition: all 0.2s var(--spring);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 3px 12px rgba(201,125,90,0.35); }
+.btn-primary:hover { background: var(--accent-dark); box-shadow: 0 5px 18px rgba(201,125,90,0.45); transform: translateY(-1px); }
+.btn-ghost { background: var(--surface); color: var(--text2); border: 2px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent2); color: var(--accent); background: #fff; }
+.btn-danger { background: var(--red-light); color: var(--red); border: 2px solid var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.btn-member1 { background: var(--member1-light); color: var(--member1); border: 2px solid var(--member1); }
+.btn-member1:hover { background: var(--member1); color: #fff; box-shadow: 0 4px 14px rgba(155,127,189,0.4); }
+.btn-member2 { background: var(--member2-light); color: var(--member2); border: 2px solid var(--member2); }
+.btn-member2:hover { background: var(--member2); color: #fff; box-shadow: 0 4px 14px rgba(224,122,154,0.4); }
+.btn-green { background: var(--green-light); color: var(--green); border: 2px solid var(--green); }
+.btn-green:hover { background: var(--green); color: #fff; box-shadow: 0 4px 14px rgba(90,158,122,0.4); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--border); font-weight: 800; }
+td { padding: 11px 14px; border-bottom: 1px solid rgba(238,221,208,0.5); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(201,125,90,0.04); }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+.badge-member1 { background: var(--member1-light); color: var(--member1); }
+.badge-member2 { background: var(--member2-light); color: var(--member2); }
+.badge-joint { background: var(--yellow-light); color: var(--yellow); }
+.progress-bar { background: var(--border); border-radius: 6px; height: 10px; overflow: hidden; margin: 6px 0; }
+.progress-fill { height: 100%; border-radius: 6px; transition: width 0.7s cubic-bezier(.4,0,.2,1); }
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(61,43,31,0.45);
+  z-index: 200; align-items: center; justify-content: center; padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; animation: modalIn 0.25s var(--spring); }
+@keyframes modalIn { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+.modal {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 30px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.modal-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--accent); margin-bottom: 22px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; border-top: 2px solid var(--border); padding-top: 18px; }
+.alert { padding: 14px 18px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; font-weight: 600; border-left: 4px solid; }
+.alert-info { background: var(--member1-light); border-color: var(--member1); color: var(--member1); border-left-color: var(--member1); }
+.alert-success { background: var(--green-light); border-color: var(--green); color: var(--green); }
+.alert-warning { background: var(--yellow-light); border-color: var(--yellow); color: var(--yellow); }
+.alert-pink { background: var(--member2-light); border-color: var(--member2); color: var(--member2); }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+.section-title { font-family: 'Playfair Display', serif; font-size: 28px; color: var(--text); }
+.table-wrap { overflow-x: auto; }
+.cat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; flex-shrink: 0; }
+.text-right { text-align: right; }
+.mt { margin-top: 16px; }
+.flex-gap { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.fill { flex: 1; }
+.toggle-group { display: flex; gap: 4px; background: var(--surface); border: 2px solid var(--border); padding: 4px; border-radius: 30px; }
+.toggle-btn { padding: 6px 14px; border-radius: 24px; border: none; cursor: pointer; font-size: 12px; font-family: 'Nunito', sans-serif; font-weight: 800; background: none; color: var(--text2); transition: all 0.2s var(--spring); }
+.toggle-btn.active { background: var(--accent); color: #fff; box-shadow: 0 2px 10px rgba(201,125,90,0.3); }
+.toggle-btn:not(.active):hover { color: var(--accent); }
+.quick-stat { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.quick-stat:last-child { border-bottom: none; }
+.quick-icon { font-size: 22px; width: 36px; text-align: center; flex-shrink: 0; }
+.quick-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+.quick-val { font-weight: 700; font-size: 14px; }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.cal-header { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin-bottom: 4px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+.cal-day-name { text-align: center; font-size: 10px; font-weight: 800; color: var(--muted); padding: 6px 0; text-transform: uppercase; letter-spacing: 0.8px; }
+.cal-day {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: 80px;
+  padding: 7px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s var(--spring), box-shadow 0.2s;
+  position: relative;
+}
+.cal-day:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+.cal-day.today { border-color: var(--accent); background: rgba(201,125,90,0.07); box-shadow: 0 0 0 1px var(--accent); }
+.cal-day.other-month { opacity: 0.3; }
+.cal-day-num { font-weight: 800; font-size: 13px; margin-bottom: 3px; }
+.cal-event {
+  font-size: 10px; padding: 2px 6px; border-radius: 6px;
+  margin-bottom: 2px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; font-weight: 700;
+}
+.cal-event-member1 { background: var(--member1-light); color: var(--member1); }
+.cal-event-member2 { background: var(--member2-light); color: var(--member2); }
+.cal-event-joint { background: var(--yellow-light); color: var(--yellow); }
+.cal-more { font-size: 10px; color: var(--muted); font-weight: 700; }
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.cal-month-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--accent); }
+.goal-card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 14px;
+  transition: border-color 0.2s, transform 0.25s var(--spring), box-shadow 0.2s;
+  box-shadow: var(--shadow);
+}
+.goal-card:hover { border-color: var(--accent2); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.goal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.goal-name-link { font-weight: 800; font-size: 15px; text-decoration: none; color: var(--text); }
+.goal-name-link:hover { color: var(--accent); }
+.weather-widget {
+  background: linear-gradient(135deg, #5b9bd5 0%, #3a7abf 50%, #2d6aaa 100%);
+  border-radius: var(--radius);
+  padding: 20px;
+  color: #fff;
+  height: 100%;
+  min-height: 140px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  box-shadow: 0 4px 24px rgba(58,122,191,0.3);
+}
+.weather-widget.sunny   { background: linear-gradient(135deg, #f5a623 0%, #e8831a 100%); box-shadow: 0 4px 24px rgba(245,166,35,0.35); }
+.weather-widget.cloudy  { background: linear-gradient(135deg, #8fa8c8 0%, #6a8aaa 100%); }
+.weather-widget.rainy   { background: linear-gradient(135deg, #5b7fa6 0%, #3d5f80 100%); }
+.weather-widget.snowy   { background: linear-gradient(135deg, #a8c8e8 0%, #7aaac8 100%); }
+.weather-widget.night   { background: linear-gradient(135deg, #2d3561 0%, #1a1f40 100%); }
+.weather-loading { text-align: center; padding: 20px; opacity: 0.8; font-weight: 700; }
+.weather-error  { text-align: center; padding: 20px; opacity: 0.85; font-size: 13px; }
+.weather-loc-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
+.weather-loc-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; cursor: pointer; font-family: 'Nunito',sans-serif; transition: background 0.2s; }
+.weather-loc-btn:hover { background: rgba(255,255,255,0.35); }
+.weather-main { display: flex; justify-content: space-between; align-items: center; }
+.weather-temp { font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 600; line-height: 1; }
+.weather-desc { font-size: 13px; font-weight: 700; opacity: 0.9; margin-top: 4px; }
+.weather-details { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.weather-detail { font-size: 11px; opacity: 0.8; font-weight: 700; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px; }
+.weather-icon { font-size: 52px; line-height: 1; }
+.pet-toggle-wrap { display: flex; gap: 16px; padding: 4px 0; }
+.pet-card {
+  flex: 1;
+  border-radius: var(--radius);
+  border: 2.5px solid var(--border);
+  background: var(--surface);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20px 12px 16px;
+  cursor: pointer;
+  transition: all 0.25s var(--spring);
+  position: relative; overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.pet-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.pet-card:active { transform: scale(0.96); }
+.pet-card.fed {
+  border-color: var(--green);
+  background: linear-gradient(145deg, #f0fdf6 0%, #e6f9ef 100%);
+  box-shadow: 0 4px 20px rgba(90,158,122,0.2);
+}
+.pet-card-emoji { font-size: 52px; line-height: 1; margin-bottom: 8px; transition: transform 0.3s var(--spring); }
+.pet-card:not(.fed) .pet-card-emoji { filter: grayscale(35%); opacity: 0.75; }
+.pet-card.fed .pet-card-emoji { transform: scale(1.15); }
+.pet-card-name { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.pet-card-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+.pet-card-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px; border-radius: 30px; font-size: 12px; font-weight: 800; pointer-events: none; border: none; }
+.pet-card:not(.fed) .pet-card-btn { background: var(--accent); color: #fff; box-shadow: 0 3px 10px rgba(201,125,90,0.35); }
+.pet-card.fed .pet-card-btn { background: var(--green); color: #fff; box-shadow: 0 3px 10px rgba(90,158,122,0.35); }
+.pet-card-timestamp { margin-top: 9px; font-size: 11px; font-weight: 700; letter-spacing: 0.2px; min-height: 16px; text-align: center; }
+.pet-card:not(.fed) .pet-card-timestamp { color: var(--muted); }
+.pet-card.fed .pet-card-timestamp { color: var(--green); }
+.pet-card.fed::after { content: '✨'; position: absolute; top: 8px; right: 12px; font-size: 18px; animation: petSparkle 0.5s ease-out forwards; }
+@keyframes petSparkle {
+  0%   { opacity:0; transform: scale(0) rotate(-20deg); }
+  60%  { opacity:1; transform: scale(1.3) rotate(10deg); }
+  100% { opacity:1; transform: scale(1) rotate(0); }
+}
+.meal-plan-list { display: flex; flex-direction: column; gap: 14px; }
+.meal-week-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.meal-summary-chip { background: var(--card); border: 2px solid var(--border); border-radius: 30px; padding: 5px 16px; font-size: 12px; font-weight: 800; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+.meal-day-row { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); transition: border-color 0.2s, box-shadow 0.2s; }
+.meal-day-row:hover { border-color: var(--accent2); box-shadow: var(--shadow-md); }
+.meal-day-row-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 100%); cursor: pointer; user-select: none; }
+.meal-day-row-title { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 600; color: #fff; }
+.meal-day-row-meta { display: flex; align-items: center; gap: 8px; }
+.meal-day-cost-pill { background: rgba(255,255,255,0.28); border-radius: 20px; padding: 2px 12px; font-size: 11px; font-weight: 800; color: #fff; }
+.meal-day-chevron { color: rgba(255,255,255,0.8); font-size: 12px; transition: transform 0.25s; }
+.meal-day-row.collapsed .meal-day-chevron { transform: rotate(-90deg); }
+.meal-day-body-grid { display: grid; grid-template-columns: repeat(3,1fr); }
+.meal-day-row.collapsed .meal-day-body-grid { display: none; }
+@media(max-width:700px) { .meal-day-body-grid { grid-template-columns: 1fr; } }
+.meal-slot-block { padding: 14px 18px; border-right: 1px solid var(--border); }
+.meal-slot-block:last-child { border-right: none; }
+@media(max-width:700px) { .meal-slot-block { border-right: none; border-bottom: 1px solid var(--border); } .meal-slot-block:last-child { border-bottom: none; } }
+.meal-slot-label { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; }
+.meal-entry-shared { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 6px; }
+.meal-entry-shared-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 2px; }
+.meal-entry-shared-sub { font-size: 11px; color: var(--muted); }
+.meal-entry-person { border-radius: var(--radius-sm); padding: 7px 11px; margin-bottom: 6px; border: 2px solid; }
+.meal-entry-member1 { background: var(--member1-light); border-color: rgba(155,127,189,0.35); }
+.meal-entry-member2 { background: var(--member2-light); border-color: rgba(224,122,154,0.35); }
+.meal-entry-person-who { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+.meal-entry-member1 .meal-entry-person-who { color: var(--member1); }
+.meal-entry-member2 .meal-entry-person-who { color: var(--member2); }
+.meal-entry-person-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.meal-entry-person-note { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
+.meal-slot-actions { display: flex; gap: 6px; margin-top: 10px; }
+.meal-slot-actions .btn { font-size: 10px; padding: 5px 12px; }
+.meal-day-footer { padding: 10px 20px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.meal-day-row.collapsed .meal-day-footer { display: none; }
+.meal-note-tag { background: var(--yellow-light); color: var(--yellow); font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 20px; flex: 1; }
+.meal-footer-actions { display: flex; gap: 6px; margin-left: auto; }
+.meal-ingredients-section { border-top: 1px solid var(--border); padding: 12px 20px 14px; background: var(--surface); }
+.meal-day-row.collapsed .meal-ingredients-section { display: none; }
+.meal-ingredients-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; cursor: pointer; user-select: none; }
+.meal-ingredients-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.meal-ingredients-subtotal { font-size: 12px; font-weight: 800; color: var(--green); background: var(--green-light); padding: 2px 10px; border-radius: 12px; }
+.meal-ingredients-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.meal-ingredient-chip { display: flex; align-items: center; gap: 6px; background: var(--card); border: 1.5px solid var(--border); border-radius: 20px; padding: 4px 10px 4px 8px; font-size: 11px; transition: border-color 0.15s, box-shadow 0.15s; }
+.meal-ingredient-chip:hover { border-color: var(--accent2); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.meal-ingredient-chip-icon { font-size: 13px; line-height: 1; }
+.meal-ingredient-chip-name { font-weight: 700; color: var(--text); }
+.meal-ingredient-chip-qty { color: var(--muted); font-size: 10px; }
+.meal-ingredient-chip-price { color: var(--green); font-weight: 800; font-size: 11px; margin-left: 2px; }
+.meal-ingredient-chip-price.unknown { color: var(--muted); font-weight: 600; }
+.meal-ingredient-chip-store { font-size: 9px; color: var(--accent); font-weight: 700; background: var(--accent)18; padding: 1px 5px; border-radius: 8px; margin-left: 2px; }
+.meal-ingredients-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+.meal-ingredients-toggle { font-size: 10px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
+.meal-ingredients-section.ing-collapsed .meal-ingredients-grid,
+.meal-ingredients-section.ing-collapsed .meal-ingredients-actions { display: none; }
+.meal-ingredients-section.ing-collapsed .meal-ingredients-toggle { transform: rotate(-90deg); }
+.meal-slot-stars { display: flex; gap: 1px; margin-top: 8px; }
+.meal-slot-stars span { font-size: 14px; cursor: pointer; transition: transform 0.1s; line-height: 1; }
+.meal-slot-stars span:hover { transform: scale(1.25); }
+.meal-slot-lock { background: none; border: none; cursor: pointer; font-size: 13px; padding: 1px 3px; color: var(--muted); line-height: 1; transition: color 0.15s; }
+.meal-slot-lock:hover { color: var(--accent); }
+.meal-slot-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.meal-plan-header-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+/* fallback */
+.meal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; }
+@media(max-width:900px) { .meal-grid { grid-template-columns: repeat(3,1fr); } }
+.meal-day { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 10px; font-size: 12px; }
+.meal-day-name { font-weight: 800; color: var(--accent); margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.meal-item { margin-bottom: 4px; color: var(--text2); line-height: 1.3; }
+/* ══════════════════════════════════════════════
+   v2.4 DESIGN UPGRADE — Pet-card language applied
+   ══════════════════════════════════════════════ */
+/* Divider */
+hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
+.stat-icon {
+  font-size: 28px; margin-bottom: 8px; line-height: 1;
+  display: block;
+}
+.stat.stat-income  { border-color: rgba(90,158,122,0.4); }
+.stat.stat-expense { border-color: rgba(217,95,95,0.4); }
+.stat.stat-net-pos { border-color: rgba(90,158,122,0.5); background: linear-gradient(145deg,#f0fdf6,#fff9f5); }
+.stat.stat-net-neg { border-color: rgba(217,95,95,0.5);  background: linear-gradient(145deg,#fdeaea,#fff9f5); }
+.stat.stat-member2   { border-color: rgba(224,122,154,0.4); }
+.goal-card { position: relative; overflow: hidden; }
+.goal-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s var(--ease);
+}
+.goal-card:hover::before { transform: scaleX(1); }
+.goal-pct-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 3px solid var(--border);
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 600;
+  color: var(--accent); flex-shrink: 0;
+  transition: all 0.3s var(--spring);
+  background: var(--surface);
+}
+.goal-card:hover .goal-pct-badge { border-color: var(--accent); transform: scale(1.08); }
+.goal-pct-badge.done { background: var(--green-light); border-color: var(--green); color: var(--green); }
+.goal-progress-label {
+  display: flex; justify-content: space-between;
+  font-size: 12px; font-weight: 700; margin-bottom: 5px;
+}
+.budget-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  margin-bottom: 8px;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s var(--spring);
+  background: var(--surface);
+}
+.budget-row:hover { border-color: var(--border); transform: translateX(3px); }
+.budget-row.over  { border-color: rgba(217,95,95,0.3); background: var(--red-light); }
+.budget-cat-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.budget-cat-name { font-weight: 700; font-size: 13px; flex: 1; }
+.budget-amounts { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.budget-amounts.over { color: var(--red); }
+.budget-bar-wrap { flex: 2; }
+.budget-bar-track { background: var(--border); border-radius: 6px; height: 8px; overflow: hidden; }
+.budget-bar-fill { height: 100%; border-radius: 6px; transition: width 0.7s var(--ease); }
+.tips-stat-card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  transition: transform 0.25s var(--spring), box-shadow 0.2s, border-color 0.2s;
+  box-shadow: var(--shadow);
+}
+.tips-stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--member2); }
+.tips-stat-icon { font-size: 26px; margin-bottom: 6px; }
+.tips-stat-value { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--member2); }
+.tips-stat-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 4px; }
+.event-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  margin-bottom: 8px;
+  transition: border-color 0.2s, transform 0.2s var(--spring), box-shadow 0.2s;
+  background: var(--surface);
+}
+.event-row:hover { border-color: var(--accent2); transform: translateX(3px); box-shadow: var(--shadow); }
+.event-row-member1  { border-left: 4px solid var(--member1); }
+.event-row-member2 { border-left: 4px solid var(--member2); }
+.event-row-joint { border-left: 4px solid var(--yellow); }
+.event-date-badge {
+  background: var(--accent); color: #fff;
+  border-radius: 10px; padding: 4px 10px;
+  font-size: 11px; font-weight: 800;
+  white-space: nowrap; flex-shrink: 0;
+}
+.event-title { font-weight: 700; font-size: 13px; }
+.event-meta  { font-size: 11px; color: var(--muted); font-weight: 600; }
+.upload-drop {
+  border: 3px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--surface);
+}
+.upload-drop:hover { border-color: var(--accent); background: rgba(201,125,90,0.04); }
+.upload-drop-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-drop-text { font-weight: 700; color: var(--text2); }
+.upload-drop-sub  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.acct-balance-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--card); border: 2px solid var(--border);
+  border-radius: 30px; padding: 8px 16px;
+  font-size: 13px; font-weight: 700;
+  box-shadow: var(--shadow);
+  transition: all 0.2s var(--spring);
+}
+.acct-balance-pill:hover { border-color: var(--accent2); transform: translateY(-1px); }
+.acct-balance-pill-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+.flyer-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 2px solid var(--border); margin-bottom: 8px;
+  background: var(--surface);
+  transition: border-color 0.2s, transform 0.2s var(--spring);
+}
+.flyer-item:hover { border-color: var(--accent2); transform: translateX(2px); }
+.flyer-item-sale { border-color: rgba(90,158,122,0.4); background: var(--green-light); }
+.cal-tab-row { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+.cal-tab { padding: 8px 18px; border: none; background: none; cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 13px; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.cal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.stagger-1 { animation: fadeSlideUp 0.3s var(--ease) 0.05s both; }
+.stagger-2 { animation: fadeSlideUp 0.3s var(--ease) 0.10s both; }
+.stagger-3 { animation: fadeSlideUp 0.3s var(--ease) 0.15s both; }
+.stagger-4 { animation: fadeSlideUp 0.3s var(--ease) 0.20s both; }
+@keyframes fadeSlideUp {
+  from { opacity:0; transform: translateY(10px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+#setup-wizard-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(61,43,31,0.55);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+#setup-wizard-overlay.hidden { display: none; }
+.wizard-container {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 640px;
+  max-height: 92vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.wizard-header {
+  padding: 28px 32px 20px;
+  border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.wizard-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; color: var(--accent);
+  margin-bottom: 4px;
+}
+.wizard-subtitle { font-size: 13px; color: var(--muted); font-weight: 600; }
+.wizard-progress {
+  display: flex; gap: 6px; align-items: center;
+  margin-top: 16px; flex-wrap: wrap;
+}
+.wiz-dot {
+  width: 28px; height: 6px; border-radius: 3px;
+  background: var(--border); transition: background 0.3s;
+}
+.wiz-dot.done { background: var(--green); }
+.wiz-dot.active { background: var(--accent); }
+.wizard-body {
+  padding: 24px 32px;
+  overflow-y: auto; flex: 1;
+}
+.wizard-step { display: none; }
+.wizard-step.active { display: block; animation: pageFadeIn 0.25s var(--ease); }
+.wizard-footer {
+  padding: 16px 32px;
+  border-top: 2px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0; gap: 10px;
+}
+.wiz-step-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+/* Wizard cards */
+.wiz-member-card {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 16px; padding: 16px; margin-bottom: 10px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.wiz-member-card .wiz-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.wiz-member-card .wiz-member-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.wiz-member-card .wiz-member-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.wiz-member-card .wiz-member-row > * { flex: 1; min-width: 120px; }
+.wiz-pet-row {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 16px; padding: 14px 16px; margin-bottom: 10px;
+  display: flex; gap: 10px; align-items: center;
+}
+.wiz-pet-row > * { flex: 1; }
+.wiz-pet-row .wiz-pet-emoji { flex: 0; font-size: 22px; }
+.wiz-chip-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.wiz-chip {
+  padding: 7px 14px; border-radius: 20px; cursor: pointer;
+  border: 2px solid var(--border); font-size: 12px; font-weight: 700;
+  background: var(--surface); color: var(--text2); transition: all 0.15s;
+  user-select: none;
+}
+.wiz-chip:hover { border-color: var(--accent2); color: var(--accent); }
+.wiz-chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.wiz-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
+.wiz-goal-card {
+  border: 2px solid var(--border); border-radius: 14px; padding: 14px 12px;
+  text-align: center; cursor: pointer; transition: all 0.15s;
+  background: var(--surface);
+}
+.wiz-goal-card:hover { border-color: var(--accent2); transform: translateY(-2px); }
+.wiz-goal-card.selected { border-color: var(--accent); background: rgba(201,125,90,0.07); }
+.wiz-goal-card .wiz-goal-emoji { font-size: 26px; margin-bottom: 4px; }
+.wiz-goal-card .wiz-goal-name { font-size: 12px; font-weight: 700; color: var(--text); }
+.wiz-review-section { margin-bottom: 16px; }
+.wiz-review-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); font-weight: 800; margin-bottom: 8px; }
+.wiz-review-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 20px; background: var(--surface);
+  border: 1.5px solid var(--border); font-size: 12px; font-weight: 700;
+  margin: 3px; color: var(--text2);
+}
+/* Member color swatches */
+.color-swatch-group { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.color-swatch {
+  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+  border: 3px solid transparent; transition: border 0.15s, transform 0.15s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: var(--text); }
+/* Income type grid */
+.wiz-income-section { margin-bottom: 18px; padding: 16px; background: var(--surface); border-radius: 14px; border: 2px solid var(--border); }
+.wiz-income-section h4 { font-weight: 800; font-size: 13px; margin-bottom: 10px; }
+#hh-dialog-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9998;
+  background: rgba(61,43,31,0.5); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+#hh-dialog-overlay.open { display: flex; animation: modalIn 0.2s var(--spring); }
+#hh-dialog-box {
+  background: var(--card); border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 28px; max-width: 420px; width: 100%; box-shadow: var(--shadow-lg);
+}
+#hh-dialog-icon { font-size: 32px; margin-bottom: 10px; }
+#hh-dialog-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--accent); margin-bottom: 10px; }
+#hh-dialog-message { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 20px; }
+#hh-dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
+.flipp-fallback-note {
+  font-size: 12px; color: var(--muted); padding: 10px 14px;
+  background: var(--yellow-light); border-radius: 10px; border-left: 3px solid var(--yellow);
+  margin-top: 10px; display: none;
+}
+
+/* generated utility classes */
+.pref-label{display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}
+.empty-state{text-align:center;padding:40px;color:var(--muted)}
+.hint-mb{font-size:12px;color:var(--muted);margin-bottom:12px}
+.subtext-mb{font-size:13px;color:var(--text2);margin-bottom:14px}
+.hint-mt{font-size:11px;color:var(--muted);margin-top:5px}
+.empty-sm{color:var(--muted);text-align:center;padding:20px}
+.result-text{font-size:12px;margin-top:6px;min-height:18px}
+.muted-sm{font-size:12px;color:var(--muted)}
+.code-snip{background:rgba(0,0,0,0.07);padding:1px 5px;border-radius:3px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    // Use the matching CDN worker — fixes the deprecation warning on localhost
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+</head>
+<body>
+
+<div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
+<div id="app-shell">
+
+<!-- ── Sidebar ───────────────────────────────────── -->
+<div id="sidebar">
+  <div class="sidebar-brand">
+    <span id="nav-brand" style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">🏠 Home Hub</span>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9776;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Navigation</div>
+    <button class="nav-btn active" id="nav-dashboard-btn" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></button>
+    <div class="sidebar-section-label" id="sbl-finance">Finance</div>
+    <button class="nav-btn" id="nav-transactions-btn" onclick="showPage('transactions')"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></button>
+    <button class="nav-btn" id="nav-budget-btn" onclick="showPage('budget')"><span class="nav-icon">💰</span><span class="nav-label">Budget</span></button>
+    <button class="nav-btn" id="nav-goals-btn" onclick="showPage('goals')"><span class="nav-icon">🎯</span><span class="nav-label">Goals</span></button>
+    <button class="nav-btn" id="nav-wedding-btn" onclick="showPage('wedding')"><span class="nav-icon">💍</span><span class="nav-label">Wedding</span></button>
+    <button class="nav-btn" id="nav-house-btn" onclick="showPage('house')"><span class="nav-icon">🏡</span><span class="nav-label">House</span></button>
+    <button class="nav-btn" id="nav-pets-btn" onclick="showPage('pets')"><span class="nav-icon">🐾</span><span class="nav-label">Pets</span></button>
+    <button class="nav-btn" id="nav-bills-btn" onclick="showPage('bills')"><span class="nav-icon">🧾</span><span class="nav-label">Bills</span></button>
+    <button class="nav-btn" id="nav-networth-btn" onclick="showPage('networth')"><span class="nav-icon">📈</span><span class="nav-label">Net Worth</span></button>
+    <button class="nav-btn" id="nav-cars-btn" onclick="showPage('cars')"><span class="nav-icon">🚗</span><span class="nav-label">Cars</span></button>
+    <button class="nav-btn" id="nav-maintenance-btn" onclick="showPage('maintenance')"><span class="nav-icon">🔧</span><span class="nav-label">Maintenance</span></button>
+    <button class="nav-btn" id="nav-tax-btn" onclick="showPage('tax')"><span class="nav-icon">🧾</span><span class="nav-label">Tax</span></button>
+    <button class="nav-btn" id="nav-retirement-btn" onclick="showPage('retirement')"><span class="nav-icon">📊</span><span class="nav-label">Retirement</span></button>
+    <button class="nav-btn" id="nav-career-btn" onclick="showPage('career')"><span class="nav-icon">💼</span><span class="nav-label">Career</span></button>
+    <button class="nav-btn" id="nav-tips-btn" onclick="showPage('tips')" style="display:none"><span class="nav-icon">💵</span><span class="nav-label" id="nav-tips-label">Tips</span></button>
+    <div class="sidebar-section-label" id="sbl-household">Household</div>
+    <button class="nav-btn" id="nav-calendar-btn" onclick="showPage('calendar')"><span class="nav-icon">📅</span><span class="nav-label">Calendar</span></button>
+    <button class="nav-btn" id="nav-grocery-btn" onclick="showPage('grocery')"><span class="nav-icon">🛒</span><span class="nav-label">Grocery</span></button>
+    <button class="nav-btn" id="nav-upload-btn" onclick="showPage('upload')"><span class="nav-icon">📤</span><span class="nav-label">Upload</span></button>
+  </nav>
+  <div class="sidebar-utils">
+    <div class="sidebar-section-label">Settings</div>
+    <button class="nav-btn" onclick="openModal('theme-modal')"><span class="nav-icon">🎨</span><span class="nav-label">Theme</span></button>
+    <button class="nav-btn" onclick="openSetupWizard(true)"><span class="nav-icon">⚙️</span><span class="nav-label">Setup</span></button>
+    <button class="nav-btn" onclick="openFeaturesModal()"><span class="nav-icon">🔧</span><span class="nav-label">Features</span></button>
+    <button class="nav-btn" onclick="openModal('api-key-modal')" id="api-key-btn"><span class="nav-icon">🔑</span><span class="nav-label">API Key</span></button>
+    <button class="nav-btn" onclick="exportData()"><span class="nav-icon">💾</span><span class="nav-label">Backup</span></button>
+    <label class="nav-btn" style="cursor:pointer"><span class="nav-icon">📂</span><span class="nav-label">Restore</span><input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+    <button class="nav-btn danger" onclick="resetApp()" style="color:var(--red)"><span class="nav-icon">🔄</span><span class="nav-label">Reset</span></button>
+  </div>
+</div>
+
+<!-- ── Main content area ─────────────────────────── -->
+<div id="main-content">
+  <div id="topbar">
+    <button id="mobile-menu-btn" onclick="openMobileSidebar()" style="display:none;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);padding:4px 8px 4px 0">&#9776;</button>
+    <span id="topbar-title">🏠 Home</span>
+    <div style="margin-left:auto"></div>
+  </div>
+
+<!-- SETUP WIZARD-->
+<div id="setup-wizard-overlay" class="hidden">
+  <div class="wizard-container">
+    <div class="wizard-header">
+      <div class="wizard-title" id="wiz-title">🏠 Welcome to Home Hub</div>
+      <div class="wizard-subtitle" id="wiz-subtitle">Let's set up your household — takes about 2 minutes</div>
+      <div class="wizard-progress" id="wiz-progress"></div>
+    </div>
+    <div class="wizard-body">
+
+      <!-- Step 1: Household -->
+      <div class="wizard-step active" id="wiz-step-1">
+        <div class="form-row" style="margin-bottom:18px">
+          <label>What do you call your household? 🏡</label>
+          <input type="text" id="wiz-household-name" placeholder="e.g. The Smith House, Our Place, Casa Rossi" maxlength="40">
+        </div>
+        <div class="form-row" style="margin-bottom:18px">
+          <label>Household Emoji (optional)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="wiz-emoji-options">
+            <span class="wiz-chip selected" onclick="selectHouseholdEmoji(this,'🏠')">🏠 Home</span>
+            <span class="wiz-chip" onclick="selectHouseholdEmoji(this,'💍')">💍 Engaged</span>
+            <span class="wiz-chip" onclick="selectHouseholdEmoji(this,'🌻')">🌻 Garden</span>
+            <span class="wiz-chip" onclick="selectHouseholdEmoji(this,'🏡')">🏡 Cottage</span>
+            <span class="wiz-chip" onclick="selectHouseholdEmoji(this,'🐾')">🐾 Pet House</span>
+            <span class="wiz-chip" onclick="selectHouseholdEmoji(this,'🌊')">🌊 Lakeside</span>
+            <span class="wiz-chip" onclick="selectHouseholdEmoji(this,'⭐')">⭐ Star</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="form-row">
+            <label>Province</label>
+            <select id="wiz-province">
+              <option value="ON">Ontario</option><option value="QC">Quebec</option>
+              <option value="BC">British Columbia</option><option value="AB">Alberta</option>
+              <option value="MB">Manitoba</option><option value="SK">Saskatchewan</option>
+              <option value="NS">Nova Scotia</option><option value="NB">New Brunswick</option>
+              <option value="NL">Newfoundland</option><option value="PE">PEI</option>
+              <option value="NT">Northwest Territories</option><option value="YT">Yukon</option>
+              <option value="NU">Nunavut</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>City / Town</label>
+            <input type="text" id="wiz-city" placeholder="e.g. Toronto, Kingston, Ottawa">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Members -->
+      <div class="wizard-step" id="wiz-step-2">
+        <p class="subtext-mb">Add everyone who lives in your household and shares finances. Each person gets their own calendar, transaction tagging, and income tracking.</p>
+        <div id="wiz-members-list"></div>
+        <button class="btn btn-ghost btn-sm" onclick="wizAddMember()" style="margin-top:4px">+ Add Person</button>
+      </div>
+
+      <!-- Step 3: Children -->
+      <div class="wizard-step" id="wiz-step-3">
+        <p class="subtext-mb">Do you have children? We use their ages to adjust meal portions, suggest RESP savings goals, and personalise budget categories. You can skip this step.</p>
+        <div id="wiz-children-list"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="wizAddChild()">👶 Add Child</button>
+          <button class="btn btn-ghost btn-sm" onclick="wizSkipChildren()">No children &#x2192;</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Features -->
+      <div class="wizard-step" id="wiz-step-4">
+        <p class="subtext-mb">Choose which features you'd like to use. You can change these anytime from the Features button in the sidebar.</p>
+        <div id="wiz-features-list" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
+      </div>
+
+      <!-- Step 5: Pets -->
+      <div class="wizard-step" id="wiz-step-5">
+        <p class="subtext-mb">Do you have pets at home? We'll track their daily feeding and include them in reminders.</p>
+        <div id="wiz-pets-list"></div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="wizAddPet('dog')">&#x1F436; Add Dog</button>
+          <button class="btn btn-ghost btn-sm" onclick="wizAddPet('cat')">&#x1F431; Add Cat</button>
+          <button class="btn btn-ghost btn-sm" onclick="wizAddPet('other')">&#x1F43E; Add Other</button>
+          <button class="btn btn-ghost btn-sm" onclick="wizSkipPets()">No pets &#x2192;</button>
+        </div>
+      </div>
+
+      <!-- Step 6: Income -->
+      <div class="wizard-step" id="wiz-step-6">
+        <p class="subtext-mb">Tell us about each person's employment so we can give personalized tax tips and savings recommendations.</p>
+        <div id="wiz-income-list"></div>
+      </div>
+
+      <!-- Step 7: Lifestyle -->
+      <div class="wizard-step" id="wiz-step-7">
+        <p class="subtext-mb">A few more details help personalise your budget categories, meal plans, and tax tips. All fields are optional.</p>
+        <div id="wiz-lifestyle-content"></div>
+      </div>
+
+      <!-- Step 8: Goals -->
+      <div class="wizard-step" id="wiz-step-8">
+        <p class="subtext-mb">What are you saving toward? Pick all that apply &#x2014; you can adjust targets later.</p>
+        <div class="wiz-goal-grid" id="wiz-goals-grid">
+          <div class="wiz-goal-card selected" onclick="wizToggleGoal(this)" data-id="wedding">
+            <div class="wiz-goal-emoji">&#x1F48D;</div><div class="wiz-goal-name">Wedding Fund</div>
+          </div>
+          <div class="wiz-goal-card selected" onclick="wizToggleGoal(this)" data-id="house">
+            <div class="wiz-goal-emoji">&#x1F3E0;</div><div class="wiz-goal-name">House Down Payment</div>
+          </div>
+          <div class="wiz-goal-card selected" onclick="wizToggleGoal(this)" data-id="car">
+            <div class="wiz-goal-emoji">&#x1F697;</div><div class="wiz-goal-name">Car / Vehicle</div>
+          </div>
+          <div class="wiz-goal-card selected" onclick="wizToggleGoal(this)" data-id="travel">
+            <div class="wiz-goal-emoji">&#x2708;&#xFE0F;</div><div class="wiz-goal-name">Travel Fund</div>
+          </div>
+          <div class="wiz-goal-card" onclick="wizToggleGoal(this)" data-id="emergency">
+            <div class="wiz-goal-emoji">&#x1F6E1;&#xFE0F;</div><div class="wiz-goal-name">Emergency Fund</div>
+          </div>
+          <div class="wiz-goal-card" onclick="wizToggleGoal(this)" data-id="retirement">
+            <div class="wiz-goal-emoji">&#x1F305;</div><div class="wiz-goal-name">Retirement</div>
+          </div>
+          <div class="wiz-goal-card" onclick="wizToggleGoal(this)" data-id="education">
+            <div class="wiz-goal-emoji">&#x1F393;</div><div class="wiz-goal-name">Education / RESP</div>
+          </div>
+          <div class="wiz-goal-card" onclick="wizToggleGoal(this)" data-id="renovation">
+            <div class="wiz-goal-emoji">&#x1F528;</div><div class="wiz-goal-name">Renovations</div>
+          </div>
+          <div class="wiz-goal-card" onclick="wizToggleGoal(this)" data-id="baby">
+            <div class="wiz-goal-emoji">&#x1F476;</div><div class="wiz-goal-name">Starting a Family</div>
+          </div>
+          <div class="wiz-goal-card" onclick="wizToggleGoal(this)" data-id="business">
+            <div class="wiz-goal-emoji">&#x1F4BC;</div><div class="wiz-goal-name">Business / Side Hustle</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 9: Budget -->
+      <div class="wizard-step" id="wiz-step-9">
+        <p class="subtext-mb">Set your monthly spending targets. These are starting points &#x2014; tweak them anytime in the Budget tab.</p>
+        <div id="wiz-budget-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+      </div>
+
+      <!-- Step 10: Review -->
+      <div class="wizard-step" id="wiz-step-10">
+        <div id="wiz-review-content"></div>
+        <div class="alert alert-info" id="wiz-tax-tip" style="margin-top:14px;font-size:12px"></div>
+        <div style="margin-top:14px;padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;font-size:13px">
+          <div style="font-weight:800;margin-bottom:6px">&#x1F4E4; Share your setup</div>
+          <div style="color:var(--text2);margin-bottom:10px;font-size:12px">Export a config-only file (no transactions or balances) that friends can import to get started with the same household template.</div>
+          <button class="btn btn-ghost btn-sm" onclick="exportShareableConfig()" style="font-size:12px">&#x1F4CB; Export Setup Config</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="wizard-footer">
+      <div>
+        <button class="btn btn-ghost" id="wiz-back-btn" onclick="wizBack()" style="display:none">← Back</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="wiz-step-label" id="wiz-step-counter">Step 1 of 10</span>
+        <button class="btn btn-primary" id="wiz-next-btn" onclick="wizNext()">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD-->
+<div class="page active" id="page-dashboard">
+  <div class="section-header">
+    <div>
+      <div class="section-title" id="dashboard-greeting">Good morning! ☀️</div>
+      <div style="color:var(--muted);font-size:13px" id="dashboard-date"></div>
+    </div>
+  </div>
+  <div class="grid-4" id="dashboard-stats" style="margin-bottom:16px"></div>
+  <!-- Pet Feeding + Weather Row -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card" style="margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="card-title" style="margin:0">&#x1F43E; Did You Feed the Pets?</div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('pets')" id="pet-care-link" style="display:none">Care →</button>
+      </div>
+      <div class="pet-toggle-wrap" id="pet-toggles"></div>
+      <div id="dash-pet-alerts" style="margin-top:8px"></div>
+    </div>
+    <div id="weather-card-wrap"></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">&#x1F4C5; Today on the Calendar</div>
+      <div id="dash-today-events"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="card-title" style="margin:0">&#x1F4CC; Reminders</div>
+        <button class="btn btn-ghost btn-sm" onclick="renderReminders()" title="Refresh reminders" style="font-size:12px">🔄 Refresh</button>
+      </div>
+      <div id="dash-reminders"></div>
+      <div id="dash-reminders-more" style="display:none;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="renderReminders(true)" style="font-size:11px;width:100%">Show all reminders ▼</button>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">&#x1F4B3; Recent Transactions</div>
+      <div id="dash-recent"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x1F3AF; Goals Snapshot</div>
+      <div id="dash-goals"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">&#x1F3E6; Spending by Category (This Month)</div>
+    <div id="dash-categories"></div>
+  </div>
+  <div id="dash-wedding-wrap"></div>
+  <div id="dash-house-wrap"></div>
+  <div id="dash-bills-wrap"></div>
+  <div id="dash-nw-wrap"></div>
+  <div id="dash-cars-wrap"></div>
+  <div id="dash-maintenance-wrap"></div>
+</div>
+
+<!-- Flipp Import Modal -->
+<div class="modal-overlay" id="flipp-modal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-title">&#x1F6D2; Import Flyers from Flipp</div>
+    <div id="flipp-step-postal">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:16px">Enter your postal code to find grocery flyers available in your area.</p>
+      <div class="form-row"><label>Postal Code</label><input type="text" id="flipp-postal-input" placeholder="e.g. K7L1A1" maxlength="6" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+      <div style="margin-top:8px;margin-bottom:4px;font-size:13px;color:var(--muted)">Filter stores (optional):</div>
+      <div id="flipp-store-filters" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <label class="pref-label"><input type="checkbox" checked value="No Frills"> No Frills</label>
+        <label class="pref-label"><input type="checkbox" checked value="FreshCo"> FreshCo</label>
+        <label class="pref-label"><input type="checkbox" checked value="Walmart"> Walmart</label>
+        <label class="pref-label"><input type="checkbox" checked value="Loblaws"> Loblaws</label>
+        <label class="pref-label"><input type="checkbox" checked value="Metro"> Metro</label>
+        <label class="pref-label"><input type="checkbox" checked value="Food Basics"> Food Basics</label>
+        <label class="pref-label"><input type="checkbox" checked value="Sobeys"> Sobeys</label>
+        <label class="pref-label"><input type="checkbox" checked value="Giant Tiger"> Giant Tiger</label>
+        <label class="pref-label"><input type="checkbox" checked value="Costco"> Costco</label>
+      </div>
+      <div id="flipp-fetch-status" style="font-size:13px;color:var(--muted);min-height:20px"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('flipp-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="flippFetchFlyers()">Find Flyers &#x2192;</button>
+      </div>
+    </div>
+    <div id="flipp-step-select" style="display:none">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:12px">Select which flyers to import:</p>
+      <div id="flipp-flyer-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;margin-bottom:14px"></div>
+      <div id="flipp-import-status" style="font-size:13px;color:var(--muted);min-height:20px"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="flippBackToPostal()">&#x2190; Back</button>
+        <button class="btn btn-ghost" onclick="closeModal('flipp-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="flippImportSelected()">Import Selected &#x1F6D2;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Diet Preferences Modal -->
+<div class="modal-overlay" id="diet-prefs-modal">
+  <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto">
+    <div class="modal-title">&#x2699;&#xFE0F; Meal Preferences</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">These preferences teach the AI your tastes so meal plans get smarter over time.</p>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">&#x1F6AB; Foods to Avoid / Allergies</div>
+        <input type="text" id="pref-avoid" placeholder="e.g. shellfish, blue cheese, mushrooms, cilantro" style="width:100%">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Separate with commas. These will never appear in your meal plan.</div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">&#x2764;&#xFE0F; Favourite Meals &amp; Cuisines</div>
+        <input type="text" id="pref-favourites" placeholder="e.g. tacos, stir fry, Italian, Thai, BBQ, pasta" style="width:100%">
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">&#x1F957; Diet Style</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px" id="pref-diet-chips">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--border);border-radius:20px"><input type="checkbox" value="omnivore" checked> &#x1F356; Omnivore</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--border);border-radius:20px"><input type="checkbox" value="low-carb"> &#x1F969; Low-Carb</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--border);border-radius:20px"><input type="checkbox" value="high-protein"> &#x1F4AA; High-Protein</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--border);border-radius:20px"><input type="checkbox" value="vegetarian"> &#x1F331; Vegetarian</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--border);border-radius:20px"><input type="checkbox" value="budget-focused"> &#x1F4B0; Budget-Focused</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--border);border-radius:20px"><input type="checkbox" value="quick-meals"> &#x26A1; Quick Meals (&lt;30min)</label>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">Cooking Complexity</div>
+        <select id="pref-complexity" style="width:100%">
+          <option value="simple">Simple - few ingredients, minimal prep</option>
+          <option value="moderate" selected>Moderate - some prep, rewarding results</option>
+          <option value="adventurous">Adventurous - enjoy trying new techniques</option>
+        </select>
+      </div>
+      <div id="pref-ratings-summary" style="display:none">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">&#x2B50; Your Meal Ratings</div>
+        <div id="pref-ratings-list" style="font-size:12px;color:var(--text2);max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px"></div>
+        <button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="clearMealRatings()">Clear All Ratings</button>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">&#x1F4DD; Any Other Notes for the AI</div>
+        <textarea id="pref-notes" rows="2" placeholder="e.g. Alex doesn't like spicy food. Jordan loves garlic." style="width:100%;resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('diet-prefs-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDietPrefs()">Save Preferences &#x2713;</button>
+    </div>
+  </div>
+</div>
+
+<!-- Weather Location Manager Modal -->
+<div class="modal-overlay" id="weather-locations-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">&#x1F324;&#xFE0F; Weather Locations</div>
+    <div class="hint-mb">Add Canadian cities to cycle through on the weather widget. Click a location on the widget to switch.</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="form-row"><label>City Name</label><input type="text" id="weather-city-input" placeholder="e.g. Kingston, Toronto, Ottawa"></div>
+      <div class="form-row"><label>Province</label><select id="weather-prov-input">
+        <option value="ON">Ontario</option><option value="QC">Quebec</option><option value="BC">British Columbia</option>
+        <option value="AB">Alberta</option><option value="MB">Manitoba</option><option value="SK">Saskatchewan</option>
+        <option value="NS">Nova Scotia</option><option value="NB">New Brunswick</option><option value="NL">Newfoundland</option>
+        <option value="PE">PEI</option><option value="NT">Northwest Territories</option><option value="YT">Yukon</option><option value="NU">Nunavut</option>
+      </select></div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="addWeatherLocation()">+ Add Location</button>
+    <hr class="divider">
+    <div id="weather-locations-list"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('weather-locations-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- CALENDAR-->
+<div class="page" id="page-calendar">
+  <div class="section-header">
+    <div class="section-title">Calendar</div>
+    <div class="flex-gap">
+      <div id="gcal-member-buttons" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+      <button class="btn btn-primary btn-sm" onclick="openModal('event-modal')">+ Add Event</button>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom:16px">
+    <div id="cal-member-status-cards" style="display:contents"></div>
+    <div class="stat">
+      <div class="stat-label">Events This Month</div>
+      <div id="cal-event-count" class="stat-value clr-accent">0</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cal-nav">
+      <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">← Prev</button>
+      <div class="cal-month-title" id="cal-month-title"></div>
+      <button class="btn btn-ghost btn-sm" onclick="calNav(1)">Next →</button>
+    </div>
+    <div class="cal-header">
+      <div class="cal-day-name">Sun</div><div class="cal-day-name">Mon</div>
+      <div class="cal-day-name">Tue</div><div class="cal-day-name">Wed</div>
+      <div class="cal-day-name">Thu</div><div class="cal-day-name">Fri</div>
+      <div class="cal-day-name">Sat</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Upcoming Events</div>
+    <div id="upcoming-events"></div>
+  </div>
+</div>
+
+<!-- TRANSACTIONS-->
+<div class="page" id="page-transactions">
+  <div class="section-header">
+    <div class="section-title">Transactions</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="renderTransactions();renderBudget()">🔄 Refresh</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('cash-modal')">+ Cash Purchase</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('manual-txn-modal')">+ Add Manual</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="flex-gap">
+      <div class="fill"><label>Search</label><input type="text" id="txn-search" placeholder="Search..." oninput="renderTxnTable()"></div>
+      <div><label>Person</label><select id="txn-person" onchange="renderTxnTable()"><option value="">All</option></select></div>
+      <div><label>Account</label><select id="txn-account" onchange="renderTxnTable()"><option value="">All Accounts</option></select></div>
+      <div><label>Category</label><select id="txn-cat" onchange="renderTxnTable()"><option value="">All</option></select></div>
+      <div><label>Month</label><select id="txn-month" onchange="renderTxnTable()"><option value="">All</option></select></div>
+      <div><label>Type</label><select id="txn-type" onchange="renderTxnTable()"><option value="">All</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
+      <div><label>Sort</label><select id="txn-sort" onchange="renderTxnTable()"><option value="date-desc">Date ↓</option><option value="date-asc">Date ↑</option><option value="cat">Category</option><option value="amount-desc">Amount ↓</option></select></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div id="txn-summary" style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;font-weight:600"></div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="txn-v-table" onclick="setTxnView('table',this)">&#9776; Table</button>
+        <button class="toggle-btn" id="txn-v-pie" onclick="setTxnView('pie',this)">&#9685; Pie</button>
+        <button class="toggle-btn" id="txn-v-bar" onclick="setTxnView('bar',this)">&#9646;&#9646; Bar</button>
+        <button class="toggle-btn" id="txn-v-line" onclick="setTxnView('line',this)">&#8767; Line</button>
+      </div>
+    </div>
+    <div id="txn-table-wrap">
+      <div class="table-wrap">
+        <table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Person</th><th>Account</th><th class="text-right">Amount</th><th>Actions</th></tr></thead>
+        <tbody id="txn-tbody"></tbody></table>
+      </div>
+      <div id="txn-pagination" style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:center"></div>
+    </div>
+    <div id="txn-chart-wrap" style="display:none;position:relative;height:380px"><canvas id="txn-chart"></canvas></div>
+  </div>
+</div>
+
+<!-- BUDGET-->
+<div class="page" id="page-budget">
+  <div class="section-header">
+    <div class="section-title">Monthly Budget</div>
+    <div class="flex-gap">
+      <select id="budget-month-select" onchange="renderBudget()" style="width:180px"></select>
+      <button class="btn btn-ghost btn-sm" onclick="renderBudget()">🔄 Refresh</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('category-modal')">⚙️ Categories</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('budget-edit-modal')">✏️ Edit Budgets</button>
+    </div>
+  </div>
+
+  <!-- 1. Financial Overview — always visible at top -->
+  <div class="grid-4" id="budget-totals" style="margin-bottom:16px"></div>
+
+  <!-- 3. Account Balances — collapsible by person -->
+  <div id="account-balances-wrap" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">🏦 Account Balances</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="budgetExpandAll()" style="font-size:11px">Expand All</button>
+        <button class="btn btn-ghost btn-sm" onclick="budgetCollapseAll()" style="font-size:11px">Collapse All</button>
+      </div>
+    </div>
+    <div id="account-balances"></div>
+  </div>
+
+  <!-- 4. Spending Analysis + Tips detail -->
+  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">📊 Spending Analysis</div>
+  <div class="grid-2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-title" style="margin:0">By Category</div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="bud-v-bars" onclick="setBudgetView('bars',this)">&#9776; Progress</button>
+          <button class="toggle-btn" id="bud-v-pie" onclick="setBudgetView('pie',this)">&#9685; Pie</button>
+          <button class="toggle-btn" id="bud-v-bar" onclick="setBudgetView('bar',this)">&#9646;&#9646; Bar</button>
+        </div>
+      </div>
+      <div id="budget-bars"></div>
+      <div id="budget-chart-wrap" style="display:none;position:relative;height:320px"><canvas id="budget-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="budget-tips-title">💰 Tips This Month</div>
+      <div id="tips-summary"></div>
+      <button class="btn btn-member2 btn-sm mt" onclick="openModal('tips-modal')">+ Log Tips</button>
+    </div>
+  </div>
+  <!-- Financial Forecast -->
+  <div class="card" id="forecast-card" style="margin-top:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin:0">&#128200; Financial Forecast &amp; Savings Roadmap</div>
+      <button class="btn btn-ghost btn-sm" onclick="renderForecast()" title="Refresh forecast">&#8635; Refresh</button>
+    </div>
+    <!-- Control rows -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;align-items:center">
+      <!-- History window -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800">History</span>
+        <div class="toggle-group">
+          <button class="toggle-btn" id="fc-past-0" onclick="setForecastPast(0,this)">None</button>
+          <button class="toggle-btn" id="fc-past-3" onclick="setForecastPast(3,this)">3 Mo</button>
+          <button class="toggle-btn active" id="fc-past-6" onclick="setForecastPast(6,this)">6 Mo</button>
+        </div>
+      </div>
+      <!-- Divider -->
+      <div style="width:1px;height:24px;background:var(--border);align-self:center"></div>
+      <!-- Forecast window -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800">Forecast</span>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="fc-fut-6" onclick="setForecastFuture(6,this)">6 Mo</button>
+          <button class="toggle-btn" id="fc-fut-12" onclick="setForecastFuture(12,this)">1 Yr</button>
+          <button class="toggle-btn" id="fc-fut-36" onclick="setForecastFuture(36,this)">3 Yr</button>
+          <button class="toggle-btn" id="fc-fut-60" onclick="setForecastFuture(60,this)">5 Yr</button>
+        </div>
+      </div>
+      <!-- Divider -->
+      <div style="width:1px;height:24px;background:var(--border);align-self:center"></div>
+      <!-- Chart view -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800">View</span>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="fc-view-cashflow" onclick="setForecastView('cashflow',this)">&#9654; Cashflow</button>
+          <button class="toggle-btn" id="fc-view-savings" onclick="setForecastView('savings',this)">&#128200; Savings</button>
+          <button class="toggle-btn" id="fc-view-goals" onclick="setForecastView('goals',this)">&#127919; Goals</button>
+        </div>
+      </div>
+    </div>
+    <div style="position:relative;height:320px;margin-bottom:12px"><canvas id="forecast-chart"></canvas></div>
+    <div id="forecast-recommendations" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- GOALS-->
+<div class="page" id="page-goals">
+  <div class="section-header">
+    <div class="section-title">Savings Goals</div>
+    <button class="btn btn-primary btn-sm" onclick="openModal('goal-modal')">+ Add Goal</button>
+  </div>
+  <div class="alert alert-info" id="goals-tax-tip">&#x1F4A1; Use your TFSA for flexible savings goals (tax-free growth). Click a goal name to visit its linked webpage.</div>
+  <div id="goals-container"></div>
+</div>
+
+<!-- WEDDING -->
+<div class="page" id="page-wedding">
+  <div class="section-header">
+    <div class="section-title">💍 Wedding Planner</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="openWeddingSettingsModal()">⚙️ Settings</button>
+      <button class="btn btn-ghost btn-sm" onclick="openWeddingChecklistModal()">📋 Checklist</button>
+      <button class="btn btn-primary btn-sm" onclick="openWeddingVendorModal()">+ Add Vendor</button>
+    </div>
+  </div>
+  <!-- Overview card -->
+  <div id="wedding-overview-card" style="margin-bottom:16px"></div>
+  <!-- Deposit alerts -->
+  <div id="wedding-alerts" style="margin-bottom:12px"></div>
+  <!-- Checklist -->
+  <div id="wedding-checklist-wrap" style="margin-bottom:16px"></div>
+  <!-- Vendor grid -->
+  <div id="wedding-vendors-grid"></div>
+</div>
+
+<!-- HOUSE DOWN PAYMENT PLANNER -->
+<div class="page" id="page-house">
+  <div class="section-header">
+    <div class="section-title">🏡 Down Payment Planner</div>
+    <button class="btn btn-ghost btn-sm" onclick="openHouseUnifiedModal('home')">⚙️ Settings</button>
+  </div>
+  <div id="house-overview-card" style="margin-bottom:16px"></div>
+  <div id="house-comparison-card" style="margin-bottom:16px"></div>
+  <div id="house-mortgage-card" style="margin-bottom:16px"></div>
+  <div id="house-affordability-card" style="margin-bottom:16px"></div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div id="house-cmhc-card"></div>
+    <div id="house-ltt-card"></div>
+  </div>
+  <div id="house-hst-rebate-card" style="margin-bottom:16px"></div>
+</div>
+
+<!-- PET CARE TRACKER -->
+<div class="page" id="page-pets">
+  <div class="section-header">
+    <div class="section-title">🐾 Pet Care</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="openPetVetModal()">+ Log Vet Visit</button>
+      <button class="btn btn-ghost btn-sm" onclick="openPetVaccModal()">+ Vaccination</button>
+      <button class="btn btn-primary btn-sm" onclick="openPetMedModal()">+ Medication</button>
+    </div>
+  </div>
+  <div id="pets-spend-bar"></div>
+  <div id="pets-alert-bar" style="margin-bottom:12px"></div>
+  <div id="pets-page-cards"></div>
+</div>
+
+<!-- BILLS & SUBSCRIPTIONS -->
+<div class="page" id="page-bills">
+  <div class="section-header">
+    <div class="section-title">🧾 Bills & Subscriptions</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="billsSuggestFromTransactions()">🔍 Auto-Detect</button>
+      <button class="btn btn-primary btn-sm" onclick="openBillModal()">+ Add Bill</button>
+    </div>
+  </div>
+  <div id="bills-alert-bar" style="margin-bottom:12px"></div>
+  <div class="grid-4" id="bills-stats" style="margin-bottom:16px"></div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div id="bills-upcoming-card"></div>
+    <div id="bills-by-category-card"></div>
+  </div>
+  <div id="bills-list-card"></div>
+</div>
+
+<!-- NET WORTH TIMELINE -->
+<div class="page" id="page-networth">
+  <div class="section-header">
+    <div class="section-title">📈 Net Worth Timeline</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="takeNetWorthSnapshot(true)">📸 Snapshot Now</button>
+      <button class="btn btn-primary btn-sm" onclick="openManualAssetModal()">+ Manual Asset</button>
+    </div>
+  </div>
+  <!-- Summary stats -->
+  <div class="grid-4" id="nw-stats" style="margin-bottom:16px"></div>
+  <!-- Chart -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin:0">Net Worth Over Time</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="nw-range-12" onclick="setNWRange(12,this)">12 mo</button>
+        <button class="toggle-btn" id="nw-range-24" onclick="setNWRange(24,this)">24 mo</button>
+        <button class="toggle-btn" id="nw-range-0" onclick="setNWRange(0,this)">All</button>
+      </div>
+    </div>
+    <div style="position:relative;height:220px">
+      <canvas id="nw-chart"></canvas>
+    </div>
+    <div id="nw-chart-empty" style="display:none;text-align:center;color:var(--muted);font-size:13px;padding:20px">Take your first snapshot to start tracking net worth over time.</div>
+  </div>
+  <!-- Breakdown -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div id="nw-assets-card"></div>
+    <div id="nw-debts-card"></div>
+  </div>
+  <!-- Manual assets -->
+  <div id="nw-manual-card"></div>
+  <!-- History table -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📋 Snapshot History</div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Month</th><th>Assets</th><th>Debts</th><th>Net Worth</th><th>Change</th><th></th></tr></thead>
+      <tbody id="nw-history-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- CAR FUNDS -->
+<div class="page" id="page-cars">
+  <div class="section-header">
+    <div class="section-title">🚗 Car Fund Tracker</div>
+    <button class="btn btn-primary btn-sm" onclick="openCarModal()">+ Add Vehicle Goal</button>
+  </div>
+  <div id="cars-summary-bar" style="margin-bottom:16px"></div>
+  <div id="cars-list"></div>
+  <div id="cars-empty" style="display:none;text-align:center;padding:48px 24px;color:var(--muted)">
+    <div style="font-size:48px;margin-bottom:12px">🚗</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">No vehicle goals yet</div>
+    <div style="font-size:13px;margin-bottom:18px">Add a car fund to track your savings progress toward your next vehicle.</div>
+    <button class="btn btn-primary" onclick="openCarModal()">+ Add Vehicle Goal</button>
+  </div>
+  <!-- Ontario tips panel -->
+  <div id="cars-tips-card" style="margin-top:16px;display:none">
+    <div class="card" style="border:2px solid color-mix(in srgb,var(--accent) 30%,transparent)">
+      <div class="card-title">💡 Ontario Car Buying Tips</div>
+      <div id="cars-tips-body" style="font-size:13px;color:var(--text2);line-height:1.7"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAINTENANCE -->
+<div class="page" id="page-maintenance">
+  <div class="section-header">
+    <div class="section-title">🔧 Household Maintenance</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="loadMaintenancePresets()">📋 Load Starter Tasks</button>
+      <button class="btn btn-primary btn-sm" onclick="openMaintenanceModal()">+ Add Task</button>
+    </div>
+  </div>
+  <div id="maintenance-summary-bar" style="margin-bottom:16px"></div>
+  <div id="maintenance-filter-bar" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
+  <div id="maintenance-list"></div>
+  <div id="maintenance-empty" style="display:none;text-align:center;padding:48px 24px;color:var(--muted)">
+    <div style="font-size:48px;margin-bottom:12px">🔧</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">No maintenance tasks yet</div>
+    <div style="font-size:13px;margin-bottom:18px">Add recurring tasks to track what needs doing around the house.</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="loadMaintenancePresets()">📋 Load Starter Tasks</button>
+      <button class="btn btn-primary" onclick="openMaintenanceModal()">+ Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAX PREP -->
+<div class="page" id="page-tax">
+  <div class="section-header">
+    <div class="section-title">🧾 Tax Prep Helper</div>
+    <div class="flex-gap">
+      <select id="tax-year-select" class="form-control" style="width:auto;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)" onchange="renderTax()"></select>
+      <button class="btn btn-ghost btn-sm" onclick="exportTaxSummary()">📄 Export Summary</button>
+      <button class="btn btn-primary btn-sm" onclick="openTaxInputModal()">✏️ Edit Tax Inputs</button>
+    </div>
+  </div>
+  <!-- CRA Deadlines banner -->
+  <div id="tax-deadlines-bar" style="margin-bottom:16px"></div>
+  <!-- Member cards row -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div id="tax-matt-card"></div>
+    <div id="tax-holly-card"></div>
+  </div>
+  <!-- RRSP Planner -->
+  <div id="tax-rrsp-card" style="margin-bottom:16px"></div>
+  <!-- Holly tips breakdown -->
+  <div id="tax-tips-card" style="margin-bottom:16px"></div>
+  <!-- CRA deadlines detail -->
+  <div id="tax-deadlines-card"></div>
+</div>
+
+<!-- RETIREMENT PROJECTOR -->
+<div class="page" id="page-retirement">
+  <div class="section-header">
+    <div class="section-title">📊 Retirement Projector</div>
+    <button class="btn btn-primary btn-sm" onclick="openRetirementInputModal()">✏️ Edit Inputs</button>
+  </div>
+  <div id="ret-summary-bar" style="margin-bottom:16px"></div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div id="ret-matt-card"></div>
+    <div id="ret-holly-card"></div>
+  </div>
+  <div id="ret-income-card" style="margin-bottom:16px"></div>
+  <div id="ret-chart-card" style="margin-bottom:16px"></div>
+  <div id="ret-tips-card"></div>
+</div>
+
+<!-- CAREER PLANNER -->
+<div class="page" id="page-career">
+  <div class="section-header">
+    <div class="section-title">💼 Career Planner</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="openCareerSettingsModal()">⚙️ Settings</button>
+      <button class="btn btn-ghost btn-sm" onclick="openAddTrainingModal(null)">📚 Add Training</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddMilestoneModal(null)">+ Add Milestone</button>
+    </div>
+  </div>
+  <!-- Member tab strip -->
+  <div id="career-member-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:18px"></div>
+  <!-- Per-member career content -->
+  <div id="career-content"></div>
+</div>
+
+<!-- TIPS-->
+<div class="page" id="page-tips">
+  <div class="section-header">
+    <div class="section-title" id="tips-page-title">Cash Tips</div>
+    <div class="flex-gap">
+      <button class="btn btn-member2 btn-sm" onclick="document.getElementById('tip-tracker-csv-input').click()">📂 Import Tip Tracker CSV</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearAllTips()">🗑️ Clear All</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('tips-modal')">+ Log Tips</button>
+    </div>
+  </div>
+  <input type="file" id="tip-tracker-csv-input" accept=".csv" style="display:none" onchange="handleTipTrackerUpload(this)">
+
+  <!-- Import preview card — hidden until a file is loaded -->
+  <div id="tip-import-card" style="display:none;margin-bottom:16px">
+    <div class="card" style="border:2px solid var(--member2)">
+      <div class="card-title" style="color:var(--member2)">📊 Tip Tracker — Import Preview</div>
+      <div id="tip-import-summary" style="margin-bottom:14px;font-size:13px;color:var(--text2)"></div>
+      <div id="tip-import-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px"></div>
+      <div id="tip-import-table-wrap" class="table-wrap" style="max-height:260px;overflow-y:auto;margin-bottom:14px">
+        <table>
+          <thead><tr><th>Date</th><th>Day</th><th>Hours</th><th>Total Tips</th><th>To Claim</th><th>Unclaimed Cash</th><th>Status</th></tr></thead>
+          <tbody id="tip-import-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" id="tip-import-confirm-btn" onclick="confirmTipImport()">✅ Import All New Records</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelTipImport()">✖ Cancel</button>
+      </div>
+      <div id="tip-import-status" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
+    </div>
+  </div>
+
+  <div class="alert alert-pink" id="tips-page-alert">⚠️ Cash tips ARE taxable in Canada. Keep records — CRA expects you to report them. Set aside ~20–25% for tax season.</div>
+  <div class="grid-3" id="tips-stats" style="margin-bottom:16px"></div>
+
+  <!-- Analytics Row -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">📊 Weekly Tips Trend</div>
+      <div style="position:relative;height:180px">
+        <canvas id="tips-weekly-chart"></canvas>
+      </div>
+      <div id="tips-weekly-empty" style="display:none;color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Log tips to see your weekly trend.</div>
+    </div>
+    <div id="tips-tax-card" style="margin-bottom:0"></div>
+  </div>
+
+  <!-- Shift Day Analysis Row -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">📅 Tips by Day of Week</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Average tips per shift, by day</div>
+      <div style="position:relative;height:200px">
+        <canvas id="tips-dayofweek-chart"></canvas>
+      </div>
+      <div id="tips-dayofweek-empty" style="display:none;color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Log tips to see your best days.</div>
+    </div>
+    <div id="tips-bestdays-card" style="margin-bottom:0"></div>
+  </div>
+
+  <!-- YTD + Best Week Row -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div id="tips-ytd-card"></div>
+    <div id="tips-insights-card"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin:0">Tips History</div>
+      <div style="display:flex;align-items:center;gap:8px" id="tips-pagination-controls">
+        <button class="btn btn-ghost btn-sm" id="tips-prev-btn" onclick="tipsPrevPage()">← Prev</button>
+        <span id="tips-page-indicator" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
+        <button class="btn btn-ghost btn-sm" id="tips-next-btn" onclick="tipsNextPage()">Next →</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Date</th><th>Total Tips</th><th>Claimed (Deposit)</th><th>Unclaimed (Cash)</th><th>CRA Reserve</th><th>Notes / Goal</th><th>Actions</th></tr></thead>
+      <tbody id="tips-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- GROCERY-->
+<div class="page" id="page-grocery">
+  <div class="section-header">
+    <div class="section-title">Grocery Planner</div>
+    <div class="flex-gap">
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="tab-flyer" onclick="switchGroceryTab('flyer',this)">📰 Flyers</button>
+        <button class="toggle-btn" id="tab-meals" onclick="switchGroceryTab('meals',this)">🍽️ Meal Plan</button>
+        <button class="toggle-btn" id="tab-list" onclick="switchGroceryTab('list',this)">📝 Shopping List</button>
+        <button class="toggle-btn" id="tab-pantry" onclick="switchGroceryTab('pantry',this)">🥫 Pantry</button>
+        <button class="toggle-btn" id="tab-recipes" onclick="switchGroceryTab('recipes',this)">📖 Recipes</button>
+      </div>
+      <button class="btn btn-primary btn-sm" id="gen-meal-btn" onclick="generateMealPlan()">✨ Generate Meal Plan</button>
+    </div>
+  </div>
+
+  <div id="grocery-flyer">
+    <div class="alert alert-info">📁 Upload grocery flyer PDFs to scan sale items with AI, or import directly from Flipp (works in Chrome; other browsers use PDF upload). Then generate a meal plan based on what's on sale!</div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">&#x1F4E4; Upload New Flyer</div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="openModal('flipp-modal')" style="flex:1;min-width:160px">&#x1F6D2; Import from Flipp</button>
+        <button class="btn btn-ghost btn-sm" onclick="togglePDFUpload()" id="toggle-pdf-btn" style="flex:1;min-width:160px">&#x1F4C4; Hide PDF Upload</button>
+      </div>
+      <div id="pdf-upload-section">
+        <div class="form-group">
+          <div class="form-row"><label>Store Name</label><input type="text" id="flyer-store-name" placeholder="e.g. No Frills, Walmart..."></div>
+          <div class="form-row"><label>Flyer PDF</label><input type="file" id="flyer-upload-input" accept=".pdf" style="padding:6px"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="uploadFlyer()">Scan Flyer with AI &#x1F916;</button>
+      </div>
+      <div id="flyer-upload-status" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="position:relative;flex:1;min-width:200px">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none">&#x1F50D;</span>
+          <input type="text" id="flyer-search-input" placeholder="Search all flyer items&hellip; e.g. chicken, milk, bread" oninput="renderFlyerSearch()" style="width:100%;padding:9px 12px 9px 34px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--surface);color:var(--text1);box-sizing:border-box">
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('flyer-search-input').value='';renderFlyerSearch()">&#x2715; Clear</button>
+      </div>
+      <div id="flyer-search-results" style="margin-top:10px"></div>
+    </div>
+    <div id="flyers-container"></div>
+  </div>
+
+  <div id="grocery-meals" style="display:none">
+    <div class="card">
+      <div class="section-header" style="margin-bottom:4px">
+        <div class="card-title" style="margin-bottom:0">This Week's Meal Plan</div>
+        <div class="flex-gap">
+          <button class="btn btn-ghost btn-sm" onclick="openModal('diet-prefs-modal')" title="Set food preferences">&#x2699;&#xFE0F; Preferences</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearMealPlan()">&#x1F5D1;&#xFE0F; Clear</button>
+        </div>
+      </div>
+      <div id="meal-plan-cal-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;min-height:16px"></div>
+      <div id="meal-plan-loading" style="display:none;text-align:center;padding:30px"><div class="spinner"></div><div style="margin-top:10px;color:var(--muted)" id="meal-plan-loading-msg">Generating meal ideas with AI...</div></div>
+      <div id="meal-plan-grid"></div>
+      <div id="meal-plan-empty" class="empty-state">Click <strong>&#x2728; Generate Meal Plan</strong> to create your week of meals using sale items! &#x1F37D;&#xFE0F;</div>
+    </div>
+  </div>
+
+  <div id="grocery-list" style="display:none">
+    <div class="card">
+      <div class="section-header" style="margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:0">Shopping List</div>
+        <div class="flex-gap">
+          <button class="btn btn-ghost btn-sm" onclick="exportGroceryData()" title="Export">&#x1F4E4; Export</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">&#x1F4E5; Import<input type="file" accept=".json" style="display:none" onchange="importGroceryData(this)"></label>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('add-list-item-modal')">+ Add Item</button>
+          <button class="btn btn-danger btn-sm" onclick="clearChecked()">Remove Checked</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">&#x2705; Checking off an item automatically adds it to your Pantry inventory! &nbsp;&middot;&nbsp; Use <strong>Export / Import</strong> to sync between Chrome and Claude Desktop.</div>
+      <div id="shopping-list-container"></div>
+    </div>
+  </div>
+
+  <div id="grocery-pantry" style="display:none">
+    <div class="card">
+      <div class="section-header" style="margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:0">🥫 Pantry Inventory</div>
+        <div class="flex-gap">
+          <button class="btn btn-ghost btn-sm" onclick="exportGroceryData()" title="Export">&#x1F4E4; Export</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">&#x1F4E5; Import<input type="file" accept=".json" style="display:none" onchange="importGroceryData(this)"></label>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('add-pantry-modal')">+ Add Item</button>
+          <button class="btn btn-danger btn-sm" onclick="clearPantry()">Clear All</button>
+        </div>
+      </div>
+      <div class="hint-mb">Items checked off your shopping list appear here. The meal plan AI uses your pantry to build recipes around what you already have.</div>
+      <div id="pantry-container"></div>
+    </div>
+  </div>
+
+  <div id="grocery-recipes" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div class="section-header" style="margin-bottom:10px">
+        <div class="card-title" style="margin-bottom:0">📖 Recipe Book</div>
+        <div class="flex-gap">
+          <div style="position:relative">
+            <input type="text" id="recipe-search-input" placeholder="Search recipes…" oninput="renderRecipesTab()" style="padding:8px 12px 8px 32px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--surface);width:200px">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
+          </div>
+          <select id="recipe-filter-tag" onchange="renderRecipesTab()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--surface);color:var(--text)">
+            <option value="">All Tags</option>
+            <option value="quick">⚡ Quick (&lt;30 min)</option>
+            <option value="slow-cooker">🍲 Slow Cooker</option>
+            <option value="make-ahead">⏰ Make Ahead</option>
+            <option value="special">✨ Special</option>
+            <option value="rated">⭐ Highest Rated</option>
+            <option value="sale-match">🏷️ Ingredients On Sale</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="openAddRecipeModal()">+ Add Recipe</button>
+        </div>
+      </div>
+      <div class="alert alert-info" style="margin-bottom:12px;font-size:12px">
+        ⭐ Rate any dinner <strong>4 or 5 stars</strong> in the Meal Plan tab and it automatically saves here. Or add recipes manually using a URL or your own notes.
+      </div>
+      <div id="recipes-stats-bar" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px"></div>
+      <div id="recipes-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD-->
+<div class="page" id="page-upload">
+  <div class="section-header">
+    <div class="section-title">Upload Statements</div>
+  </div>
+
+  <!-- How-to-export bank tips -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">📋 How to Export Your Statements</div>
+    <div class="grid-3" style="gap:10px">
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:5px">🏦 RBC Chequing / Savings</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">Online Banking → <strong>Accounts</strong> → select account → <strong>Download Transactions</strong> → CSV</div>
+        <div class="hint-mt">File: downloadtransactions.csv</div>
+      </div>
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:5px">💳 TD / Amex Credit Card</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">EasyWeb → <strong>Accounts</strong> → select card → <strong>Download</strong> → choose range → CSV</div>
+        <div class="hint-mt">File: *transaction_download*.csv</div>
+      </div>
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px">
+        <div style="font-weight:700;color:var(--green);margin-bottom:5px">🏦 BMO Chequing / Savings</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">BMO Online Banking → <strong>Accounts</strong> → select account → <strong>Download Transactions</strong> → CSV</div>
+        <div class="hint-mt">File: statement BMO chequing.csv (or similar)</div>
+      </div>
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px">
+        <div style="font-weight:700;color:#e8393a;margin-bottom:5px">🍁 Canadian Tire Mastercard</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">MyCardInfo → <strong>Accounts</strong> → select card → <strong>Download Transactions</strong> → CSV</div>
+        <div class="hint-mt">File: MY ACCOUNT TRANSACTIONS (REF column included)</div>
+      </div>
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px">
+        <div style="font-weight:700;color:var(--purple);margin-bottom:5px">📄 Any Bank — PDF Statement</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">Online Banking → <strong>Statements</strong> → Download PDF. Scanned PDFs use AI Vision (20–40 sec)</div>
+        <div class="hint-mt">Works for RBC, TD, CIBC, BMO, Scotiabank</div>
+      </div>
+    </div>
+    <div class="alert alert-pink" style="margin-top:10px;margin-bottom:0;font-size:12px" id="upload-tips-note">
+      💰 <strong>Cash tips?</strong> Log those on the <strong>Tips</strong> page — not here.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Import Statement</div>
+
+    <!-- Step 1: Pick or create account -->
+    <div class="form-row" style="margin-bottom:12px">
+      <label>Account</label>
+      <select id="upload-account-select" onchange="onUploadAccountChange()">
+        <option value="">-- Select or create account --</option>
+        <option value="__new__">➕ Create New Account...</option>
+      </select>
+    </div>
+
+    <!-- New account fields (shown when __new__ selected) -->
+    <div id="new-account-fields" style="display:none;background:var(--surface);border:2px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">New Account Details</div>
+      <div class="form-group">
+        <div class="form-row">
+          <label>Nickname</label>
+          <input type="text" id="new-acct-nickname" placeholder="e.g. BMO Chequing, Alterna Loan">
+        </div>
+        <div class="form-row">
+          <label>Account Type</label>
+          <select id="new-acct-type">
+            <option value="Chequing">🏦 Chequing</option>
+            <option value="Savings">💰 Savings</option>
+            <option value="TFSA">🛡️ TFSA</option>
+            <option value="RRSP">📈 RRSP</option>
+            <option value="FHSA">🏠 FHSA</option>
+            <option value="Investment">📊 Investment</option>
+            <option value="Credit Card">💳 Credit Card</option>
+            <option value="Loan">🏦 Loan</option>
+            <option value="Line of Credit">🔗 Line of Credit</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-row">
+          <label>Owner</label>
+          <select id="new-acct-person"></select>
+        </div>
+        <div class="form-row" style="display:flex;align-items:center;gap:10px;padding-top:22px">
+          <input type="checkbox" id="new-acct-joint" style="width:auto;margin:0">
+          <label style="margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:700">Joint account (shared by both)</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statement owner row (shown for non-joint existing accounts; auto-set for new) -->
+    <div class="form-row" id="upload-person-row" style="margin-bottom:16px;display:none">
+      <label>Statement Owner</label>
+      <select id="upload-person"></select>
+    </div>
+    <div class="file-drop" id="file-drop" onclick="document.getElementById('stmt-upload').click()">
+      <div style="font-size:36px;margin-bottom:8px">📄</div>
+      <div style="font-weight:700;margin-bottom:4px;color:var(--text)">Drop CSV or PDF here, or click to browse</div>
+      <div style="color:var(--muted);font-size:12px">RBC · TD · Amex · CIBC · Scotiabank · BMO · Canadian Tire — CSV or PDF</div>
+      <div style="color:var(--muted);font-size:11px;margin-top:4px">CSV → instant preview &nbsp;·&nbsp; PDF text → AI extraction &nbsp;·&nbsp; PDF scanned → AI Vision</div>
+    </div>
+    <input type="file" id="stmt-upload" accept=".csv,.pdf" style="display:none" onchange="handleStatementUpload(this)">
+    <div id="upload-status" style="margin-top:12px;font-size:13px"></div>
+
+    <!-- CSV Preview -->
+    <div id="upload-preview" style="display:none;margin-top:16px">
+      <div style="font-weight:700;margin-bottom:8px;color:var(--text)">
+        📋 Preview — <span id="preview-count"></span> transactions
+        <span id="preview-dup-info" style="color:var(--muted);font-weight:400;font-size:12px"></span>
+      </div>
+      <div id="preview-cat-breakdown" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px"></div>
+      <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:10px">
+        <table>
+          <thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="text-right">Amount</th></tr></thead>
+          <tbody id="preview-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn btn-ghost" onclick="cancelPreview()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmImport()">✓ Import These Transactions</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin-bottom:0">🏦 Manage Accounts</div>
+    </div>
+    <div id="accounts-list">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No accounts yet — upload a statement to get started.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Uploaded Statements</div>
+    <div id="statements-list"></div>
+  </div>
+</div>
+

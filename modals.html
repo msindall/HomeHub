@@ -1,0 +1,465 @@
+<!-- ============================================================
+     MODALS
+============================================================ -->
+
+<!-- Manual Transaction -->
+<div class="modal-overlay" id="manual-txn-modal">
+  <div class="modal">
+    <div class="modal-title">Add Transaction</div>
+    <div class="form-row"><label>Date</label><input type="date" id="m-date"></div>
+    <div class="form-row"><label>Description</label><input type="text" id="m-desc" placeholder="e.g. Grocery run"></div>
+    <div class="form-group">
+      <div class="form-row"><label>Amount (CAD)</label><input type="number" id="m-amount" placeholder="0.00" step="0.01"></div>
+      <div class="form-row"><label>Type</label><select id="m-type"><option value="expense">Expense</option><option value="income">Income</option></select></div>
+    </div>
+    <div class="form-group">
+      <div class="form-row"><label>Category</label><select id="m-category"></select></div>
+      <div class="form-row"><label>Person</label><select id="m-person"></select></div>
+    </div>
+    <div class="form-row"><label>Account</label><select id="m-account"></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('manual-txn-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveManualTxn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cash Purchase -->
+<div class="modal-overlay" id="cash-modal">
+  <div class="modal">
+    <div class="modal-title">Record Cash Purchase</div>
+    <div class="form-row"><label>Date</label><input type="date" id="cash-date"></div>
+    <div class="form-row"><label>What did you buy?</label><input type="text" id="cash-desc" placeholder="e.g. Coffee, market, parking"></div>
+    <div class="form-row"><label>Amount (CAD)</label><input type="number" id="cash-amount" placeholder="0.00" step="0.01"></div>
+    <div class="form-group">
+      <div class="form-row"><label>Category</label><select id="cash-cat"></select></div>
+      <div class="form-row"><label>Who paid?</label><select id="cash-person"></select></div>
+    </div>
+    <div class="form-row"><label>Notes</label><input type="text" id="cash-notes" placeholder="Optional details"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cash-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCashPurchase()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Transaction -->
+<div class="modal-overlay" id="edit-txn-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Transaction</div>
+    <input type="hidden" id="edit-txn-id">
+    <div class="form-row"><label>Description</label><input type="text" id="edit-desc"></div>
+    <div class="form-group">
+      <div class="form-row"><label>Category</label><select id="edit-cat"></select></div>
+      <div class="form-row"><label>Person</label><select id="edit-person"></select></div>
+    </div>
+    <div class="form-group">
+      <div class="form-row"><label>Amount</label><input type="number" id="edit-amount" step="0.01"></div>
+      <div class="form-row"><label>Account</label><select id="edit-account"></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('edit-txn-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditTxn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tips -->
+<div class="modal-overlay" id="tips-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="tips-modal-title">💰 Log Cash Tips</div>
+    <input type="hidden" id="tips-edit-id">
+    <div class="form-row"><label>Date</label><input type="date" id="tips-date"></div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>Total Tips Received ($)</label>
+        <input type="number" id="tips-total-input" placeholder="0.00" step="0.01" oninput="calcTips()">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">All cash you received this shift</div>
+      </div>
+      <div class="form-row">
+        <label>Claimed Amount (to deposit) ($)</label>
+        <input type="number" id="tips-amount" placeholder="0.00" step="0.01" oninput="calcTips()">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Goes to bank &mdash; CRA taxable income</div>
+      </div>
+    </div>
+    <div style="background:var(--member2-light);border:1px solid var(--member2);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap">
+      <span>Unclaimed cash: <strong id="tips-unclaimed-disp" style="color:var(--accent)">$0.00</strong></span>
+      <span>CRA reserve (25%): <strong id="tips-tax-disp" style="color:var(--red)">$0.00</strong></span>
+      <span>Take-home after reserve: <strong id="tips-net-disp" style="color:var(--green)">$0.00</strong></span>
+    </div>
+    <div style="background:var(--yellow-light);border:1px solid var(--yellow);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-weight:700;color:var(--yellow);margin-bottom:10px;font-size:13px">&#127919; Save toward a Goal? (optional)</div>
+      <div class="form-group">
+        <div class="form-row">
+          <label>Amount to put toward Goal ($)</label>
+          <input type="number" id="tips-goal-amt" placeholder="0.00" step="0.01" oninput="calcTips()">
+        </div>
+        <div class="form-row">
+          <label>Which Goal?</label>
+          <select id="tips-goal-id" onchange="calcTips()">
+            <option value="">-- Select goal --</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>From which cash?</label>
+        <select id="tips-goal-acct" onchange="calcTips()">
+          <option value="Cash-Claimed">Claimed (Deposit) Account</option>
+          <option value="Cash-Unclaimed">Unclaimed Cash</option>
+        </select>
+      </div>
+      <div id="tips-goal-preview" style="display:none;margin-top:8px;padding:8px;background:var(--card);border-radius:8px;font-size:12px;color:var(--green);font-weight:600"></div>
+    </div>
+    <div class="form-row"><label>Notes (optional)</label><input type="text" id="tips-notes" placeholder="e.g. Busy Sunday brunch"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('tips-modal');clearTipsForm()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTips()">Save Tips</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal -->
+<div class="modal-overlay" id="goal-modal">
+  <div class="modal">
+    <div class="modal-title">Savings Goal</div>
+    <input type="hidden" id="goal-edit-id">
+    <div class="form-group">
+      <div class="form-row"><label>Goal Name</label><input type="text" id="goal-name" placeholder="e.g. Wedding Fund"></div>
+      <div class="form-row"><label>Emoji</label><input type="text" id="goal-emoji" placeholder="💍" maxlength="2"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-row"><label>Target Amount ($)</label><input type="number" id="goal-target" placeholder="20000"></div>
+      <div class="form-row"><label>Current Saved ($)</label><input type="number" id="goal-current" placeholder="0"></div>
+    </div>
+    <div class="form-row"><label>Target Date</label><input type="date" id="goal-date"></div>
+    <div class="form-row"><label>Link to webpage (optional)</label><input type="url" id="goal-link" placeholder="https://..."></div>
+    <div class="form-row"><label>Notes (e.g. account type)</label><input type="text" id="goal-notes" placeholder="e.g. In FHSA account"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('goal-modal');clearGoalForm()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoal()">Save Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category -->
+<div class="modal-overlay" id="category-modal">
+  <div class="modal">
+    <div class="modal-title">Manage Categories</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="form-row"><label>New Category Name</label><input type="text" id="new-cat-name" placeholder="e.g. Pet Care"></div>
+      <div class="form-row"><label>Color</label><input type="color" id="new-cat-color" value="#c97d5a" style="height:40px;padding:4px"></div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="addCategory()">Add Category</button>
+    <hr class="divider">
+    <div id="categories-list"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('category-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Budget Edit -->
+<div class="modal-overlay" id="budget-edit-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Monthly Budgets</div>
+    <div id="budget-edit-fields"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('budget-edit-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBudgets()">Save Budgets</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add List Item -->
+<div class="modal-overlay" id="add-list-item-modal">
+  <div class="modal">
+    <div class="modal-title">Add to Shopping List</div>
+    <div class="form-row"><label>Item</label><input type="text" id="list-item-name" placeholder="e.g. Chicken breast"></div>
+    <div class="form-group">
+      <div class="form-row"><label>Quantity</label><input type="text" id="list-item-qty" placeholder="e.g. 2 lbs"></div>
+      <div class="form-row"><label>Est. Price ($)</label><input type="number" id="list-item-price" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+    <div class="form-row"><label>Store</label><select id="list-item-store"><option value="Any">Any</option><option value="Food Basics">Food Basics</option><option value="No Frills">No Frills</option><option value="Metro">Metro</option><option value="Other">Other</option></select></div>
+    <div class="form-row"><label>Section</label><select id="list-item-section"><option value="Groceries">🛒 Groceries</option><option value="Household">🏠 Household</option><option value="Bathroom">🧴 Bathroom</option><option value="Pet">🐾 Pet</option><option value="Other">📦 Other</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('add-list-item-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addListItem()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Non-Food Items Confirm Dialog -->
+<div class="modal-overlay" id="nonfood-confirm-modal">
+  <div class="modal" style="max-width:min(720px,95vw);width:95vw">
+    <div class="modal-title">🛒 Non-Food Items Found</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">These items were found in the flyer/meal plan and aren't in your pantry. Check the ones you'd like to add to your shopping list:</p>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <button class="btn btn-ghost btn-sm" onclick="nfToggleAll(true)">✅ Select All</button>
+      <button class="btn btn-ghost btn-sm" onclick="nfToggleAll(false)">☐ Deselect All</button>
+    </div>
+    <div id="nonfood-items-list" style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto;margin-bottom:16px;padding-right:4px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('nonfood-confirm-modal')">Skip</button>
+      <button class="btn btn-primary" onclick="confirmAddNonFoodItems()">✅ Add Selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Pantry Item -->
+<div class="modal-overlay" id="add-pantry-modal">
+  <div class="modal">
+    <div class="modal-title">Add to Pantry</div>
+    <div class="form-row"><label>Item</label><input type="text" id="pantry-item-name" placeholder="e.g. Olive Oil"></div>
+    <div class="form-group">
+      <div class="form-row"><label>Category</label><select id="pantry-item-section" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"><option value="Groceries">🛒 Groceries</option><option value="Household">🏠 Household</option><option value="Bathroom">🧴 Bathroom</option><option value="Pet">🐾 Pet</option><option value="Other">📦 Other</option></select></div>
+      <div class="form-row"><label>Quantity / Notes</label><input type="text" id="pantry-item-qty" placeholder="e.g. 1 bottle, half bag"></div>
+      <div class="form-row"><label>Stock Count</label><input type="number" id="pantry-item-stock" placeholder="1" min="0" step="1" value="1"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:color-mix(in srgb,var(--yellow) 8%,var(--card));border:1.5px solid color-mix(in srgb,var(--yellow) 40%,var(--border));border-radius:10px;margin-bottom:4px">
+      <input type="checkbox" id="pantry-item-staple" style="width:17px;height:17px;accent-color:var(--yellow);cursor:pointer;flex-shrink:0">
+      <label for="pantry-item-staple" style="cursor:pointer;margin:0;text-transform:none;letter-spacing:0;font-size:13px;font-weight:700;color:var(--text)">
+        ⭐ Mark as Staple
+        <span style="display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px">Staples always appear at the top of the pantry. When stock hits zero, a red alert reminds you to restock.</span>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('add-pantry-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addPantryItem()">Add to Pantry</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="event-modal">
+  <div class="modal">
+    <div class="modal-title">Add Calendar Event</div>
+    <input type="hidden" id="event-edit-id">
+    <div class="form-row"><label>Event Title</label><input type="text" id="event-title" placeholder="e.g. Doctor's appointment"></div>
+    <div class="form-group">
+      <div class="form-row"><label>Date</label><input type="date" id="event-date"></div>
+      <div class="form-row"><label>Person</label><select id="event-person"></select></div>
+    </div>
+    <div class="form-group">
+      <div class="form-row"><label>Start Time (optional)</label><input type="time" id="event-start"></div>
+      <div class="form-row"><label>End Time (optional)</label><input type="time" id="event-end"></div>
+    </div>
+    <div class="form-row"><label>Notes</label><input type="text" id="event-notes" placeholder="Optional details"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('event-modal');clearEventForm()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Save Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Calendar Import Modal -->
+<div class="modal-overlay" id="gcal-member-modal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title" id="gcal-modal-title">&#x1F4C5; Calendar Sync</div>
+    <input type="hidden" id="gcal-modal-member-id">
+    <div style="display:flex;gap:0;margin-bottom:14px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden">
+      <button id="gcal-tab-link" onclick="switchCalTab('member','link')" style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff">&#x1F517; Live Link<br><span style="font-size:9px;opacity:0.85">Google / iCloud</span></button>
+      <button id="gcal-tab-apple" onclick="switchCalTab('member','apple')" style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:var(--surface);color:var(--muted)">&#xF8FF; Apple<br><span style="font-size:9px">iCloud Guide</span></button>
+      <button id="gcal-tab-file" onclick="switchCalTab('member','file')" style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:var(--surface);color:var(--muted)">&#x1F4C1; File<br><span style="font-size:9px">.ics upload</span></button>
+      <button id="gcal-tab-paste" onclick="switchCalTab('member','paste')" style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:var(--surface);color:var(--muted)">&#x1F4CB; Paste<br><span style="font-size:9px">raw iCal text</span></button>
+    </div>
+
+    <!-- ── LIVE LINK PANEL ── -->
+    <div id="gcal-panel-link">
+      <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;line-height:1.9">
+        <strong>🔗 How to get your Live Link (one-time setup):</strong><br>
+        1. Open <a href="https://calendar.google.com" target="_blank" style="color:var(--accent);font-weight:700">Google Calendar</a> in a browser<br>
+        2. Click the <strong>⚙️ gear icon</strong> (top right) → <strong>Settings</strong><br>
+        3. In the left sidebar, click your calendar name (e.g. <em>your name</em>)<br>
+        4. Scroll down to <strong>"Integrate calendar"</strong><br>
+        5. Copy the <strong>Secret address in iCal format</strong> link<br>
+        6. Paste it below — Home Hub will sync automatically every time you visit! ✅
+      </div>
+      <div class="form-row"><label>Display Name</label><input type="text" id="gcal-name-link" placeholder="e.g. My Google Calendar"></div>
+      <div class="form-row">
+        <label>Secret iCal Link <span style="font-size:11px;color:var(--muted);font-weight:400">(starts with https://calendar.google.com/calendar/ical/…)</span></label>
+        <input type="url" id="gcal-link-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
+          style="font-size:12px;padding:8px;border:1.5px solid var(--border);border-radius:8px;width:100%;background:var(--surface);font-family:monospace">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px;color:var(--muted)">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600">
+          <input type="checkbox" id="gcal-link-autosync" checked style="width:15px;height:15px;accent-color:var(--accent)">
+          Auto-sync when I open the Calendar tab
+        </label>
+      </div>
+      <div id="gcal-link-result" class="result-text"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('gcal-member-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveLiveCalLink()">💾 Save &amp; Sync Now</button>
+      </div>
+    </div>
+
+
+    <!-- ── APPLE iCLOUD PANEL ── -->
+    <div id="gcal-panel-apple" style="display:none">
+      <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;line-height:1.9">
+        <strong>&#xF8FF; How to share your Apple / iCloud Calendar (one-time setup):</strong><br>
+        <strong>On iPhone / iPad:</strong><br>
+        1. Open the <strong>Calendar</strong> app &#x2192; tap <strong>Calendars</strong> (bottom centre)<br>
+        2. Tap the <strong>&#x24D8;</strong> info icon next to the calendar you want to share<br>
+        3. Turn on <strong>Public Calendar</strong> &#x2192; tap <strong>Share Link</strong> &#x2192; copy the link<br><br>
+        <strong>On Mac:</strong><br>
+        1. Open <strong>Calendar</strong> &#x2192; right-click your calendar &#x2192; <strong>Share Calendar&hellip;</strong><br>
+        2. Click <strong>Public Calendar</strong> &#x2192; copy the <code style="background:var(--surface);padding:1px 4px;border-radius:4px">webcal://</code> link<br><br>
+        &#x26A0;&#xFE0F; <strong>Note:</strong> only calendars stored in <strong>iCloud</strong> can be shared this way. Local &ldquo;On My Mac/iPhone&rdquo; calendars cannot be shared via a link &mdash; use the <strong>File</strong> tab to export those instead.<br><br>
+        Home Hub automatically converts <code style="background:var(--surface);padding:1px 4px;border-radius:4px">webcal://</code> links to <code style="background:var(--surface);padding:1px 4px;border-radius:4px">https://</code> &mdash; just paste as-is. &#x2705;
+      </div>
+      <div class="form-row"><label>Display Name</label><input type="text" id="gcal-name-apple" placeholder="e.g. My iCloud Calendar"></div>
+      <div class="form-row">
+        <label>iCloud Calendar Link <span style="font-size:11px;color:var(--muted);font-weight:400">(webcal:// or https://)</span></label>
+        <input type="url" id="gcal-apple-url" placeholder="webcal://p62-caldav.icloud.com/published/2/…"
+          style="font-size:12px;padding:8px;border:1.5px solid var(--border);border-radius:8px;width:100%;background:var(--surface);font-family:monospace">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px;color:var(--muted)">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600">
+          <input type="checkbox" id="gcal-apple-autosync" checked style="width:15px;height:15px;accent-color:var(--accent)">
+          Auto-sync when I open the Calendar tab
+        </label>
+      </div>
+      <div id="gcal-apple-result" class="result-text"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('gcal-member-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAppleCalLink()">&#xF8FF; Save &amp; Sync Now</button>
+      </div>
+    </div>
+
+    <!-- ── FILE PANEL ── -->
+    <div id="gcal-panel-file" style="display:none">
+      <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;line-height:1.8">
+        <strong>&#128193; How to download your .ics file:</strong><br>
+        1. Open <strong>Google Calendar</strong> in a browser<br>
+        2. Click ⚙️ <strong>Settings</strong> → <strong>Import &amp; Export</strong><br>
+        3. Click <strong>Export</strong> — saves a <code class="code-snip">.zip</code> to your Downloads<br>
+        4. Unzip it — you'll find one or more <code class="code-snip">.ics</code> files inside<br>
+        5. Click <strong>Choose File</strong> below and select the .ics file
+      </div>
+      <div class="form-row"><label>Display Name</label><input type="text" id="gcal-name-file" placeholder="Calendar Name"></div>
+      <div class="form-row">
+        <label>Choose your .ics file</label>
+        <input type="file" id="gcal-file" accept=".ics,.ifb" style="font-size:13px;padding:6px;border:1.5px solid var(--border);border-radius:8px;width:100%;background:var(--surface)">
+      </div>
+      <div id="gcal-file-result" class="result-text"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('gcal-member-modal')">Cancel</button>
+        <button class="btn btn-primary" id="gcal-import-file-btn" onclick="importICalFileDynamic()">&#128229; Import File</button>
+      </div>
+    </div>
+
+    <!-- ── PASTE PANEL ── -->
+    <div id="gcal-panel-paste" style="display:none">
+      <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;line-height:1.8">
+        <strong>&#128203; How to get raw iCal text:</strong><br>
+        1. In Google Calendar → ⚙️ Settings → click your calendar → <strong>Integrate calendar</strong><br>
+        2. Copy the <strong>Secret address in iCal format</strong> link<br>
+        3. Open that link in a new tab — you'll see text starting with <code class="code-snip">BEGIN:VCALENDAR</code><br>
+        4. Press <strong>Ctrl+A</strong> then <strong>Ctrl+C</strong> to copy all, then paste below ↓
+      </div>
+      <div class="form-row"><label>Display Name</label><input type="text" id="gcal-name-paste" placeholder="Calendar Name"></div>
+      <div class="form-row">
+        <label>Paste iCal text here</label>
+        <textarea id="gcal-paste" rows="7" placeholder="BEGIN:VCALENDAR&#10;VERSION:2.0&#10;..." style="width:100%;font-size:11px;font-family:monospace;padding:8px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;background:var(--surface)"></textarea>
+      </div>
+      <div id="gcal-paste-result" class="result-text"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('gcal-member-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="importICalPasteDynamic()">&#128229; Import Text</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     EDIT ACCOUNT MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="edit-account-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">✏️ Edit Account</div>
+    <input type="hidden" id="edit-acct-id">
+    <div class="form-row">
+      <label>Nickname</label>
+      <input type="text" id="edit-acct-nickname" placeholder="e.g. BMO Chequing">
+    </div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>Account Type</label>
+        <select id="edit-acct-type">
+          <option value="Chequing">🏦 Chequing</option>
+          <option value="Savings">💰 Savings</option>
+          <option value="TFSA">🛡️ TFSA</option>
+          <option value="RRSP">📈 RRSP</option>
+          <option value="FHSA">🏠 FHSA</option>
+          <option value="Investment">📊 Investment</option>
+          <option value="Credit Card">💳 Credit Card</option>
+          <option value="Loan">🏦 Loan</option>
+          <option value="Line of Credit">🔗 Line of Credit</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Owner</label>
+        <select id="edit-acct-person"></select>
+      </div>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="edit-acct-joint" style="width:auto;margin:0">
+      <label style="margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:700">Joint account</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('edit-account-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditAccount()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     STARTING BALANCE MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="starting-balance-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">📌 Set Starting Balance</div>
+    <input type="hidden" id="sb-account-key">
+
+    <div class="alert alert-info" style="font-size:12px;line-height:1.8;margin-bottom:16px">
+      <strong>How it works:</strong> Enter a known balance and a date. The app will calculate your current balance using that amount plus all transactions on or after that date.
+    </div>
+
+    <div style="background:var(--surface);border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🏦</span>
+      <div>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Account</div>
+        <div style="font-size:14px;font-weight:800;color:var(--text)" id="sb-account-label"></div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>As of Date</label>
+      <input type="date" id="sb-date" oninput="sbUpdatePreview()">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;font-weight:600">Pick the date your known balance applies to (e.g., your last statement date). Transactions <em>after</em> this date will be added on top.</div>
+    </div>
+
+    <div class="form-row">
+      <label>Balance on that Date ($)</label>
+      <input type="number" id="sb-amount" step="0.01" placeholder="e.g. 2450.00" oninput="sbUpdatePreview()">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;font-weight:600" id="sb-amount-note"></div>
+    </div>
+
+    <!-- Live preview -->
+    <div id="sb-preview" style="display:none;background:var(--surface);border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:4px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">📊 Estimated Current Balance</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <div id="sb-preview-balance" style="font-size:24px;font-weight:700;font-family:'Playfair Display',serif"></div>
+        <div id="sb-preview-detail" style="font-size:11px;color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-danger btn-sm" id="sb-clear-btn" onclick="clearStartingBalance()" style="display:none">🗑️ Clear</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="closeModal('starting-balance-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveStartingBalance()">💾 Save Balance</button>
+      </div>
+    </div>
+  </div>
+</div>
+

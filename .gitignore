@@ -1,0 +1,4 @@
+App_V*.html 
+__pycache__/ 
+*.pyc 
+chart.umd.min.js 
