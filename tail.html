@@ -1,4 +1,17 @@
 
+<!-- Share Modal -->
+<div id="modal-share" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-share')">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title">🔗 Share Home Hub</span>
+      <button class="modal-close" onclick="closeModal('modal-share')">✕</button>
+    </div>
+    <div class="modal-body" id="share-modal-body" style="padding:18px 20px">
+      <!-- populated by openShareModal() -->
+    </div>
+  </div>
+</div>
+
 <!-- Recipe Modal -->
 <div class="modal-overlay" id="recipe-modal">
   <div class="modal" style="max-width:640px">

@@ -1,3 +1,6 @@
+// Version constant — replaced at build time by build.py
+var HH_VERSION = '6.28';
+
 function renderStatements(){
   renderAccountsList();
   const container=document.getElementById('statements-list');
@@ -1682,7 +1685,7 @@ function wizNext() {
 function exportShareableConfig() {
   var config = {
     _type: 'homehub_config',
-    _version: '6.24',
+    _version: HH_VERSION,
     _exported: new Date().toISOString().split('T')[0],
     household: { name: state.household.name, emoji: state.household.emoji, province: state.household.province, city: state.household.city },
     members: (state.members||[]).map(function(m){
@@ -1703,6 +1706,165 @@ function exportShareableConfig() {
   a.download = hName + '_config_' + new Date().toISOString().split('T')[0] + '.json';
   a.click();
   hhToast('Setup config exported — share this file with friends!', '📋');
+}
+
+// ── URL-BASED SHARING ─────────────────────────────────────────────────────────
+
+function importConfigToWizard(config) {
+  // Map the shareable config JSON into wizData and open the Setup Wizard
+  try {
+    window.wizData = {
+      step: 1,
+      household: {
+        name:     (config.household && config.household.name)     || '',
+        emoji:    (config.household && config.household.emoji)    || '🏠',
+        province: (config.household && config.household.province) || 'ON',
+        city:     (config.household && config.household.city)     || '',
+      },
+      members: (config.members || []).map(function(m, i) {
+        return {
+          id: uid(), name: m.name || ('Person ' + (i + 1)),
+          dob: m.dob || '', color: m.color || 'var(--accent)',
+          incomeType: m.incomeType || 'salary',
+          hasTips: !!m.hasTips, hasPension: !!m.hasPension,
+          hasHealthBenefits: !!m.hasHealthBenefits,
+          isFirstTimeBuyer: !!m.isFirstTimeBuyer,
+          monthlyIncome: m.monthlyIncome || 0,
+        };
+      }),
+      children: (config.children || []).map(function(c) {
+        return { id: uid(), name: c.name || '', dob: c.dob || '', color: c.color || 'var(--accent)' };
+      }),
+      pets: (config.pets || []).map(function(p) {
+        return { id: uid(), name: p.name || '', emoji: p.emoji || '🐾', type: p.type || 'dog' };
+      }),
+      lifestyle: config.lifestyle || {},
+      goals: (config.goals || []).map(function(g) {
+        return { id: uid(), _wizId: g._wizId || uid(), emoji: g.emoji || '🎯', name: g.name || '', target: g.target || 0, notes: g.notes || '', saved: 0, monthly: 0 };
+      }),
+      features: config.features || {},
+      budgets: config.budgets || {},
+      categories: config.categories || [],
+    };
+    openSetupWizard(window.wizData);
+  } catch (e) {
+    hhAlert('Could not load the shared config: ' + e.message, '⚠️', 'Import Error');
+  }
+}
+
+function _buildShareConfig() {
+  // Same shape as exportShareableConfig but returned as an object (not downloaded)
+  return {
+    _type: 'homehub_config',
+    _version: HH_VERSION,
+    _exported: new Date().toISOString().split('T')[0],
+    household: { name: state.household.name, emoji: state.household.emoji, province: state.household.province, city: state.household.city },
+    members: (state.members || []).map(function(m) {
+      return { name: m.name, dob: m.dob || '', color: m.color, incomeType: m.incomeType, hasTips: !!m.hasTips, hasPension: !!m.hasPension, hasHealthBenefits: !!m.hasHealthBenefits, isFirstTimeBuyer: !!m.isFirstTimeBuyer, monthlyIncome: m.monthlyIncome || 0 };
+    }),
+    children: (state.children || []).map(function(c) { return { name: c.name, dob: c.dob || '', color: c.color || '' }; }),
+    pets: (state.pets || []).map(function(p) { return { name: p.name, emoji: p.emoji, type: p.type }; }),
+    lifestyle: state.lifestyle || {},
+    goals: (state.goals || []).map(function(g) { return { emoji: g.emoji, name: g.name, target: g.target, notes: g.notes || '', _wizId: g._wizId || g.id }; }),
+    features: state.features || {},
+    budgets: state.budgets || {},
+    categories: (state.categories || []).map(function(c) { return { id: c.id, name: c.name, color: c.color }; }),
+  };
+}
+
+function generateShareURL() {
+  var config = _buildShareConfig();
+  var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+  var url = window.location.href.split('#')[0] + '#setup=' + encoded;
+  return url;
+}
+
+function copyShareURL() {
+  var url = generateShareURL();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      hhToast('Share link copied to clipboard!', '🔗');
+    }).catch(function() {
+      _fallbackCopyShareURL(url);
+    });
+  } else {
+    _fallbackCopyShareURL(url);
+  }
+  // Refresh the input in the modal too
+  var inp = document.getElementById('share-url-input');
+  if (inp) inp.value = url;
+}
+
+function _fallbackCopyShareURL(url) {
+  var ta = document.createElement('textarea');
+  ta.value = url;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); hhToast('Share link copied!', '🔗'); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
+function openShareModal() {
+  var url = generateShareURL();
+  var body = document.getElementById('share-modal-body');
+  if (!body) return;
+  body.innerHTML = [
+    '<div style="margin-bottom:20px">',
+    '  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:8px">🔗 Share Link</div>',
+    '  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">',
+    '    <input id="share-url-input" type="text" readonly value="" style="flex:1;font-size:11px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-family:monospace;cursor:text" onclick="this.select()">',
+    '    <button class="btn btn-primary btn-sm" onclick="copyShareURL()">📋 Copy</button>',
+    '  </div>',
+    '  <div style="font-size:11px;color:var(--muted)">Anyone who opens this link will see the Setup Wizard pre-filled with your household template. Their data stays separate from yours.</div>',
+    '</div>',
+    '<div style="margin-bottom:20px">',
+    '  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:8px">📱 QR Code</div>',
+    '  <div id="share-qr-container" style="display:flex;justify-content:center;padding:16px;background:var(--surface);border-radius:12px;border:1px solid var(--border)">',
+    '    <div id="share-qr-canvas"></div>',
+    '  </div>',
+    '</div>',
+    '<div style="border-top:1px solid var(--border);padding-top:16px">',
+    '  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:8px">📁 File Download</div>',
+    '  <button class="btn btn-ghost" style="width:100%" onclick="exportShareableConfig()">⬇️ Download config file instead</button>',
+    '  <div style="font-size:11px;color:var(--muted);margin-top:6px">Old-school method: download a .json file and send it directly.</div>',
+    '</div>',
+  ].join('\n');
+
+  // Set the URL in the input
+  var inp = document.getElementById('share-url-input');
+  if (inp) inp.value = url;
+
+  openModal('modal-share');
+
+  // Load QR code library and render
+  _loadQRAndRender(url);
+}
+
+function _loadQRAndRender(url) {
+  if (window.QRCode) {
+    _renderQR(url);
+    return;
+  }
+  var script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  script.onload = function() { _renderQR(url); };
+  script.onerror = function() {
+    var c = document.getElementById('share-qr-canvas');
+    if (c) c.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center">QR code unavailable offline.<br>Copy the link above instead.</div>';
+  };
+  document.head.appendChild(script);
+}
+
+function _renderQR(url) {
+  var container = document.getElementById('share-qr-canvas');
+  if (!container) return;
+  container.innerHTML = '';
+  try {
+    new QRCode(container, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  } catch(e) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center">Could not render QR code.</div>';
+  }
 }
 
 function wizFinish() {
@@ -2777,6 +2939,33 @@ function _initApp() {
     if (changed) saveState();
   })();
 
+  // ── URL hash config import (#setup=<base64>) ──────────────────────────────
+  var hashMatch = window.location.hash.match(/^#setup=(.+)$/);
+  if (hashMatch) {
+    try {
+      var decoded = JSON.parse(decodeURIComponent(escape(atob(hashMatch[1]))));
+      if (decoded && decoded._type === 'homehub_config') {
+        window.location.hash = ''; // clean the URL
+        hhConfirm(
+          '<strong>Setup invitation found!</strong><br>Pre-fill the Setup Wizard with the shared household template?<br><small style="color:var(--muted)">Your existing data (if any) will not be affected until you finish the wizard.</small>',
+          '🏠', 'Shared Setup'
+        ).then(function(ok) {
+          if (ok) {
+            importConfigToWizard(decoded);
+          } else if (!state.household || !state.household.setupComplete) {
+            openSetupWizard(false);
+          } else {
+            applyHouseholdConfig(); seedCareerDataFromMembers(); takeNetWorthSnapshot(false); renderDashboard();
+          }
+        });
+        updateApiKeyBtn();
+        return; // Don't fall through to the normal init path
+      }
+    } catch(e) {
+      // Malformed hash — ignore silently, fall through to normal init
+    }
+  }
+
   if (!state.household || !state.household.setupComplete) {
     openSetupWizard(false);
   } else {
@@ -3784,3 +3973,6 @@ function saveGoalSplit(){
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
   if(document.getElementById('page-budget').classList.contains('active'))renderBudget();
 }
+
+
+

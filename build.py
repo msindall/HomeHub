@@ -5,12 +5,12 @@ Assembles source files into a single deployable HTML file.
 All source files live flat at the project root (no src/ subdirectory).
 
 Usage:
-    python build.py               -> App_V6_29.html (minified)
+    python build.py               -> App_V6_30.html (minified)
     python build.py --dev         -> unminified build for debugging
     python build.py --version=6.30 -> force specific version
 """
 
-import os, sys, re, datetime
+import os, sys, re, datetime, base64
 
 ROOT    = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = ROOT
@@ -79,6 +79,48 @@ def minify_css(src):
     src = re.sub(r"/\*.*?\*/", "", src, flags=re.DOTALL)
     src = re.sub(r"\n{3,}", "\n\n", src)
     return src
+
+def make_pwa_manifest(version_label):
+    """Generate an inline base64-encoded web app manifest for PWA installability."""
+    # Simple house SVG icon in indigo/blue rounded-square style
+    icon_svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        '<rect width="100" height="100" rx="20" fill="#6366f1"/>'
+        '<polygon points="50,18 85,50 78,50 78,82 22,82 22,50 15,50" fill="none" stroke="#fff" stroke-width="4"/>'
+        '<polygon points="50,22 81,51 19,51" fill="#fff"/>'
+        '<rect x="37" y="58" width="26" height="24" rx="3" fill="#fff"/>'
+        '<rect x="44" y="64" width="12" height="12" rx="2" fill="#6366f1"/>'
+        '</svg>'
+    )
+    icon_b64 = base64.b64encode(icon_svg.encode('utf-8')).decode('ascii')
+    manifest = {
+        "name": "Home Hub",
+        "short_name": "Home Hub",
+        "description": "Household management for Matt & Holly",
+        "start_url": ".",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#6366f1",
+        "icons": [
+            {
+                "src": "data:image/svg+xml;base64," + icon_b64,
+                "sizes": "any",
+                "type": "image/svg+xml",
+                "purpose": "any maskable"
+            }
+        ]
+    }
+    import json
+    manifest_json = json.dumps(manifest, separators=(',', ':'))
+    manifest_b64  = base64.b64encode(manifest_json.encode('utf-8')).decode('ascii')
+    pwa_tags = (
+        '<link rel="manifest" href="data:application/manifest+json;base64,' + manifest_b64 + '">\n'
+        '<meta name="theme-color" content="#6366f1">\n'
+        '<meta name="apple-mobile-web-app-capable" content="yes">\n'
+        '<meta name="apple-mobile-web-app-status-bar-style" content="default">\n'
+        '<meta name="apple-mobile-web-app-title" content="Home Hub">'
+    )
+    return pwa_tags
 
 def build(version_str=None, dev_mode=False):
     print("\nHome Hub Build Script")
@@ -157,9 +199,16 @@ def build(version_str=None, dev_mode=False):
     # Version stamp - broad replace across entire output
     vl = version_label
     output = re.sub(r"Home Hub V\d+\.\d+", "Home Hub V" + vl, output)
-    output = re.sub(r"_version:\s*\'[\d.]+'", "_version: '" + vl + "'", output)
-    output = re.sub(r"badge\.textContent\s*=\s*\'v[\d.]+\';",
-                    "badge.textContent = \'v" + vl + "\';", output)
+    output = re.sub(r"_version:\s*'[\d.]+'", "_version: '" + vl + "'", output)
+    output = re.sub(r"badge\.textContent\s*=\s*'v[\d.]+';",
+                    "badge.textContent = 'v" + vl + "';", output)
+    # Stamp the HH_VERSION global constant in 07-upload.js
+    output = re.sub(r"var HH_VERSION\s*=\s*'[\d.]+'",
+                    "var HH_VERSION = '" + vl + "'", output)
+
+    # Inject PWA manifest tags into <head>
+    pwa_tags = make_pwa_manifest(vl)
+    output = re.sub(r"(</head>)", pwa_tags + "\n\\1", output, count=1)
 
     write_file(out_path, output)
 
