@@ -1,3 +1,5 @@
+var WEDDING_CAT_ICONS = { Venue:'🏛️', Catering:'🍽️', Photography:'📷', Videography:'🎥', Flowers:'💐', Music:'🎵', Attire:'👗', 'Hair & Makeup':'💄', Cake:'🎂', Transport:'🚗', Invitations:'💌', Officiant:'⛪', Accommodation:'🏨', Other:'📦' };
+
 function renderWedding() {
   var w = state.wedding || {};
   var vendors = state.weddingVendors || [];
@@ -10,14 +12,12 @@ function renderWedding() {
   var pct = budget ? Math.min(100, Math.round((totalCommitted/budget)*100)) : 0;
   var barColor = pct > 95 ? 'var(--red)' : pct > 80 ? 'var(--yellow)' : 'var(--green)';
 
-  // Savings progress — linked goal (matches Goals page exactly)
   var linkedGoal = w.linkedGoalId ? (state.goals||[]).find(function(g){return g.id===w.linkedGoalId;}) : null;
   var goalSaved  = linkedGoal ? (linkedGoal.current + getGoalContributions(linkedGoal.id)) : 0;
   var goalTarget = linkedGoal ? linkedGoal.target : 0;
   var savingsPct = goalTarget > 0 ? Math.min(100, Math.round(goalSaved/goalTarget*100)) : 0;
   var savingsBarColor = savingsPct >= 100 ? 'var(--green)' : savingsPct >= 50 ? 'var(--accent)' : 'var(--accent2)';
 
-  // Countdown
   var countdownHtml = '';
   if (w.date) {
     var wDate = new Date(w.date + 'T00:00:00');
@@ -59,7 +59,6 @@ function renderWedding() {
     (budget ? '<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>📋 Budget: ' + fmt(budget) + '</span><span>' + pct + '% committed to vendors</span></div><div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:'+pct+'%;background:'+barColor+'"></div></div></div>' : '') +
     '</div>';
 
-  // Deposit alerts — upcoming within 30 days
   var today2 = new Date(); today2.setHours(0,0,0,0);
   var alerts = vendors.filter(function(v){
     if (v.paid || !v.depositDue) return false;
@@ -74,10 +73,10 @@ function renderWedding() {
     return '<div class="alert" style="border-left:4px solid '+urgency+';background:color-mix(in srgb,'+urgency+' 8%,var(--card));margin-bottom:8px">⚠️ <strong>' + v.name + '</strong> deposit of ' + fmt(v.depositAmount||0) + ' due in <strong>' + days + ' day' + (days===1?'':'s') + '</strong> (' + v.depositDue + ')</div>';
   }).join('');
 
-  // Vendor grid grouped by category
   if (!vendors.length) {
     document.getElementById('wedding-vendors-grid').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">No vendors yet — click <strong>+ Add Vendor</strong> to get started!</div>';
     renderWeddingChecklist();
+    renderWeddingFundContributions();
     return;
   }
   var cats = {};
@@ -111,6 +110,49 @@ function renderWedding() {
   });
   document.getElementById('wedding-vendors-grid').innerHTML = html;
   renderWeddingChecklist();
+  renderWeddingFundContributions();
+}
+
+function renderWeddingFundContributions() {
+  var el = document.getElementById('wedding-fund-contributions');
+  if (!el) return;
+  var tagged = (state.transactions||[]).filter(function(t){ return t.category==='wedding-transfer'; }).sort(function(a,b){ return parseDate(b.date)-parseDate(a.date); });
+  var transfers = (state.transactions||[]).filter(function(t){ return t.category==='transfer'; }).sort(function(a,b){ return parseDate(b.date)-parseDate(a.date); });
+  var total = tagged.reduce(function(s,t){ return s+Math.abs(t.amount); }, 0);
+  if (!tagged.length && !transfers.length) { el.innerHTML=''; return; }
+  var html = '<div class="card" style="margin-bottom:0">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+    + '<div style="font-size:15px;font-weight:800">💍 Fund Contributions</div>'
+    + (total > 0 ? '<div style="font-size:18px;font-weight:900;color:var(--green)">'+fmt(total)+' tracked</div>' : '')
+    + '</div>';
+  if (tagged.length) {
+    html += '<div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:0.06em;margin-bottom:6px">TAGGED AS WEDDING FUND</div>';
+    html += tagged.map(function(t){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<div><div style="font-size:13px;font-weight:600">'+t.description+'</div><div style="font-size:11px;color:var(--muted)">'+t.date+(t.person?' · '+t.person:'')+'</div></div>'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<span style="font-size:14px;font-weight:800;color:var(--green)">'+fmt(Math.abs(t.amount))+'</span>'
+        + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted)" title="Remove wedding fund tag" onclick="untagWeddingTransfer(\''+t.id+'\')">✕ Untag</button>'
+        + '</div></div>';
+    }).join('');
+  }
+  if (transfers.length) {
+    var recentTransfers = transfers.slice(0,15);
+    html += '<details style="margin-top:12px">'
+      + '<summary style="cursor:pointer;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:0.06em;padding:6px 0">+ TAG A TRANSFER AS A CONTRIBUTION ('+recentTransfers.length+' recent transfers)</summary>'
+      + '<div style="margin-top:6px">'
+      + recentTransfers.map(function(t){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
+            + '<div><div style="font-size:12px;font-weight:600">'+t.description+'</div><div style="font-size:11px;color:var(--muted)">'+t.date+(t.person?' · '+t.person:'')+'</div></div>'
+            + '<div style="display:flex;align-items:center;gap:8px">'
+            + '<span style="font-size:12px;color:var(--muted)">'+fmt(Math.abs(t.amount))+'</span>'
+            + '<button class="btn btn-primary btn-sm" style="font-size:11px" onclick="tagAsWeddingTransfer(\''+t.id+'\')">💍 Tag</button>'
+            + '</div></div>';
+        }).join('')
+      + '</div></details>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function openWeddingVendorModal() {
@@ -212,7 +254,6 @@ function openWeddingSettingsModal() {
   openModal('wedding-settings-modal');
 }
 
-// HOUSE DOWN PAYMENT PLANNER
 function calcCMHC(price, downAmt) {
   var pct = downAmt / price;
   if (pct >= 0.20) return 0;
@@ -225,7 +266,6 @@ function calcCMHC(price, downAmt) {
 }
 
 function calcMinDown(price) {
-  // Canadian minimum down payment rules
   if (!price) return 0;
   if (price >= 1000000) return Math.ceil(price * 0.20);
   if (price > 500000)   return Math.ceil(500000 * 0.05 + (price - 500000) * 0.10);
@@ -243,16 +283,9 @@ function calcOntarioLTT(price) {
 }
 
 function calcFirstTimeLTTRebate(price) {
-  // Ontario first-time buyer LTT rebate — max $4,000
   return Math.min(calcOntarioLTT(price), 4000);
 }
 
-// ── New Home HST / FTHB Rebates (new construction only) ──
-// Federal FTHB GST/HST Rebate: up to 100% of GST (5%), max $50,000
-//   ≤ $1M: min(price × 0.05, 50000)
-//   $1M–$1.5M: phases out linearly to $0
-//   ≥ $1.5M: no rebate
-// Ontario: Full 8% provincial HST component rebate on new homes under $1M (first-time buyer)
 function calcFederalGSTRebate(price) {
   if (price <= 0) return 0;
   if (price <= 1000000) return Math.min(Math.round(price * 0.05), 50000);
@@ -260,14 +293,11 @@ function calcFederalGSTRebate(price) {
   return 0;
 }
 function calcOntarioHSTProvincialRebate(price) {
-  // Ontario proposes full 8% provincial rebate on new homes under $1M for eligible first-time buyers
   if (price < 1000000) return Math.round(price * 0.08);
   return 0;
 }
 
-// ── Mortgage Calculator ──
 function calcMortgagePayment(principal, annualRate, amortYears, frequency) {
-  // frequency: 'monthly'=12, 'semi-monthly'=24, 'bi-weekly'=26, 'accel-bi-weekly'=26, 'weekly'=52, 'accel-weekly'=52
   var freqMap = { monthly: 12, 'semi-monthly': 24, 'bi-weekly': 26, 'accel-bi-weekly': 26, weekly: 52, 'accel-weekly': 52 };
   var n = freqMap[frequency] || 12;
   var r = (annualRate / 100) / 2; // Canadian semi-annual compounding
@@ -275,7 +305,6 @@ function calcMortgagePayment(principal, annualRate, amortYears, frequency) {
   var totalPayments = amortYears * n;
   if (effectiveRate === 0) return principal / totalPayments;
   var payment = principal * effectiveRate / (1 - Math.pow(1 + effectiveRate, -totalPayments));
-  // Accelerated = monthly / (n/12) effectively pays one extra monthly payment per year
   if (frequency === 'accel-bi-weekly') payment = (principal * (Math.pow(1 + (annualRate/100)/2, 2/12) - 1) / (1 - Math.pow(1 + (Math.pow(1+(annualRate/100)/2,2/12)-1), -(amortYears*12)))) / 2;
   if (frequency === 'accel-weekly')    payment = (principal * (Math.pow(1 + (annualRate/100)/2, 2/12) - 1) / (1 - Math.pow(1 + (Math.pow(1+(annualRate/100)/2,2/12)-1), -(amortYears*12)))) / 4;
   return payment;
@@ -298,7 +327,6 @@ function calcAmortizationSchedule(principal, annualRate, amortYears, frequency) 
     balance -= principalPaid;
     totalInterest += interest;
     i++;
-    // Capture snapshot years
     var yr = Math.floor(i / n);
     var rem = i % n;
     if (rem === 0 && yr > 0) {
@@ -326,7 +354,6 @@ function renderHouse() {
   var m1 = members[0] || { name: 'Person 1' };
   var m2 = members[1] || { name: 'Person 2' };
 
-  // ── Overview Card ──
   var pct5  = price ? Math.min(100, Math.round((saved / (price * 0.05))  * 100)) : 0;
   var pct10 = price ? Math.min(100, Math.round((saved / (price * 0.10))  * 100)) : 0;
   var pct20 = price ? Math.min(100, Math.round((saved / (price * 0.20))  * 100)) : 0;
@@ -360,7 +387,6 @@ function renderHouse() {
     '</div>';
   document.getElementById('house-overview-card').innerHTML = overviewHtml;
 
-  // ── CMHC Card ──
   var cmhcHtml = '<div class="card" style="margin-bottom:0">' +
     '<div class="card-title">🏦 CMHC Mortgage Insurance</div>' +
     '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Required when down payment is under 20%. Added to your mortgage principal.</div>';
@@ -387,7 +413,6 @@ function renderHouse() {
   cmhcHtml += '</div>';
   document.getElementById('house-cmhc-card').innerHTML = cmhcHtml;
 
-  // ── LTT Card ──
   var lttHtml = '<div class="card" style="margin-bottom:0">' +
     '<div class="card-title">🧾 Ontario Land Transfer Tax</div>' +
     '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Paid at closing. First-time buyers get up to $4,000 rebate.</div>';
@@ -420,7 +445,6 @@ function selectHouseDownScenario(key) {
   if (!state.house) state.house = {};
   if (!state.house.mortgage) state.house.mortgage = {};
   state.house.mortgage.selectedScenario = key;
-  // Map scenario key to a downOverride amount
   var h     = state.house;
   var price = h.targetPrice || 0;
   var saved = (h.savedAmount || 0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
@@ -436,7 +460,6 @@ function selectHouseDownScenario(key) {
   renderHouseMortgage();
 }
 
-// ── Down Payment Comparison Table (ratehub-style) ──
 function renderHouseComparison() {
   var h     = state.house || {};
   var price = h.targetPrice || 0;
@@ -467,9 +490,7 @@ function renderHouseComparison() {
   var isNew = !!h.isNewConstruction;
   var freqLabel = { monthly:'Monthly', 'semi-monthly':'Semi-Mo.', 'bi-weekly':'Bi-Wkly', 'accel-bi-weekly':'Accel Bi-Wkly', weekly:'Weekly', 'accel-weekly':'Accel Wkly' };
 
-  // Build per-scenario numbers using calcMortgageContext for each down amount
   var cols = scenarios.map(function(sc) {
-    // Pass sc.down directly — no state mutation needed or permitted
     var ctx = calcMortgageContext(price, sc.down);
 
     var payment = ctx.principal > 0 ? calcMortgagePayment(ctx.principal, ctx.rate, ctx.amort, ctx.freq) : 0;
@@ -490,9 +511,7 @@ function renderHouseComparison() {
     };
   });
 
-  // ── Table ──
   var COL = cols.length;
-  // accent colour per column
   var accents = ['var(--accent)','var(--accent2)','var(--accent)','var(--green)','var(--accent)'];
 
   function row(label, cells, opts) {
@@ -540,7 +559,6 @@ function renderHouseComparison() {
       : '') +
     row('Net Cash to Close', cols.map(function(c){ return {text: fmtC(c.cashToClose)}; }), {bold:true, accent:true});
 
-  // Wrap in scrollable container for mobile
   var html = '<div class="card" style="overflow-x:auto">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
     '<div class="card-title" style="margin:0">📊 Down Payment Scenarios</div>' +
@@ -567,7 +585,6 @@ function _houseThresholdBar(label, pct, color) {
     '</div>';
 }
 
-// ── HST New Home Rebate Card ──
 function renderHouseHSTRebate() {
   var h = state.house || {};
   var price = h.targetPrice || 0;
@@ -579,7 +596,6 @@ function renderHouseHSTRebate() {
   var provRebate = (price && isFTHB) ? calcOntarioHSTProvincialRebate(price) : 0;
   var totalRebate = fedRebate + provRebate;
 
-  // Eligibility flags
   var fedEligible  = isFTHB && price > 0 && price < 1500000;
   var fedPhaseOut  = isFTHB && price > 1000000 && price < 1500000;
   var provEligible = isFTHB && price > 0 && price < 1000000;
@@ -602,7 +618,6 @@ function renderHouseHSTRebate() {
 
   html += '<div style="display:flex;flex-direction:column;gap:8px">';
 
-  // Federal FTHB GST/HST rebate row
   var fedActive = isNew && fedEligible;
   html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-radius:8px;background:' + (fedActive ? 'color-mix(in srgb,var(--accent) 8%,var(--card))' : 'var(--surface)') + ';border:1px solid ' + (fedActive ? 'var(--accent)' : 'var(--border)') + ';opacity:' + (isNew && isFTHB ? '1' : '0.5') + '">' +
     '<div>' +
@@ -617,7 +632,6 @@ function renderHouseHSTRebate() {
     '</div>' +
     '</div>';
 
-  // Ontario provincial rebate row
   var provActive = isNew && provEligible;
   html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-radius:8px;background:' + (provActive ? 'color-mix(in srgb,var(--accent2) 8%,var(--card))' : 'var(--surface)') + ';border:1px solid ' + (provActive ? 'var(--accent2)' : 'var(--border)') + ';opacity:' + (isNew && isFTHB ? '1' : '0.5') + '">' +
     '<div>' +
@@ -631,7 +645,6 @@ function renderHouseHSTRebate() {
     '</div>' +
     '</div>';
 
-  // Total row
   if (price && isNew && isFTHB) {
     html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:8px;background:color-mix(in srgb,var(--green) 10%,var(--card));border:2px solid var(--green)">' +
       '<div>' +
@@ -652,9 +665,6 @@ function renderHouseHSTRebate() {
   document.getElementById('house-hst-rebate-card').innerHTML = html;
 }
 
-// ── Shared mortgage context — single source of truth used by both calculators ──
-// Both renderHouseMortgage and renderHouseAffordability call this so they
-// are guaranteed to use identical assumptions and produce consistent numbers.
 function calcMortgageContext(priceOverride, downOverrideParam) {
   var h    = state.house || {};
   var mort = h.mortgage  || {};
@@ -667,24 +677,16 @@ function calcMortgageContext(priceOverride, downOverrideParam) {
 
   var isFTHB  = (state.members||[]).length > 0 && (state.members||[]).every(function(m){ return m.isFirstTimeBuyer; });
 
-  // Rebates
   var lttRebate = price ? calcFirstTimeLTTRebate(price) : 0;
   var fedHST    = (price && h.isNewConstruction && isFTHB) ? calcFederalGSTRebate(price)            : 0;
   var provHST   = (price && h.isNewConstruction && isFTHB) ? calcOntarioHSTProvincialRebate(price)  : 0;
   var hstRebate = fedHST + provHST;
   var totalRebates = lttRebate + hstRebate;
 
-  // Effective price: if new construction, FTHB eligible, and HST NOT already in quoted price,
-  // deduct the HST rebate from the purchase price before calculating the mortgage principal.
   var effectivePrice = (h.isNewConstruction && isFTHB && !hstInPrice && hstRebate > 0)
     ? Math.max(0, price - hstRebate)
     : price;
 
-  // Down payment priority:
-  // 1. downOverrideParam — passed directly by comparison table, never touches state
-  // 2. mort.downOverride — user-set value saved in settings
-  // 3. selectedScenario  — column selected in comparison table
-  // 4. fallback to saved amount or min required
   var minDown = calcMinDown(effectivePrice);
   var downAmt;
   if (downOverrideParam !== undefined) {
@@ -700,7 +702,6 @@ function calcMortgageContext(priceOverride, downOverrideParam) {
     else                    downAmt = saved || minDown;
   }
 
-  // CMHC insurance (added to principal when down < 20%)
   var cmhc      = (effectivePrice && downAmt) ? (calcCMHC(effectivePrice, downAmt) || 0) : 0;
   var principal = effectivePrice ? Math.max(0, effectivePrice - downAmt) + cmhc : 0;
 
@@ -716,7 +717,6 @@ function calcMortgageContext(priceOverride, downOverrideParam) {
   };
 }
 
-// ── Mortgage Calculator Card ──
 function renderHouseMortgage() {
   var h    = state.house || {};
   var mort = h.mortgage  || {};
@@ -755,7 +755,6 @@ function renderHouseMortgage() {
     _cstat(fmt(totalInterest), 'Total Interest') +
     '</div>';
 
-  // Cost + rebates block
   html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">' +
     '<div style="padding:10px 12px;background:color-mix(in srgb,var(--accent) 8%,var(--card));border-radius:8px;border:1px solid var(--accent);display:flex;justify-content:space-between;align-items:center">' +
     '<div><div style="font-size:13px;font-weight:800">Total Cost of Home</div><div style="font-size:11px;color:var(--muted)">Purchase price + all interest over ' + ctx.amort + ' years</div></div>' +
@@ -780,7 +779,6 @@ function renderHouseMortgage() {
     '</div>' +
     '</div>';
 
-  // Amortization snapshot table
   if (result.schedule.length > 0) {
     var snapYears  = [1, 5, 10, Math.floor(ctx.amort / 2), ctx.amort];
     var uniqueSnaps = snapYears.filter(function(y, i, a){ return a.indexOf(y) === i && y <= ctx.amort; });
@@ -807,7 +805,6 @@ function renderHouseMortgage() {
   document.getElementById('house-mortgage-card').innerHTML = html;
 }
 
-// ── Affordability (Reverse) Calculator Card ──
 function renderHouseAffordability() {
   var h    = state.house || {};
   var mort = h.mortgage  || {};
@@ -815,7 +812,6 @@ function renderHouseAffordability() {
   var freqLabel   = { monthly:'Monthly', 'semi-monthly':'Semi-Monthly', 'bi-weekly':'Bi-Weekly', 'accel-bi-weekly':'Accel. Bi-Weekly', weekly:'Weekly', 'accel-weekly':'Accel. Weekly' };
   var freqPerYear = { monthly:12, 'semi-monthly':24, 'bi-weekly':26, 'accel-bi-weekly':26, weekly:52, 'accel-weekly':52 };
 
-  // Read rate/amort/freq from context (without price) so we match mortgage calc settings
   var baseCtx = calcMortgageContext(0);
   var rate  = baseCtx.rate;
   var amort = baseCtx.amort;
@@ -834,9 +830,6 @@ function renderHouseAffordability() {
     return;
   }
 
-  // Binary search: find the purchase price where calcMortgageContext(price).principal
-  // produces exactly comfortPayment when fed to calcMortgagePayment.
-  // This uses the IDENTICAL logic as renderHouseMortgage — guaranteed to match.
   var lo = 50000; var hi = 6000000; var maxPrice = lo;
   var i = 0;
   while (lo <= hi && i < 80) {
@@ -849,7 +842,6 @@ function renderHouseAffordability() {
     i++;
   }
 
-  // Get context at the found maxPrice for display
   var ctx = calcMortgageContext(maxPrice);
   var n = freqPerYear[freq] || 12;
   var totalPayments = amort * n;
@@ -868,7 +860,6 @@ function renderHouseAffordability() {
     _cstat(fmt(Math.max(0, totalInterest)), 'Est. Total Interest') +
     '</div>';
 
-  // Rebates block — identical structure to mortgage calculator
   html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">' +
     '<div style="display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">' +
     '<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px">Government Rebates at Closing</div>' +
@@ -889,14 +880,12 @@ function renderHouseAffordability() {
     '</div>' +
     '</div>';
 
-  // Stress test — same binary search at rate + 2%
   var stressRate = rate + 2;
   var slo = 50000; var shi = 6000000; var stressPrice = slo;
   var si = 0;
   while (slo <= shi && si < 80) {
     var smid = Math.floor((slo + shi) / 2);
     var sctx = calcMortgageContext(smid);
-    // Temporarily override rate for stress test payment calc
     var spmt = sctx.principal > 0 ? calcMortgagePayment(sctx.principal, stressRate, amort, freq) : 0;
     if (Math.abs(spmt - comfortPayment) < 0.50) { stressPrice = smid; break; }
     if (spmt < comfortPayment) { slo = smid + 1; stressPrice = smid; }
@@ -913,7 +902,6 @@ function renderHouseAffordability() {
   document.getElementById('house-affordability-card').innerHTML = html;
 }
 
-// ── Mortgage Modal ──
 function openHouseUnifiedModal(tab) {
   var h    = state.house   || {};
   var mort = h.mortgage    || {};
@@ -922,7 +910,6 @@ function openHouseUnifiedModal(tab) {
   var minDown = calcMinDown(price);
   var pct20   = price ? Math.ceil(price * 0.20) : 0;
 
-  // Tab 1 — Home Details
   document.getElementById('hu-price').value    = price    || '';
   document.getElementById('hu-saved').value    = h.savedAmount || '';
   document.getElementById('hu-monthly').value  = h.monthlyContribution || '';
@@ -936,18 +923,15 @@ function openHouseUnifiedModal(tab) {
       }).join('');
   }
 
-  // Tab 2 — Mortgage Terms
   document.getElementById('hu-rate').value     = mort.rate      || 4.99;
   document.getElementById('hu-amort').value    = mort.amort     || 25;
   document.getElementById('hu-freq').value     = mort.frequency || 'monthly';
   document.getElementById('hu-hst-in-price').checked = mort.hstInPrice !== false;
   document.getElementById('hu-comfort').value  = mort.comfortPayment || '';
 
-  // Down payment — stored override, else min required
   var downVal = mort.downOverride > 0 ? mort.downOverride : (minDown || '');
   document.getElementById('hu-down').value = downVal;
 
-  // Wire quick-fill buttons
   var btnMin  = document.getElementById('hu-btn-mindown');
   var btnSave = document.getElementById('hu-btn-saved');
   var btn20   = document.getElementById('hu-btn-20pct');
@@ -963,7 +947,6 @@ function openHouseUnifiedModal(tab) {
     else                      downHint.textContent = 'Set a target home price above to calculate minimums.';
   }
 
-  // Switch to the requested tab
   huSwitchTab(tab || 'home');
   openModal('house-unified-modal');
 }
@@ -983,7 +966,6 @@ function saveHouseUnified() {
   if (!state.house)          state.house          = {};
   if (!state.house.mortgage) state.house.mortgage = {};
 
-  // Home Details
   state.house.targetPrice         = parseFloat(document.getElementById('hu-price').value)   || 0;
   state.house.savedAmount         = parseFloat(document.getElementById('hu-saved').value)   || 0;
   state.house.monthlyContribution = parseFloat(document.getElementById('hu-monthly').value) || 0;
@@ -992,7 +974,6 @@ function saveHouseUnified() {
   var sel = document.getElementById('hu-linked-goal');
   state.house.linkedGoalId        = sel ? sel.value : '';
 
-  // Mortgage Terms
   state.house.mortgage.rate           = parseFloat(document.getElementById('hu-rate').value)    || 4.99;
   state.house.mortgage.amort          = parseInt(document.getElementById('hu-amort').value)     || 25;
   state.house.mortgage.frequency      = document.getElementById('hu-freq').value                || 'monthly';
@@ -1007,13 +988,11 @@ function saveHouseUnified() {
   hhToast('House settings saved!', '🏡');
 }
 
-// Keep old names as aliases so any remaining references (FHSA/HBP buttons etc.) still work
 function openHouseSettingsModal()  { openHouseUnifiedModal('home');     }
 function openHouseMortgageModal()  { openHouseUnifiedModal('mortgage'); }
 function saveHouseSettings()       { saveHouseUnified(); }
 function saveHouseMortgage()       { saveHouseUnified(); }
 
-// BILLS & SUBSCRIPTIONS
 var BILL_CATEGORIES = ['Streaming','Music','Software','Phone & Internet','Insurance','Utilities','Fitness','Gaming','News & Magazines','Finance','Pet','Other'];
 var BILL_FREQUENCIES = ['Weekly','Bi-weekly','Monthly','Bi-monthly','Quarterly','Semi-annual','Annual'];
 
@@ -1037,7 +1016,6 @@ function _billNextDue(b) {
 }
 
 function _advanceBillDue(b) {
-  // Advance nextDue by one frequency period
   if (!b.nextDue) return;
   var d = new Date(b.nextDue + 'T00:00:00');
   switch (b.frequency) {
@@ -1056,7 +1034,6 @@ function renderBills() {
   var bills = state.bills || [];
   var today = new Date(); today.setHours(0,0,0,0);
 
-  // Alert bar — overdue and due within 7 days
   var alerts = bills.filter(function(b){
     var d = _billNextDue(b);
     if (!d) return false;
@@ -1072,7 +1049,6 @@ function renderBills() {
     return '<div class="alert" style="border-left:4px solid '+urgency+';background:color-mix(in srgb,'+urgency+' 8%,var(--card));margin-bottom:6px">🧾 <strong>'+b.name+'</strong> — '+fmt(b.amount||0)+' <span style="color:'+urgency+';font-weight:700">'+label+'</span>'+(b.account?' &nbsp;·&nbsp; '+b.account:'')+'</div>';
   }).join('');
 
-  // Stats
   var monthlyTotal = bills.reduce(function(s,b){ return s+_billMonthlyCost(b); }, 0);
   var annualTotal  = monthlyTotal * 12;
   var overdueCount = bills.filter(function(b){ var d=_billNextDue(b); return d && d<today; }).length;
@@ -1090,7 +1066,6 @@ function renderBills() {
     return;
   }
 
-  // Upcoming timeline (next 30 days)
   var upcoming30 = [];
   bills.forEach(function(b){
     var d = _billNextDue(b);
@@ -1119,7 +1094,6 @@ function renderBills() {
   upcomingHtml += '</div>';
   document.getElementById('bills-upcoming-card').innerHTML = upcomingHtml;
 
-  // By category breakdown — resolve IDs to names
   var byCat = {};
   bills.forEach(function(b){
     var cat = getCatById(b.category||'other');
@@ -1137,7 +1111,6 @@ function renderBills() {
     }).join('') + '</div></div>';
   document.getElementById('bills-by-category-card').innerHTML = catHtml;
 
-  // Full bills list grouped by category name
   var grouped = {};
   bills.forEach(function(b){
     var cat = getCatById(b.category||'other');
@@ -1179,7 +1152,6 @@ function renderBills() {
 
 function openBillModal(prefill) {
   var p = prefill || {};
-  // Populate category dropdown from transaction categories
   var catSel = document.getElementById('bill-category');
   if (catSel) {
     var prevCat = p.category || 'other';
@@ -1187,7 +1159,6 @@ function openBillModal(prefill) {
       .filter(function(c){ return c.id !== 'income' && c.id !== 'transfer'; })
       .map(function(c){ return '<option value="'+c.id+'"'+(c.id===prevCat?' selected':'')+'>'+c.name+'</option>'; })
       .join('');
-    // If category not found in list, fall back to first option
     if (!catSel.value) catSel.selectedIndex = 0;
   }
   document.getElementById('bill-edit-id').value    = p.id || '';
@@ -1221,7 +1192,6 @@ function saveBill() {
     nextDue:    document.getElementById('bill-next-due').value,
     account:    document.getElementById('bill-account').value.trim(),
     notes:      document.getElementById('bill-notes').value.trim(),
-    // Preserve sourceDesc from auto-detect; keep existing one on edit
     sourceDesc: document.getElementById('bill-source-desc').value.trim() || (existingBill && existingBill.sourceDesc) || ''
   };
   if (!state.bills) state.bills = [];
@@ -1232,7 +1202,6 @@ function saveBill() {
     state.bills.push(b);
   }
   saveState(); closeModal('bill-modal'); renderBills(); renderDashboard();
-  // If we're mid-queue, advance to next suggestion
   if (_billSuggestQueue.length > 0) {
     _billSuggestNext();
   } else {
@@ -1261,13 +1230,9 @@ function markBillPaid(id) {
 var _billSuggestQueue = [];
 
 function billsSuggestFromTransactions() {
-  // ── Pass 1: category-based — any transaction cat that implies recurring billing ──
   var SUGGEST_CATS = ['subscriptions','phone','fitness','insurance','entertainment','health','auto','other'];
 
-  // ── Pass 2: keyword scan — catches streaming/media even if miscategorised ──
-  // Each entry: { pattern (regex), suggestedCat (state.categories id), label (clean name) }
   var KNOWN_BILLS = [
-    // Streaming / Video
     { p:/NETFLIX/,          cat:'entertainment', label:'Netflix' },
     { p:/DISNEY(\+| PLUS)/,  cat:'entertainment', label:'Disney+' },
     { p:/CRAVE/,            cat:'entertainment', label:'Crave' },
@@ -1277,13 +1242,11 @@ function billsSuggestFromTransactions() {
     { p:/YOUTUBE.*PREMIUM/, cat:'entertainment', label:'YouTube Premium' },
     { p:/HULU/,             cat:'entertainment', label:'Hulu' },
     { p:/HBO/,              cat:'entertainment', label:'HBO Max' },
-    // Music
     { p:/SPOTIFY/,          cat:'subscriptions', label:'Spotify' },
     { p:/APPLE.*MUSIC/,     cat:'subscriptions', label:'Apple Music' },
     { p:/TIDAL/,            cat:'subscriptions', label:'Tidal' },
     { p:/DEEZER/,           cat:'subscriptions', label:'Deezer' },
     { p:/AMAZON.*MUSIC/,    cat:'subscriptions', label:'Amazon Music' },
-    // Software / Cloud
     { p:/MICROSOFT.*365|OFFICE 365|MICROSOFT 365/, cat:'subscriptions', label:'Microsoft 365' },
     { p:/MICROSOFT.*GAME PASS|XBOX GAME PASS/,     cat:'subscriptions', label:'Xbox Game Pass' },
     { p:/ADOBE/,            cat:'subscriptions', label:'Adobe Creative Cloud' },
@@ -1292,11 +1255,9 @@ function billsSuggestFromTransactions() {
     { p:/DROPBOX/,          cat:'subscriptions', label:'Dropbox' },
     { p:/NOTION/,           cat:'subscriptions', label:'Notion' },
     { p:/CHATGPT|OPENAI/,   cat:'subscriptions', label:'ChatGPT' },
-    // Gaming
     { p:/PLAYSTATION.*PLUS|PS PLUS|PSN/, cat:'subscriptions', label:'PlayStation Plus' },
     { p:/NINTENDO.*ONLINE/,  cat:'subscriptions', label:'Nintendo Online' },
     { p:/STEAM/,            cat:'subscriptions', label:'Steam' },
-    // Phone / Internet
     { p:/TELUS/,            cat:'phone', label:'Telus' },
     { p:/ROGERS/,           cat:'phone', label:'Rogers' },
     { p:/BELL /,            cat:'phone', label:'Bell' },
@@ -1307,21 +1268,17 @@ function billsSuggestFromTransactions() {
     { p:/COGECO/,           cat:'phone', label:'Cogeco' },
     { p:/SHAW/,             cat:'phone', label:'Shaw' },
     { p:/EASTLINK/,         cat:'phone', label:'Eastlink' },
-    // Fitness
     { p:/GOODLIFE/,         cat:'fitness', label:'GoodLife Fitness' },
     { p:/YMCA/,             cat:'fitness', label:'YMCA' },
     { p:/PLANET FITNESS/,   cat:'fitness', label:'Planet Fitness' },
     { p:/ANYTIME FITNESS/,  cat:'fitness', label:'Anytime Fitness' },
-    // Shopping / Prime
     { p:/AMAZON PRIME/,     cat:'subscriptions', label:'Amazon Prime' },
     { p:/PC EXPRESS PASS/,  cat:'subscriptions', label:'PC Express Pass' },
     { p:/COSTCO/,           cat:'subscriptions', label:'Costco Membership' },
-    // News / Podcasts
     { p:/NEW YORK TIMES|NYTIMES/, cat:'subscriptions', label:'New York Times' },
     { p:/GLOBE.*MAIL/,      cat:'subscriptions', label:'Globe and Mail' },
     { p:/TORONTO STAR/,     cat:'subscriptions', label:'Toronto Star' },
     { p:/PATREON/,          cat:'subscriptions', label:'Patreon' },
-    // Insurance
     { p:/ALLSTATE/,         cat:'insurance', label:'Allstate Insurance' },
     { p:/INTACT/,           cat:'insurance', label:'Intact Insurance' },
     { p:/SUNLIFE|SUN LIFE/, cat:'insurance', label:'Sun Life' },
@@ -1332,7 +1289,6 @@ function billsSuggestFromTransactions() {
   var amts   = {};
   var catHints = {}; // key → suggested category id
 
-  // Pass 1: category-based scan
   state.transactions.forEach(function(t){
     if (!SUGGEST_CATS.includes(t.category)) return;
     var key = t.description.substring(0,25).trim().toUpperCase();
@@ -1341,7 +1297,6 @@ function billsSuggestFromTransactions() {
     if (!catHints[key]) catHints[key] = t.category;
   });
 
-  // Pass 2: keyword scan across ALL transactions
   state.transactions.forEach(function(t){
     var desc = (t.description||'').toUpperCase();
     KNOWN_BILLS.forEach(function(kb){
@@ -1353,15 +1308,12 @@ function billsSuggestFromTransactions() {
     });
   });
 
-  // Filter: 2+ occurrences, not already in bills list
-  // Normalize helper — strip punctuation/spaces for fuzzy matching
   function _norm(s) { return s.toUpperCase().replace(/[^A-Z0-9]/g,''); }
   var existingBills = (state.bills||[]);
 
   function _isDuplicate(key, detectedAmt) {
     var kn = _norm(key);
     return existingBills.some(function(b){
-      // Check against both the bill's display name AND its original transaction description
       var namesToCheck = [_norm(b.name)];
       if (b.sourceDesc) namesToCheck.push(_norm(b.sourceDesc));
 
@@ -1371,9 +1323,7 @@ function billsSuggestFromTransactions() {
         return longer.startsWith(shorter) && shorter.length >= 4;
       });
       if (!nameMatch) return false;
-      // If either side has no amount, name match alone is enough
       if (!b.amount || !detectedAmt) return true;
-      // Otherwise require amounts to be within 15% of each other
       var ratio = detectedAmt / b.amount;
       return ratio >= 0.85 && ratio <= 1.15;
     });
@@ -1409,14 +1359,11 @@ function _billSuggestNext() {
     return;
   }
   var next = _billSuggestQueue.shift();
-  // Add skip button label to title so user knows there are more
   var remaining = _billSuggestQueue.length;
   next._queueRemaining = remaining;
   openBillModal(next);
-  // Update modal title to show progress
   var titleEl = document.getElementById('bill-modal-title');
   if (titleEl) titleEl.textContent = '🧾 Add Bill' + (remaining > 0 ? ' (' + (remaining+1) + ' remaining)' : '');
-  // Add a Skip button temporarily if not already there
   var footer = document.querySelector('#bill-modal .modal-footer');
   if (footer && !document.getElementById('bill-suggest-skip-btn')) {
     var skipBtn = document.createElement('button');
@@ -1429,7 +1376,6 @@ function _billSuggestNext() {
 }
 
 function _billSuggestCleanup() {
-  // Remove the skip button after queue is done
   var skipBtn = document.getElementById('bill-suggest-skip-btn');
   if (skipBtn) skipBtn.remove();
 }
@@ -1438,7 +1384,6 @@ function _titleCase(str) {
   return str.toLowerCase().replace(/\b\w/g, function(c){ return c.toUpperCase(); });
 }
 
-// NET WORTH TIMELINE
 var _nwChartInstance = null;
 var _nwRange = 12;
 
@@ -1459,7 +1404,6 @@ function calcCurrentNetWorth() {
     var hasStartingBalance = sb && sb.amount != null && sb.date;
     var balance;
     if (hasStartingBalance) {
-      // Use toISO() to normalise dates — matches authoritative calcBalance exactly
       var filtered = allTxns.filter(function(t){ return toISO(t.date||'') > sb.date; });
       var txnSum = filtered.reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
       balance = isDebt ? parseFloat(sb.amount) - txnSum : parseFloat(sb.amount) + txnSum;
@@ -1470,14 +1414,10 @@ function calcCurrentNetWorth() {
     if (isDebt) totalDebts += Math.max(0, balance);
     else totalAssets += balance;
   });
-  // Add manual assets/liabilities
   (state.manualAssets||[]).forEach(function(a){
     if (a.isDebt) totalDebts += (a.value||0);
     else totalAssets += (a.value||0);
   });
-  // Car fund savings count as assets (real saved cash toward a vehicle goal).
-  // Only add the manually-entered savedAmount + categorized txn contributions —
-  // NOT double-counted if the money already sits in a tracked bank account.
   (state.carFunds||[]).forEach(function(c){
     var saved = (c.savedAmount||0) + getCarFundContributions(c.id);
     if (saved > 0) totalAssets += saved;
@@ -1499,6 +1439,74 @@ function takeNetWorthSnapshot(manual) {
   }
   saveState();
   if (manual) { hhToast('Snapshot saved for ' + mk + '!', '📸'); renderNetWorth(); renderDashboard(); }
+}
+
+var _nwProjChartInstance = null;
+function renderNWProjection() {
+  var canvas = document.getElementById('nw-projection-chart');
+  var empty  = document.getElementById('nw-projection-empty');
+  if (!canvas) return;
+  var history = state.netWorthHistory || [];
+  var base = history.length ? history[history.length-1].netWorth : 0;
+  // Avg monthly surplus over last 6 months
+  var avgSurplus = 0;
+  var counted = 0;
+  for (var i = 1; i <= 6; i++) {
+    var d0 = new Date(); d0.setMonth(d0.getMonth()-i);
+    var mk0 = d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0');
+    var mkTxns = (state.transactions||[]).filter(function(t){ return getMonthKey(t.date)===mk0; });
+    var inc = mkTxns.filter(function(t){ return t.amount>0&&t.category!=='transfer'&&t.source!=='tips'&&t.source!=='split'; })
+                    .reduce(function(s,t){ return s+t.amount; },0) + (typeof getTipsForMonth==='function'?getTipsForMonth(mk0):0);
+    var exp = mkTxns.filter(function(t){ return t.amount<0&&t.category!=='transfer'; })
+                    .reduce(function(s,t){ return s+Math.abs(t.amount); },0);
+    if (inc > 0) { avgSurplus += (inc-exp); counted++; }
+  }
+  if (counted > 0) avgSurplus = avgSurplus / counted;
+  if (!history.length && counted===0) {
+    canvas.style.display='none'; if(empty)empty.style.display=''; return;
+  }
+  canvas.style.display=''; if(empty)empty.style.display='none';
+  var months=120, labels=[], data=[];
+  var mNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  for (var m=0;m<=months;m++) {
+    var dp=new Date(); dp.setMonth(dp.getMonth()+m);
+    labels.push(mNames[dp.getMonth()]+' \''+String(dp.getFullYear()).slice(2));
+    data.push(Math.round(base+avgSurplus*m));
+  }
+  // Build milestone datasets from goals
+  var milestoneDatasets=[];
+  var milestoneColors=['rgba(250,180,50,0.8)','rgba(100,180,255,0.8)','rgba(200,130,255,0.8)','rgba(80,220,160,0.8)'];
+  (state.goals||[]).forEach(function(g,gi){
+    var saved=(g.current||0)+getGoalContributions(g.id);
+    if(saved>=g.target)return;
+    var col=milestoneColors[gi%milestoneColors.length];
+    var lineData=data.map(function(){ return g.target; });
+    // Find intersection month
+    var hitMonth=data.findIndex(function(v){ return v>=g.target; });
+    var hitLabel=hitMonth>=0?labels[hitMonth]:'';
+    milestoneDatasets.push({
+      label:(g.emoji||'\U0001f3af')+' '+g.name+(hitLabel?' ('+hitLabel+')':''),
+      data:lineData, borderColor:col, backgroundColor:'transparent',
+      borderWidth:1.5, pointRadius:0, borderDash:[6,4], fill:false, tension:0
+    });
+  });
+  if(_nwProjChartInstance){try{_nwProjChartInstance.destroy();}catch(e){} _nwProjChartInstance=null;}
+  _nwProjChartInstance=new Chart(canvas,{
+    type:'line',
+    data:{labels:labels,datasets:[
+      {label:'Projected Net Worth',data:data,borderColor:'rgba(94,190,140,1)',backgroundColor:'rgba(94,190,140,0.08)',
+       borderWidth:2.5,pointRadius:0,fill:true,tension:0.3}
+    ].concat(milestoneDatasets)},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#888',font:{size:10},boxWidth:20}},
+        tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': $'+ctx.parsed.y.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0});}}}},
+      scales:{
+        x:{ticks:{color:'#888',font:{size:9},maxTicksLimit:10},grid:{display:false}},
+        y:{ticks:{color:'#888',font:{size:10},callback:function(v){return '$'+(Math.abs(v)>=1000?(v/1000).toFixed(0)+'k':v);}},grid:{color:'rgba(128,128,128,0.1)'}}
+      }
+    }
+  });
 }
 
 function _renderNWChart() {
@@ -1543,4 +1551,3 @@ function _renderNWChart() {
     }
   });
 }
-

@@ -1,6 +1,5 @@
 function renderDashboard() {
   const now = new Date();
-  // Update nav brand
   var household = state.household || {};
   var navBrand = document.getElementById('nav-brand');
   if (navBrand) navBrand.textContent = (household.emoji || '🏠') + ' ' + (household.name || 'Home Hub');
@@ -12,7 +11,6 @@ function renderDashboard() {
     var hname = household.name ? ', ' + household.name.replace(/the |house|home/gi,'').trim() : '';
     greetEl.textContent = greet;
   }
-  // Household composition strip
   var compHtml = '';
   var today = new Date();
   function dashAgeStr(dob) {
@@ -53,7 +51,7 @@ function renderDashboard() {
   renderWeatherWidget();
   const mk = getCurrentMonthKey();
   const mt = state.transactions.filter(t=>getMonthKey(t.date)===mk);
-  const txnIncome = mt.filter(t=>t.amount>0 && t.category!=='transfer' && t.source!=='tips').reduce((s,t)=>s+t.amount,0);
+  const txnIncome = mt.filter(t=>t.amount>0 && t.category!=='transfer' && t.source!=='tips' && t.source!=='split').reduce((s,t)=>s+t.amount,0);
   const expenses = mt.filter(t=>t.amount<0 && t.category!=='transfer' && t.source!=='tips').reduce((s,t)=>s+Math.abs(t.amount),0);
   const tipsThisMonth = getTipsForMonth(mk);
   const income = txnIncome + tipsThisMonth;
@@ -63,10 +61,18 @@ function renderDashboard() {
     ? `<div class="stat"><div class="stat-label">&#8627; incl. ${tipsMember.name}'s Tips</div><div class="stat-value" style="color:${tipsMember.color}">${fmt(tipsThisMonth)}</div><div class="stat-sub">Deposit: ${fmt(getTipsDepositForMonth(mk))} | Cash: ${fmt(tipsThisMonth-getTipsDepositForMonth(mk))}</div></div>`
     : '';
 
+  const srPct = calcSavingsRate(mk);
+  const prevMkDate = new Date(); prevMkDate.setMonth(prevMkDate.getMonth()-1);
+  const prevMk = prevMkDate.getFullYear()+'-'+String(prevMkDate.getMonth()+1).padStart(2,'0');
+  const srPrev = calcSavingsRate(prevMk);
+  const srColor = srPct>=20?'var(--green)':srPct>=10?'var(--yellow)':'var(--red)';
+  const srEmoji = srPct>=20?'🟢':srPct>=10?'🟡':'🔴';
+  const srTrend = srPrev>0 ? (srPct>srPrev?' ▲':srPct<srPrev?' ▼':' —')+Math.abs(srPct-srPrev)+'% vs last mo' : '';
   document.getElementById('dashboard-stats').innerHTML = `
     <div class="stat"><div class="stat-label">Income This Month</div><div class="stat-value clr-green">${fmt(income)}</div></div>
     <div class="stat"><div class="stat-label">Expenses This Month</div><div class="stat-value clr-red">${fmt(expenses)}</div></div>
     <div class="stat"><div class="stat-label">Net This Month</div><div class="stat-value ${net>=0?'clr-green':'clr-red'}">${fmtSigned(net)}</div></div>
+    <div class="stat"><div class="stat-label">${srEmoji} Savings Rate</div><div class="stat-value" style="color:${srColor}">${srPct}%</div>${srTrend?'<div class="stat-sub">'+srTrend+'</div>':''}</div>
     ${tipsStatHtml}
   `;
 
@@ -79,10 +85,8 @@ function renderDashboard() {
       }).join('')
     : '<div style="color:var(--muted);font-size:13px;padding:8px 0">No events today — a free day! 🎉</div>';
 
-  // Dynamic reminders — delegated to renderReminders()
   renderReminders();
 
-  // Pet care alerts on dashboard
   var dashPetAlerts = document.getElementById('dash-pet-alerts');
   var petCareLink = document.getElementById('pet-care-link');
   if (dashPetAlerts && isFeatureOn('pets')) {
@@ -120,7 +124,6 @@ function renderDashboard() {
     return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span><span class="cat-dot" style="background:${cat.color}"></span>${cat.name}</span><span>${fmt(amt)}${budget?' / '+fmt(budget):''}</span></div>${budget?`<div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>90?'var(--red)':pct>70?'var(--yellow)':cat.color}"></div></div>`:''}</div>`;
   }).join('') || '<div style="color:var(--muted)">No spending this month yet.</div>';
 
-  // Wedding dashboard widget
   var dashWedding = document.getElementById('dash-wedding-wrap');
   if (dashWedding && isFeatureOn('wedding')) {
     var w = state.wedding || {};
@@ -152,7 +155,6 @@ function renderDashboard() {
     dashWedding.innerHTML = '';
   }
 
-  // House dashboard widget
   var dashHouse = document.getElementById('dash-house-wrap');
   if (dashHouse && isFeatureOn('house')) {
     var h = state.house || {};
@@ -177,7 +179,6 @@ function renderDashboard() {
     } else { dashHouse.innerHTML = ''; }
   } else if (dashHouse) { dashHouse.innerHTML = ''; }
 
-  // Bills dashboard widget
   var dashBills = document.getElementById('dash-bills-wrap');
   if (dashBills && isFeatureOn('bills')) {
     var bills = state.bills || [];
@@ -200,7 +201,6 @@ function renderDashboard() {
     } else { dashBills.innerHTML = ''; }
   } else if (dashBills) { dashBills.innerHTML = ''; }
 
-  // Net worth dashboard widget
   var dashNW = document.getElementById('dash-nw-wrap');
   if (dashNW && isFeatureOn('networth')) {
     var nwCurrent = calcCurrentNetWorth();
@@ -220,7 +220,6 @@ function renderDashboard() {
       '</div></div>';
   } else if (dashNW) { dashNW.innerHTML = ''; }
 
-  // Car funds dashboard widget
   var dashCars = document.getElementById('dash-cars-wrap');
   if (dashCars && isFeatureOn('carfunds')) {
     var carFunds = state.carFunds || [];
@@ -259,7 +258,6 @@ function renderDashboard() {
     } else { dashCars.innerHTML = ''; }
   } else if (dashCars) { dashCars.innerHTML = ''; }
 
-  // Maintenance dashboard widget
   var dashMaint = document.getElementById('dash-maintenance-wrap');
   if (dashMaint && isFeatureOn('maintenance')) {
     var tasks = state.maintenanceTasks || [];
@@ -294,7 +292,6 @@ function renderDashboard() {
 }
 
 function getTipsForMonth(mk) {
-  // Returns total tips (deposit + cash) for a given month key
   return state.tips.filter(t=>{
     const d=new Date(t.date); return (d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))===mk;
   }).reduce((s,t)=>s+(t.amount||0)+(t.cashAmount||0),0);
@@ -305,4 +302,13 @@ function getTipsDepositForMonth(mk) {
   }).reduce((s,t)=>s+(t.amount||0),0);
 }
 
-// CALENDAR
+function calcSavingsRate(mk) {
+  var txns = state.transactions.filter(function(t){ return getMonthKey(t.date)===mk; });
+  var income = txns.filter(function(t){
+    return t.amount>0 && t.category!=='transfer' && t.source!=='tips' && t.source!=='split';
+  }).reduce(function(s,t){ return s+t.amount; },0) + getTipsForMonth(mk);
+  var savings = txns.filter(function(t){
+    return t.amount<0 && (t.category==='savings' || (t.category&&t.category.startsWith('goal:')));
+  }).reduce(function(s,t){ return s+Math.abs(t.amount); },0);
+  return income > 0 ? Math.round((savings/income)*100) : 0;
+}

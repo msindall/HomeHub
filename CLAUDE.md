@@ -40,6 +40,23 @@ This increments the version number automatically and produces a new `App_VX_Y.ht
 
 ---
 
+## ⚠️ File Editing Protocol — READ FIRST
+
+**Truncation is the #1 source of corruption in this project.** Source files are 800–4000 lines. Writing a file with any tool other than surgical find-and-replace silently truncates it.
+
+| Situation | Correct tool |
+|---|---|
+| Edit existing `.js` / `.html` / `.css` | `mcp__Desktop_Commander__edit_block` |
+| Create a brand-new file | `write_file` or built-in `Write` |
+| Verify syntax after edit | `node --check <file>` |
+| Check file wasn't truncated | `wc -l <file>` — compare to before |
+
+**Never use `write_file` or the built-in `Write` tool on any file that already exists.**
+
+After each `edit_block` call: run `node --check <file>` and confirm line count is unchanged or larger. If the count drops drastically, restore the function from the latest `App_VX_Y.html`.
+
+---
+
 ## State & Storage
 
 - Single global `state` object. Persisted as JSON under the key `mh_v5` in localStorage.
@@ -158,3 +175,9 @@ Duplicate detection runs before import: transactions with the same date + amount
 - Do not hardcode Matt and Holly's names in UI labels — they come from `state.members`.
 - Do not apply US tax logic. All tax/financial defaults are Ontario, Canada.
 - Do not save the Anthropic API key anywhere other than localStorage under `hh_api_key`.
+- **NEVER write to existing source files with `write_file` or the built-in `Write` tool.** Both truncate large files silently. The source JS files are 800–4000 lines; a 50-line truncation destroys the file with no error.
+- **ALL edits to existing `.js`, `.html`, and `.css` files MUST use `mcp__Desktop_Commander__edit_block`** (find-and-replace). This is the only safe surgical edit path. The built-in `Edit` tool is a fallback only if Desktop Commander is unavailable.
+- **Only use `write_file` or the built-in `Write` tool for brand-new files** that do not yet exist on disk.
+- **Keep each `edit_block` call focused** — change one logical unit at a time (a function, a block, a section). Do not batch unrelated changes into one call.
+- **Verify after every edit:** run `node --check <file>` in the terminal. If the file line count drops unexpectedly, a truncation occurred — restore from the most recent `App_VX_Y.html` build using `python build.py` as a reference.
+- **Strip trailing null bytes if present** after any edit: `python3 -c "d=open(f,'rb').read();open(f,'wb').write(d.rstrip(b'\\x00'))"`

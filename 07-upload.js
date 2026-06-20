@@ -1,5 +1,4 @@
-// Version constant — replaced at build time by build.py
-var HH_VERSION = '6.28';
+var HH_VERSION = '6.38';
 
 function renderStatements(){
   renderAccountsList();
@@ -15,64 +14,43 @@ function removeStatement(id){
   });
 }
 
-// STATEMENT SCANNING (CSV + PDF)
-
-// Normalize any bank date format to M/D/YYYY for internal storage
 function normDate(raw) {
   if (!raw) return '';
   raw = raw.trim();
   const MONTHS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
-  // Already M/D/YYYY or MM/DD/YYYY
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)) return raw;
-  // YYYY-MM-DD — TD / Amex credit card format
   var iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return parseInt(iso[2]) + '/' + parseInt(iso[3]) + '/' + iso[1];
-  // Mon-DD-YYYY — DMD savings account format (e.g. Feb-28-2026) ← CRITICAL
   var monDDYYYY = raw.match(/^([A-Za-z]{3})-(\d{1,2})-(\d{4})$/);
   if (monDDYYYY) { var m0 = MONTHS[monDDYYYY[1].toLowerCase()]; if (m0) return m0 + '/' + parseInt(monDDYYYY[2]) + '/' + monDDYYYY[3]; }
-  // DD-Mon-YYYY (e.g. 15-Jan-2025)
   var ddMon = raw.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
   if (ddMon) { var m1 = MONTHS[ddMon[2].toLowerCase()]; if (m1) return m1 + '/' + parseInt(ddMon[1]) + '/' + ddMon[3]; }
-  // Named month: January 15, 2025 or Jan 15 2025
   var named = raw.match(/([A-Za-z]+)\s+(\d{1,2})[,\s]+(\d{4})/);
   if (named) { var m2 = MONTHS[named[1].slice(0,3).toLowerCase()]; if (m2) return m2 + '/' + parseInt(named[2]) + '/' + named[3]; }
-  // DD/MM/YYYY — day > 12 means it can't be month
   var dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (dmy && parseInt(dmy[1]) > 12) return parseInt(dmy[2]) + '/' + parseInt(dmy[1]) + '/' + dmy[3];
   return raw; // fallback — store as-is
 }
 
-// Convert any stored date format to YYYY-MM-DD for reliable string comparison
 function toISO(raw) {
   if (!raw) return '';
   raw = raw.trim();
-  // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  // M/D/YYYY or MM/DD/YYYY
   var mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mdy) return mdy[3] + '-' + mdy[1].padStart(2,'0') + '-' + mdy[2].padStart(2,'0');
-  // Try normDate first then recurse once
   var normed = normDate(raw);
   if (normed !== raw) return toISO(normed);
   return raw;
 }
 
-// Parse CSV statement — handles RBC Chequing, TD/Amex Credit Card, DMD Savings, BMO Chequing, and generic formats
-// Returns { txns, openingBalance }
 function parseCSVStatement(text) {
-  // Strip BOM and normalize line endings
   text = text.replace(/^\uFEFF/, '');
   var allLines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
 
-  // ── Canadian Tire Mastercard detection ──
-  // Format: line 0 = "MY ACCOUNT TRANSACTIONS", lines 1-2 = metadata, line 3 = real headers
-  // REF,TRANSACTION DATE,POSTED DATE,TYPE,DESCRIPTION,Category,AMOUNT
   if (/my account transactions/i.test(allLines[0]||'')) {
     return parseCTMastercardStatement(allLines);
   }
 
-  // ── BMO detection: file starts with a metadata timestamp line ──
-  // e.g. "Following data is valid as of 20260306183627 ..."
   var isBMO = /following data is valid as of/i.test(allLines[0]||'');
   if (isBMO) {
     return parseBMOStatement(allLines);
@@ -97,13 +75,17 @@ function parseCSVStatement(text) {
 
   var headers = parseLine(lines[0]).map(cleanField);
 
-  // Format detection by header signature
-  var isRBC = headers.includes('CAD$');
-  var isTD  = (headers.includes('Card No.') || headers.includes('Card No')) &&
-               headers.includes('Debit') && headers.includes('Credit');
-  var isDMD = !isRBC && !isTD && headers.includes('Transaction') && headers.includes('Balance');
-  // Headerless CSV detection (first cell looks like a date)
-  var hasHeaders = isRBC || isTD || isDMD ||
+  var isRBC        = headers.includes('CAD$');
+  var isCapitalOne = (headers.includes('Card No.') || headers.includes('Card No')) &&
+                      headers.includes('Category') && headers.includes('Debit') && headers.includes('Credit');
+  var isTD         = !isCapitalOne && (headers.includes('Card No.') || headers.includes('Card No')) &&
+                      headers.includes('Debit') && headers.includes('Credit');
+  var isRBCVisa    = !isRBC && !isCapitalOne && !isTD &&
+                      (headers.includes('Description 1') || headers.includes('Description 2')) &&
+                      headers.includes('Amount') && headers.includes('Currency');
+  var isDMD        = !isRBC && !isTD && !isCapitalOne && !isRBCVisa &&
+                      headers.includes('Transaction') && headers.includes('Balance');
+  var hasHeaders = isRBC || isTD || isCapitalOne || isRBCVisa || isDMD ||
     (isNaN(parseFloat(headers[0])) && !(/^\d{1,2}[\/\-]/.test(headers[0])) && !(/^[A-Za-z]{3}-\d{1,2}-\d{4}/.test(headers[0])));
   var dataStart = hasHeaders ? 1 : 0;
   if (!hasHeaders) headers = ['Date','Description','Amount'];
@@ -116,7 +98,7 @@ function parseCSVStatement(text) {
     var row = {};
     headers.forEach(function(h,j){ row[h] = vals[j]!==undefined ? vals[j] : ''; });
 
-    var desc='', amount=0, rawDate='';
+    var desc='', amount=0, rawDate='', preCategory='';
 
     if (isRBC) {
       var d1 = (row['Description 1']||'').trim();
@@ -126,11 +108,36 @@ function parseCSVStatement(text) {
       amount = toAmt(row['CAD$']);
       rawDate = row['Transaction Date']||'';
 
+    } else if (isCapitalOne) {
+      desc = (row['Description']||'').trim();
+      var co_dv = toAmt(row['Debit']);
+      var co_cv = toAmt(row['Credit']);
+      amount = co_cv>0 ? co_cv : (co_dv>0 ? -co_dv : 0);
+      rawDate = row['Transaction Date']||'';
+      var coCat = (row['Category']||'').trim().toLowerCase();
+      if (coCat.includes('dining') || coCat.includes('restaurant')) preCategory='dining';
+      else if (coCat.includes('grocer')) preCategory='groceries';
+      else if (coCat.includes('gas') || coCat.includes('fuel')) preCategory='gas';
+      else if (coCat.includes('travel') || coCat.includes('hotel') || coCat.includes('airline')) preCategory='travel';
+      else if (coCat.includes('entertainment')) preCategory='entertainment';
+      else if (coCat.includes('health') || coCat.includes('pharmacy') || coCat.includes('medical')) preCategory='health';
+      else if (coCat.includes('payment') || coCat.includes('financial services')) preCategory='transfer';
+      else if (coCat.includes('shop') || coCat.includes('retail') || coCat.includes('merchandise')) preCategory='shopping';
+
     } else if (isTD) {
       desc = (row['Description']||'').trim();
       var dv = toAmt(row['Debit']);
       var cv = toAmt(row['Credit']);
       amount = cv>0 ? cv : (dv>0 ? -dv : 0);
+      rawDate = row['Transaction Date']||'';
+
+    } else if (isRBCVisa) {
+      var rv_d1 = (row['Description 1']||'').trim();
+      var rv_d2 = (row['Description 2']||'').trim();
+      desc = rv_d1;
+      if (rv_d2 && !/^\d+$/.test(rv_d2) && rv_d2.toLowerCase()!==rv_d1.toLowerCase()) desc += (desc?' ':'')+rv_d2;
+      var rv_amt = toAmt(row['Amount']);
+      amount = -rv_amt;
       rawDate = row['Transaction Date']||'';
 
     } else if (isDMD) {
@@ -175,7 +182,7 @@ function parseCSVStatement(text) {
       if (negBal) rowBalance = -rowBalance;
     }
 
-    txns.push({ date: date, description: desc, amount: amount, balance: rowBalance });
+    txns.push({ date: date, description: desc, amount: amount, balance: rowBalance, preCategory: preCategory||'' });
   }
 
   var openingBalance = null;
@@ -188,12 +195,6 @@ function parseCSVStatement(text) {
   return { txns: txns, openingBalance: openingBalance };
 }
 
-// ── Canadian Tire Mastercard CSV parser ─────────────────────────────────────
-// Format: 4-line header block, then data rows with REF column for dedup
-// Line 0: "MY ACCOUNT TRANSACTIONS"
-// Line 1: "Start Date,End Date,Current Balance,Available Credit"
-// Line 2: metadata values
-// Line 3: "REF,TRANSACTION DATE,POSTED DATE,TYPE,DESCRIPTION,Category,AMOUNT"
 function parseCTMastercardStatement(allLines) {
   function parseLine(line) {
     var fields = [], cur = '', inQ = false;
@@ -209,7 +210,6 @@ function parseCTMastercardStatement(allLines) {
   function cleanField(v) { return v.replace(/^"+|"+$/g,'').trim(); }
   function toAmt(v) { return parseFloat((v||'').replace(/[\$,\s]/g,''))||0; }
 
-  // Find the real header row (contains REF and TRANSACTION DATE)
   var headerIdx = -1;
   for (var i = 0; i < allLines.length; i++) {
     var upper = (allLines[i]||'').toUpperCase();
@@ -237,8 +237,6 @@ function parseCTMastercardStatement(allLines) {
 
     if (!desc && !rawAmt) continue;
 
-    // CT amounts are positive for charges (debits on a credit card)
-    // Store as negative so they reduce the account balance (consistent with other credit card parsers)
     var amount = toAmt(rawAmt);
     if (amount > 0) amount = -amount; // charges are outflows
 
@@ -250,12 +248,7 @@ function parseCTMastercardStatement(allLines) {
   return { txns: txns, openingBalance: null };
 }
 
-// ── BMO Chequing/Savings CSV parser ──────────────────────────────────────────
-// Format: metadata line, blank lines, then header row:
-//   First Bank Card, Transaction Type, Date Posted, Transaction Amount, Description
-// Data rows: 'CARDNUMBER', DEBIT|CREDIT, YYYYMMDD, -amount, [XX]MERCHANT CITY PROV
 function parseBMOStatement(allLines) {
-  // Find the actual header row (contains "First Bank Card")
   var headerIdx = -1;
   for (var i = 0; i < allLines.length; i++) {
     if (/first bank card/i.test(allLines[i])) { headerIdx = i; break; }
@@ -274,7 +267,6 @@ function parseBMOStatement(allLines) {
     return fields;
   }
 
-  // BMO transaction type code descriptions
   var bmoTypeCodes = {
     'PR':  'Purchase',
     'CW':  'Interac/Wire Transfer',
@@ -296,13 +288,11 @@ function parseBMOStatement(allLines) {
     var vals = parseLine(line);
     if (vals.length < 5) continue;
 
-    // vals: [cardNumber, txnType, datePosted, amount, description]
     var txnType  = (vals[1]||'').trim().toUpperCase();
     var rawDate  = (vals[2]||'').trim();   // YYYYMMDD
     var rawAmt   = (vals[3]||'').trim();   // negative for debits
     var rawDesc  = (vals[4]||'').trim();
 
-    // Parse date YYYYMMDD → YYYY-MM-DD
     var dateStr = '';
     if (/^\d{8}$/.test(rawDate)) {
       dateStr = rawDate.slice(0,4) + '-' + rawDate.slice(4,6) + '-' + rawDate.slice(6,8);
@@ -310,43 +300,32 @@ function parseBMOStatement(allLines) {
       dateStr = normDate(rawDate);
     }
 
-    // Parse amount (already signed: negative = debit)
     var amount = parseFloat(rawAmt) || 0;
 
-    // Clean description: strip [XX] prefix code and extra whitespace
     var typeCode = '';
     var descClean = rawDesc.replace(/^\[([A-Z0-9]+)\]/, function(m, code) {
       typeCode = code;
       return '';
     }).replace(/\s+/g, ' ').trim();
 
-    // For transfers, include the recipient name if present
-    // BMO transfer desc format: "INTERAC ETRNSFR SENT     RECIPIENT NAME   REFERENCE"
-    // Clean up to readable form
     descClean = descClean
       .replace(/\s{2,}/g, ' ')       // collapse multiple spaces
       .trim();
 
-    // Friendly label: combine type code meaning + cleaned description
     var typeLabel = bmoTypeCodes[typeCode] || typeCode;
     var desc = descClean;
-    // If it's a payroll deposit, label it clearly
     if (/paie\/payroll|pay\/pay/i.test(desc)) desc = 'Payroll Deposit';
-    // If it's a performance plan fee
     if (/performance plan/i.test(desc)) desc = 'BMO Performance Plan Fee';
-    // If it's an e-transfer out, extract recipient
     if (/interac etrnsfr sent/i.test(desc)) {
       var recipMatch = desc.match(/INTERAC ETRNSFR SENT\s+([A-Z\s]+?)\s+\d/i);
       if (recipMatch) desc = 'e-Transfer Sent — ' + recipMatch[1].trim();
       else desc = 'e-Transfer Sent';
     }
-    // If it's an e-transfer received
     if (/interac etrnsfr recvd/i.test(desc)) {
       var recipMatchR = desc.match(/INTERAC ETRNSFR RECVD\s+([A-Z\s]+?)\s+\d/i);
       if (recipMatchR) desc = 'e-Transfer Received — ' + recipMatchR[1].trim();
       else desc = 'e-Transfer Received';
     }
-    // Canada government payments
     if (/canada.*fhb|fhb.*canada/i.test(desc)) desc = 'Canada FHB Grant';
     if (/canada.*rrsp|canada.*ccb|canada.*gst/i.test(desc)) desc = 'Government Benefit';
 
@@ -358,18 +337,80 @@ function parseBMOStatement(allLines) {
   return { txns: txns, openingBalance: null };
 }
 
-// Pending import state for CSV preview/confirm flow
+async function parseWithAI(allLines, filename) {
+  var key = getApiKey && getApiKey();
+  if (!key) {
+    hhAlert('An Anthropic API key is needed for AI-assisted import. Add it in Settings → API Key.', '🔑');
+    return null;
+  }
+  var sample = allLines.slice(0, 6).join('\n');
+  var prompt = 'Here is the header and first 5 rows of a Canadian bank statement CSV:\n\n```\n'
+    + sample + '\n```\n\n'
+    + 'Identify which column index (0-based) maps to each of: date, description, amount (signed), debit_amount, credit_amount.\n'
+    + 'If amount is a single signed column, set "amount" to its index and "debit"/"credit" to null.\n'
+    + 'If amount is split into separate debit/credit columns (both positive), set "amount" to null.\n'
+    + 'Also identify the likely bank name and the sign convention.\n'
+    + 'Respond with ONLY valid JSON (no markdown, no explanation):\n'
+    + '{"date":0,"description":1,"amount":3,"debit":null,"credit":null,"bank":"Bank Name","sign_convention":"negative_expense"}\n'
+    + 'sign_convention is "negative_expense" (negative=expense, positive=income) or "positive_debit" (positive=charge, must flip to negative).';
+  hhToast('Asking AI to identify CSV columns…', '🤖');
+  try {
+    var resp = await callClaude(prompt, 400);
+    resp = resp.replace(/```json|```/g,'').trim();
+    var mapping = JSON.parse(resp);
+    var txns = [];
+    function parseLine2(line) {
+      var fields=[], cur='', inQ=false;
+      for (var i=0;i<line.length;i++){
+        var c=line[i];
+        if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){fields.push(cur.trim());cur='';}else{cur+=c;}
+      }
+      fields.push(cur.trim()); return fields;
+    }
+    for (var i = 1; i < allLines.length; i++) {
+      var cols = parseLine2(allLines[i]);
+      if (!cols || cols.length < 2) continue;
+      var dateStr = (cols[mapping.date] || '').replace(/^"+|"+$/g,'').trim();
+      var desc    = (cols[mapping.description] || '').replace(/^"+|"+$/g,'').trim();
+      var amt;
+      if (mapping.amount !== null && mapping.amount !== undefined) {
+        amt = parseFloat((cols[mapping.amount]||'0').replace(/[,$"]/g,'')) || 0;
+        if (mapping.sign_convention === 'positive_debit') amt = -amt;
+      } else {
+        var deb = parseFloat((cols[mapping.debit]  ||'0').replace(/[,$"]/g,'')) || 0;
+        var crd = parseFloat((cols[mapping.credit] ||'0').replace(/[,$"]/g,'')) || 0;
+        amt = crd > 0 ? crd : -deb;
+      }
+      if (!dateStr || (!desc && amt === 0)) continue;
+      txns.push({
+        date: toISO(dateStr) || normDate(dateStr),
+        description: desc,
+        amount: amt,
+        category: 'other',
+        account: mapping.bank || filename.replace(/\.csv$/i,''),
+        tags: [], notes: '', preCategory: ''
+      });
+    }
+    return { txns: txns, openingBalance: null, aiBank: mapping.bank || 'Unknown Bank' };
+  } catch(e) {
+    hhAlert('AI could not parse this CSV: ' + e.message + '. Try exporting from your bank in a different format.', '⚠️');
+    return null;
+  }
+}
+
 var pendingImport = null;
 
-// Helper: detect human-readable format name from CSV first-line headers
 function detectCSVFormat(headerLine) {
   var h = headerLine.toUpperCase();
   if (/FOLLOWING DATA IS VALID AS OF/.test(h)) return { label: 'BMO Chequing / Savings', icon: '🏦', color: 'var(--green)' };
   if (/MY ACCOUNT TRANSACTIONS/.test(h)) return { label: 'Canadian Tire Mastercard', icon: '🍁', color: '#e8393a' };
-  if (h.includes('CAD$')) return { label: 'RBC Chequing / Savings', icon: '🏦', color: 'var(--accent)' };
-  if (h.includes('CARD NO') && h.includes('DEBIT')) return { label: 'TD / Amex Credit Card', icon: '💳', color: 'var(--member1)' };
-  if (h.includes('TRANSACTION') && h.includes('BALANCE')) return { label: 'DMD Savings Account', icon: '💰', color: 'var(--green)' };
+  if (h.includes('CAD$') && !h.includes('CURRENCY')) return { label: 'RBC Chequing / Savings', icon: '🏦', color: 'var(--accent)' };
+  if (h.includes('CARD NO') && h.includes('CATEGORY') && h.includes('DEBIT') && h.includes('CREDIT')) return { label: 'Capital One Mastercard', icon: '💳', color: '#004a97' };
+  if ((h.includes('DESCRIPTION 1') || h.includes('DESCRIPTION 2')) && h.includes('AMOUNT') && h.includes('CURRENCY')) return { label: 'RBC Visa', icon: '💳', color: 'var(--accent)' };
+  if (h.includes('CARD NO') && h.includes('DEBIT') && h.includes('CREDIT')) return { label: 'TD / Amex Credit Card', icon: '💳', color: 'var(--member1)' };
   if (h.includes('FIRST BANK CARD') && h.includes('TRANSACTION TYPE')) return { label: 'BMO Chequing / Savings', icon: '🏦', color: 'var(--green)' };
+  if (h.includes('TRANSACTION') && h.includes('DESCRIPTION') && h.includes('AMOUNT') && h.includes('BALANCE') && !h.includes('CARD NO')) return { label: 'Alterna Savings', icon: '💰', color: 'var(--green)' };
+  if (h.includes('TRANSACTION') && h.includes('BALANCE')) return { label: 'Savings Account', icon: '💰', color: 'var(--green)' };
   return { label: 'Generic CSV', icon: '📄', color: 'var(--muted)' };
 }
 
@@ -387,9 +428,6 @@ async function handleStatementUpload(input) {
   status.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:6px"></div> Reading file...';
   document.getElementById('upload-preview').style.display = 'none';
 
-  // ======================================================
-  // PDF HANDLING — text extraction first, Vision fallback
-  // ======================================================
   if (isPDF) {
     try {
       status.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:6px"></div> Reading PDF...';
@@ -398,7 +436,6 @@ async function handleStatementUpload(input) {
       var txns = [];
 
       if (pdfText && pdfText.length > 100) {
-        // ---- Text-based PDF ----
         status.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:6px"></div> 🤖 Extracting transactions with AI (10–20 sec)...';
         var prompt = 'Here is raw text extracted from a Canadian bank or credit card statement:\n\n'
           + pdfText.slice(0, 15000)
@@ -415,7 +452,6 @@ async function handleStatementUpload(input) {
           + 'Return ONLY the JSON object starting with { and ending with }.';
         var rawText = await callClaude(prompt, 8000);
         rawText = rawText.replace(/```json|```/g,'').trim();
-        // Try to parse as object with openingBalance first
         var pdfOpeningBalance = null;
         var objMatch = rawText.match(/\{[\s\S]*\}/);
         if (objMatch) {
@@ -425,7 +461,6 @@ async function handleStatementUpload(input) {
               txns = parsedObj.transactions;
               pdfOpeningBalance = (parsedObj.openingBalance != null) ? parseFloat(parsedObj.openingBalance) : null;
             } else {
-              // Fallback: maybe it's just an array wrapped in an object
               var arr2 = rawText.match(/\[[\s\S]*\]/);
               try { txns = JSON.parse(arr2 ? arr2[0] : '[]'); } catch(e) { txns = []; }
             }
@@ -439,7 +474,6 @@ async function handleStatementUpload(input) {
         }
 
       } else {
-        // ---- Image-based PDF (scanned) — use Claude Vision per page ----
         status.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:6px"></div> 📷 Scanned PDF detected — rendering pages for AI Vision (20–40 sec)...';
         var images = await extractPDFImages(file);
         if (!images.length) throw new Error('No pages found in PDF.');
@@ -450,7 +484,6 @@ async function handleStatementUpload(input) {
           var pageTxns = await callClaudeVision(img.base64, img.page, img.total);
           allTxns = allTxns.concat(pageTxns);
         }
-        // Deduplicate across pages
         var seen = {};
         txns = allTxns.filter(function(t) {
           var key = (t.date||'') + '|' + (t.description||'') + '|' + (t.amount||0);
@@ -464,7 +497,6 @@ async function handleStatementUpload(input) {
         input.value = ''; return;
       }
 
-      // Remove old version if re-uploading same file
       var existing = state.statements.find(function(s){return s.name===file.name;});
       if (existing) {
         state.transactions = state.transactions.filter(function(t){return t.statementId!==existing.id;});
@@ -480,7 +512,6 @@ async function handleStatementUpload(input) {
             person:person, account:account, source:'import', statementId:statId };
         });
 
-      // Inject opening balance as a synthetic transaction so account balance calculates correctly
       if (typeof pdfOpeningBalance === 'number' && !isNaN(pdfOpeningBalance) && pdfOpeningBalance !== 0) {
         var firstDate = newTxns.length ? newTxns.reduce(function(a,b){ return parseDate(a.date)<parseDate(b.date)?a:b; }).date : normDate(new Date().toLocaleDateString('en-CA'));
         newTxns.unshift({ id:uid(), date:firstDate, description:'Opening Balance (Statement)', amount:pdfOpeningBalance,
@@ -502,9 +533,6 @@ async function handleStatementUpload(input) {
       status.innerHTML = '✗ PDF error: ' + e.message + '. Try CSV export from your bank.';
     }
 
-  // ======================================================
-  // CSV HANDLING — parse, deduplicate, show preview
-  // ======================================================
   } else {
     try {
       var text = await new Promise(function(res,rej){
@@ -513,14 +541,35 @@ async function handleStatementUpload(input) {
         r.readAsText(file, 'UTF-8');
       });
 
-      // Show detected format
       var firstLine = text.replace(/^\uFEFF/,'').split('\n')[0]||'';
       var fmt = detectCSVFormat(firstLine);
       status.innerHTML = '<span style="background:'+fmt.color+'22;border:1px solid '+fmt.color+'44;color:'+fmt.color+';padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">'+fmt.icon+' '+fmt.label+'</span> &nbsp; Parsing...';
 
+      var allLines = text.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
       var parsed = parseCSVStatement(text);
       var parsedTxns = parsed.txns || parsed; // backward compat
       var csvOpeningBalance = parsed.openingBalance || null;
+
+      if ((fmt.label === 'Generic CSV' || !parsedTxns.length) && getApiKey && getApiKey()) {
+        var useAI = await hhConfirm(
+          (parsedTxns.length ? 'Bank format not fully recognised.' : 'No transactions found.')
+          + ' Use AI to detect CSV columns? (requires API key)',
+          '🤖', 'Use AI'
+        );
+        if (useAI) {
+          status.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:6px"></div> 🤖 AI detecting columns…';
+          var aiResult = await parseWithAI(allLines, file.name);
+          if (aiResult && aiResult.txns && aiResult.txns.length) {
+            parsed = aiResult;
+            parsedTxns = aiResult.txns;
+            csvOpeningBalance = aiResult.openingBalance || null;
+            fmt = { label: aiResult.aiBank || 'AI Import', icon: '🤖', color: 'var(--accent)' };
+          } else {
+            input.value = ''; return;
+          }
+        }
+      }
+
       if (!parsedTxns.length) {
         status.style.color = 'var(--yellow)';
         status.innerHTML = '⚠️ No transactions found. Make sure the file has Date, Description, and Amount columns.'
@@ -528,19 +577,34 @@ async function handleStatementUpload(input) {
         input.value = ''; return;
       }
 
-      // Deduplicate against existing transactions
-      // For CT Mastercard, also match on sourceRef (unique REF# per transaction)
       var newOnes = [], dupCount = 0;
       parsedTxns.forEach(function(t) {
         var cleanedDesc = cleanDesc(t.description||'');
         var isDup = state.transactions.some(function(ex){
-          // REF-based dedup: catches same transaction uploaded from two CT cardholders
           if (t.sourceRef && ex.sourceRef && t.sourceRef === ex.sourceRef) return true;
           return ex.date === normDate(t.date||'')
             && ex.description === cleanedDesc
             && Math.abs(ex.amount - t.amount) < 0.01;
         });
         if (isDup) dupCount++; else newOnes.push(t);
+      });
+
+      newOnes.forEach(function(t) { t._transferFlag = false; });
+      for (var ti = 0; ti < newOnes.length; ti++) {
+        for (var tj = ti + 1; tj < newOnes.length; tj++) {
+          var a = newOnes[ti], b = newOnes[tj];
+          var sameDate = normDate(a.date||'') === normDate(b.date||'');
+          var oppositeAmt = Math.abs(a.amount + b.amount) < 0.02 && Math.abs(a.amount) > 0.01;
+          if (sameDate && oppositeAmt) { a._transferFlag = true; b._transferFlag = true; }
+        }
+      }
+      newOnes.forEach(function(t) {
+        if (t._transferFlag) return; // already flagged
+        var tDate = normDate(t.date||'');
+        var hasOpposite = state.transactions.some(function(ex){
+          return normDate(ex.date||'') === tDate && Math.abs(ex.amount + t.amount) < 0.02 && Math.abs(t.amount) > 0.01;
+        });
+        if (hasOpposite) t._transferFlag = true;
       });
 
       if (!newOnes.length) {
@@ -571,7 +635,6 @@ function showImportPreview(txns, dupCount, totalCount, fmt) {
   document.getElementById('preview-dup-info').textContent = dupCount > 0
     ? '(' + dupCount + ' duplicate' + (dupCount>1?'s':'') + ' skipped)' : '';
 
-  // Category breakdown chips
   var catCounts = {};
   txns.forEach(function(t) {
     var cat = autoCategorize(cleanDesc(t.description||''));
@@ -585,24 +648,34 @@ function showImportPreview(txns, dupCount, totalCount, fmt) {
   }).join(' ');
   document.getElementById('preview-cat-breakdown').innerHTML = chips;
 
+  var transferCount = txns.filter(function(t){ return t._transferFlag; }).length;
   var rows = txns.slice(0, 50).map(function(t) {
     var cleanedDesc = cleanDesc(t.description||'');
-    var cat = autoCategorize(cleanedDesc);
+    var cat = t.preCategory || autoCategorize(cleanedDesc);
     var catObj = getCatById(cat);
     var catName = catObj ? catObj.name : cat;
     var catCol  = catObj ? catObj.color : '#b8957a';
     var amt = parseFloat(t.amount)||0;
     var amtColor = amt<0?'var(--red)':amt===0?'var(--muted)':'var(--green)';
     var sign = amt>=0?'+':'';
-    return '<tr>'
+    var transferBadge = t._transferFlag
+      ? '<span style="background:var(--yellow)22;border:1px solid var(--yellow)55;color:var(--yellow);padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;white-space:nowrap" title="Possible transfer — check if this is a payment between your own accounts">⇄ transfer?</span>'
+      : '';
+    var rowBg = t._transferFlag ? 'background:var(--yellow)08;' : '';
+    return '<tr style="'+rowBg+'">'
       + '<td style="font-size:12px;white-space:nowrap">' + (t.date||'—') + '</td>'
-      + '<td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+cleanedDesc+'">' + cleanedDesc + '</td>'
+      + '<td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+cleanedDesc+'">' + cleanedDesc + transferBadge + '</td>'
       + '<td><span style="background:'+catCol+'22;color:'+catCol+';padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap">'+catName+'</span></td>'
       + '<td style="text-align:right;font-weight:700;color:'+amtColor+';white-space:nowrap">' + sign+'$'+Math.abs(amt).toFixed(2) + '</td>'
       + '</tr>';
   }).join('');
   if (txns.length > 50) rows += '<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:12px">… and '+(txns.length-50)+' more</td></tr>';
   document.getElementById('preview-tbody').innerHTML = rows;
+  var dupInfo = document.getElementById('preview-dup-info');
+  var transferNote = transferCount > 0
+    ? ' &nbsp; <span style="color:var(--yellow);font-size:12px">⇄ '+transferCount+' possible transfer'+(transferCount>1?'s':'')+' — confirm categories before importing</span>'
+    : '';
+  if (dupInfo) dupInfo.innerHTML = (dupCount > 0 ? '('+dupCount+' duplicate'+(dupCount>1?'s':'')+' skipped)' : '') + transferNote;
 }
 
 function cancelPreview() {
@@ -617,7 +690,6 @@ function confirmImport() {
   var p = pendingImport;
   pendingImport = null;
 
-  // Replace if same filename exists
   var existing = state.statements.find(function(s){ return s.name === p.file.name; });
   if (existing) {
     state.transactions = state.transactions.filter(function(t){ return t.statementId !== existing.id; });
@@ -628,17 +700,15 @@ function confirmImport() {
     var txn = {
       id: uid(), date: normDate(t.date||'') || t.date, description: cleanDesc(t.description),
       rawDescription: t.description, amount: t.amount,
-      category: autoCategorize(t.description), person: p.person,
+      category: t.preCategory || autoCategorize(t.description), person: p.person,
       account: p.account, source: 'import', statementId: p.statId
     };
     if (t.sourceRef) txn.sourceRef = t.sourceRef; // CT Mastercard REF# for cross-upload dedup
     return txn;
   });
 
-  // Inject opening balance as synthetic transaction so balance calculates from statement start
   if (p.openingBalance != null && !isNaN(p.openingBalance) && p.openingBalance !== 0) {
     var firstDate = newTxns.length ? newTxns.reduce(function(a,b){ return parseDate(a.date)<parseDate(b.date)?a:b; }).date : normDate(new Date().toLocaleDateString('en-CA'));
-    // Check if we already have an opening balance for this account/date combo
     var alreadyHasOB = state.transactions.some(function(t){ return t.isOpeningBalance && t.account === p.account; });
     if (!alreadyHasOB) {
       newTxns.unshift({ id:uid(), date:firstDate, description:'Opening Balance (Statement)', amount:p.openingBalance,
@@ -658,7 +728,6 @@ function confirmImport() {
   if (document.getElementById('page-transactions').classList.contains('active')) renderTransactions();
   if (document.getElementById('page-budget').classList.contains('active')) renderBudget();
 }
-// File drop zone
 (function() {
   var dropZone = document.getElementById('file-drop');
   if (!dropZone) return;
@@ -674,9 +743,6 @@ function confirmImport() {
     }
   });
 })();
-
-// BACKUP / RESTORE
-// ── FLIPP INTEGRATION ────────────────────────────────────────────────────────
 
 function togglePDFUpload(){
   var sec=document.getElementById('pdf-upload-section');
@@ -753,7 +819,6 @@ async function flippImportSelected(){
         if(typeof price==='number')price='$'+price.toFixed(2);
         return{name:it.name,price:String(price),category:guessFlippCategory(it.name),description:it.description||'',unit:it.display_size||''};
       });
-      // Split compound "Item A or Item B" names and sort by category
       items = splitFlyerItems(items);
       var vf2=flyerObj.valid_from?new Date(flyerObj.valid_from).toLocaleDateString('en-CA'):'';
       var vt2=flyerObj.valid_to?new Date(flyerObj.valid_to).toLocaleDateString('en-CA'):'';
@@ -763,7 +828,6 @@ async function flippImportSelected(){
   }
   saveState();renderFlyers();
   if(imported>0){statusEl.innerHTML='Imported '+imported+' flyer'+(imported>1?'s':'')+'!'+(errors?' ('+errors+' failed)':'');
-    // Suggest non-food items from all newly imported flyers
     var allNewItems=[];
     state.flyers.slice(-imported).forEach(function(f){(f.items||[]).forEach(function(it){allNewItems.push({name:it.name,price:it.price,store:f.store});});});
     var nfItems=detectNonFoodItems(allNewItems);
@@ -783,15 +847,7 @@ function guessFlippCategory(name){
   return'pantry';
 }
 
-// ── Flyer item splitter ───────────────────────────────────────────────────────
-// Splits compound flyer item names joined by " or " / " OR " into individual
-// items, each inheriting the original price, unit, and description.
-// Also sorts the final list by category for a cleaner browsing experience.
-//
-// Example: "ARMSTRONG CHEESE 250g or PC CHEESE 400g" → two items at same price.
-// Example: "MILK ($4.98 EA.) OR CHOCOLATE MILK OR YOGURT" → three items.
 function splitFlyerItems(items) {
-  // Custom category display order: produce and meat first, other last
   var CAT_ORDER = ['produce','meat','dairy','bakery','frozen','pantry','other'];
 
   var result = [];
@@ -799,25 +855,17 @@ function splitFlyerItems(items) {
   items.forEach(function(item) {
     var rawName = (item.name || '').trim();
 
-    // ── Step 1: strip embedded per-unit sub-prices like ($4.98 EA.) ──────────
-    // These appear in compound strings to explain each sub-item's individual
-    // price alongside a multi-unit deal price. Strip them before splitting.
     var cleanedName = rawName.replace(/\(\$[\d.]+\s*(?:EA\.?|EACH|\/\s*EA\.?)?\s*\)/gi, '').trim();
 
-    // ── Step 2: split on " or " (case-insensitive, spaces required) ──────────
-    // Requiring surrounding spaces prevents splitting mid-word (e.g. "organic").
     var fragments = cleanedName.split(/\s+or\s+/i);
 
     if (fragments.length <= 1) {
-      // Nothing to split — push original item unchanged
       result.push(item);
       return;
     }
 
-    // ── Step 3: create one item per fragment ──────────────────────────────────
     fragments.forEach(function(frag) {
       frag = frag.replace(/\s+/g, ' ').trim();
-      // Skip blank or punctuation-only fragments
       if (!frag || frag.length < 2 || /^[,;.\-\/]+$/.test(frag)) return;
 
       result.push({
@@ -830,10 +878,6 @@ function splitFlyerItems(items) {
     });
   });
 
-  // ── Step 4: deduplicate ───────────────────────────────────────────────────
-  // Build a normalised key: lowercase, strip punctuation/trademark symbols,
-  // collapse whitespace. Two items that normalise to the same key are dupes;
-  // keep the first one encountered (which will have a price if any do).
   var seenKeys = {};
   result = result.filter(function(item) {
     var key = (item.name || '')
@@ -849,14 +893,12 @@ function splitFlyerItems(items) {
     return true;
   });
 
-  // ── Step 5: sort by category using the defined display order ─────────────
   result.sort(function(a, b) {
     var ai = CAT_ORDER.indexOf(a.category || 'other');
     var bi = CAT_ORDER.indexOf(b.category || 'other');
     if (ai === -1) ai = CAT_ORDER.length;
     if (bi === -1) bi = CAT_ORDER.length;
     if (ai !== bi) return ai - bi;
-    // Within same category, sort alphabetically by name
     return (a.name || '').localeCompare(b.name || '');
   });
 
@@ -944,13 +986,9 @@ function resetApp() {
     '⚠️', 'Reset & Start Over'
   ).then(function(ok) {
     if (!ok) return;
-    // Step 1 — auto-backup first
     exportData();
-    // Step 2 — short delay so the download dialog has time to trigger
     setTimeout(function() {
-      // Clear localStorage
       try { localStorage.removeItem(KEY); } catch(e) {}
-      // Clear IDB if that's what's in use
       if (_useIDB && _idbDB) {
         try {
           var tx = _idbDB.transaction('kv', 'readwrite');
@@ -960,7 +998,6 @@ function resetApp() {
           return; // reload handled by tx.oncomplete
         } catch(e) {}
       }
-      // Clear in-memory cache too
       _storageCache = {};
       location.reload();
     }, 800);
@@ -975,7 +1012,6 @@ function importData(input) {
     r.onload = function() {
       try {
         var data = JSON.parse(r.result);
-        // Detect shareable config (not a full backup)
         if (data._type === 'homehub_config') {
           hhConfirm('Import this setup config? This will pre-fill the Setup Wizard with the shared household details. Your existing data will be kept.', function(yes) {
             if (!yes) return;
@@ -1005,7 +1041,6 @@ function importData(input) {
   });
 }
 
-// SETUP WIZARD
 var wizCurrentStep = 1;
 var WIZ_TOTAL = 10;
 var MEMBER_COLORS = ['#9b7fbd','#e07a9a','#5a9e7a','#c97d5a','#5bb8f7','#f59e0b','#6ee7b7','#f472b6'];
@@ -1020,7 +1055,6 @@ var wizData = {
 
 function openSetupWizard(isEdit) {
   if (isEdit && state.household && state.household.setupComplete) {
-    // Pre-fill from state
     wizData.household = Object.assign({}, state.household);
     wizData.members = JSON.parse(JSON.stringify(state.members || []));
     wizData.children = JSON.parse(JSON.stringify(state.children || []));
@@ -1051,31 +1085,24 @@ function closeSetupWizard() {
 }
 
 function renderWizardStep(step) {
-  // Update progress dots
   var progressEl = document.getElementById('wiz-progress');
   progressEl.innerHTML = Array.from({length:WIZ_TOTAL}, function(_,i) {
     var cls = i+1 < step ? 'done' : i+1 === step ? 'active' : '';
     return '<div class="wiz-dot ' + cls + '"></div>';
   }).join('');
-  // Update step counter
   document.getElementById('wiz-step-counter').textContent = 'Step ' + step + ' of ' + WIZ_TOTAL;
-  // Show/hide all steps
   for (var i=1; i<=WIZ_TOTAL; i++) {
     var el = document.getElementById('wiz-step-'+i);
     if (el) el.classList.toggle('active', i===step);
   }
-  // Back button
   var backBtn = document.getElementById('wiz-back-btn');
   backBtn.style.display = step > 1 ? '' : 'none';
-  // Next button label
   var nextBtn = document.getElementById('wiz-next-btn');
   nextBtn.textContent = step === WIZ_TOTAL ? '🚀 Launch Home Hub!' : 'Next →';
-  // Step titles
   var titles = ['','Your Household','Who Lives Here?','Children','Features','Pets','Income & Employment','Lifestyle Details','Savings Goals','Monthly Budget','Review & Launch'];
   var subs = ['','Name your household and tell us where you live.','Add household members — each gets their own calendar and tracking.','Do you have any children? Ages help personalise meals and savings goals.','Choose which features to enable — you can change these anytime.','Add your pets (or skip if you have none).','How does each person earn income?','Tell us about your lifestyle so we can build a smarter budget.','What are your financial goals? Select all that apply.','Set your starting monthly budget for each category.','Here\'s what we\'ve set up for you!'];
   document.getElementById('wiz-title').textContent = titles[step] || 'Setup';
   document.getElementById('wiz-subtitle').textContent = subs[step] || '';
-  // Render dynamic content for steps
   if (step === 1) renderWizardStep1();
   if (step === 2) renderWizardMemberCards();
   if (step === 3) renderWizardChildrenList();
@@ -1092,7 +1119,6 @@ function renderWizardStep1() {
   document.getElementById('wiz-household-name').value = wizData.household.name || '';
   document.getElementById('wiz-province').value = wizData.household.province || 'ON';
   document.getElementById('wiz-city').value = wizData.household.city || '';
-  // Mark selected emoji
   document.querySelectorAll('#wiz-emoji-options .wiz-chip').forEach(function(chip) {
     chip.classList.toggle('selected', chip.getAttribute('onclick').includes("'" + wizData.household.emoji + "'"));
   });
@@ -1181,7 +1207,6 @@ function wizSetMemberColor(memberId, color) {
   renderWizardMemberCards();
 }
 
-// ── Children Wizard Step ──────────────────────────────────────────────────
 function renderWizardChildrenList() {
   var list = document.getElementById('wiz-children-list');
   if (!list) return;
@@ -1234,7 +1259,6 @@ function wizSkipChildren() {
   renderWizardStep(wizCurrentStep);
 }
 
-// ── Lifestyle Wizard Step ──────────────────────────────────────────────────
 function renderWizardLifestyle() {
   var ls = wizData.lifestyle || {};
   var el = document.getElementById('wiz-lifestyle-content');
@@ -1284,7 +1308,6 @@ function renderWizardLifestyle() {
 
   el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">'
 
-    // Housing
     + '<div><div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:6px">🏠 Housing</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     + '<div><label style="font-size:11px;font-weight:800;color:var(--muted)">Do you rent or own?</label>'
@@ -1298,7 +1321,6 @@ function renderWizardLifestyle() {
     + '<input type="number" id="ls-housing-cost" placeholder="e.g. 1800" min="0" value="'+(ls.housingCost||'')+'" style="min-width:0" oninput="wizData.lifestyle.housingCost=parseFloat(this.value)||0"></div>'
     + '</div></div>'
 
-    // Vehicles
     + '<div><div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:6px">🚗 Vehicles</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
     + '<div><label style="font-size:11px;font-weight:800;color:var(--muted)">Number of vehicles</label>'
@@ -1315,14 +1337,12 @@ function renderWizardLifestyle() {
     + '<input type="number" placeholder="0" min="0" value="'+(ls.carPayment||'')+'" style="min-width:0" oninput="wizData.lifestyle.carPayment=parseFloat(this.value)||0"></div>'
     + '</div></div>'
 
-    // Dietary preferences per member
     + '<div><div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:6px">🥗 Dietary Preferences</div>'
     + memberDietRows
     + '<div style="margin-top:8px"><label style="font-size:11px;font-weight:800;color:var(--muted)">Allergies or restrictions to note (all members)</label>'
     + '<input type="text" id="ls-allergies" placeholder="e.g. tree nuts, shellfish" value="'+(ls.allergies||'')+'" oninput="wizData.lifestyle.allergies=this.value"></div>'
     + '</div>'
 
-    // Insurance
     + '<div><div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:6px">🛡️ Insurance (what do you currently hold?)</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + insHtml + '</div></div>'
 
@@ -1340,7 +1360,6 @@ function wizToggleMemberDiet(el, memberId, dietId) {
   var checked = arr.indexOf(dietId) >= 0;
   el.style.borderColor = checked ? 'var(--accent)' : 'var(--border)';
   el.style.background   = checked ? 'var(--accent-light, #f5e9e0)' : 'var(--card)';
-  // Update checkmark
   var existing = el.querySelector('span[data-ck]');
   if (checked && !existing) {
     var ck = document.createElement('span');
@@ -1376,8 +1395,6 @@ function wizToggleInsurance(el, insId) {
 }
 
 function wizSaveLifestyleFromDOM() {
-  // DOM values are saved via oninput/onchange handlers in renderWizardLifestyle
-  // This is a no-op safety flush
   if (!wizData.lifestyle) wizData.lifestyle = {};
 }
 
@@ -1471,7 +1488,6 @@ function renderWizardIncomeCards() {
 }
 
 function renderWizardGoals() {
-  // Already in HTML, just mark selected ones
   document.querySelectorAll('#wiz-goals-grid .wiz-goal-card').forEach(function(card) {
     card.classList.toggle('selected', wizData.goals.indexOf(card.getAttribute('data-id')) >= 0);
   });
@@ -1496,7 +1512,6 @@ function renderWizardBudgetFields() {
     {id:'savings',name:'Savings',icon:'💰'},{id:'auto',name:'Auto & Maintenance',icon:'🚗'},
     {id:'health',name:'Health & Dental',icon:'🏥'},{id:'other',name:'Other',icon:'📦'},
   ];
-  // Add children-related categories automatically
   var hasChildren = (wizData.children||[]).length > 0;
   if (hasChildren) {
     var today2 = new Date();
@@ -1508,7 +1523,6 @@ function renderWizardBudgetFields() {
     cats.push({id:'children',name:'Kids (clothing, activities)',icon:'👶'});
     if (hasInfantToddler) cats.push({id:'childcare',name:'Childcare / Daycare',icon:'🏫'});
   }
-  // Add housing if housingCost set
   if ((wizData.lifestyle||{}).housingType && (wizData.lifestyle||{}).housingType !== 'living-family') {
     if (!cats.find(function(c){return c.id==='housing';})) {
       cats.unshift({id:'housing',name:(wizData.lifestyle.housingType==='rent'?'Rent':'Mortgage'),icon:'🏠'});
@@ -1603,7 +1617,6 @@ function renderWizardReview() {
   html += '</div>';
   document.getElementById('wiz-review-content').innerHTML = html;
 
-  // Rich tax tip
   var province = h.province;
   var tipsMember = wizData.members.find(function(m){ return m.hasTips; });
   var fhsaMembers = wizData.members.filter(function(m){ return m.isFirstTimeBuyer; });
@@ -1634,7 +1647,6 @@ function wizBack() {
 }
 
 function wizNext() {
-  // Collect current step data before advancing
   if (wizCurrentStep === 1) {
     wizData.household.name = document.getElementById('wiz-household-name').value.trim();
     wizData.household.province = document.getElementById('wiz-province').value;
@@ -1647,7 +1659,6 @@ function wizNext() {
     document.getElementById('wiz-household-name').style.borderColor = '';
   }
   if (wizCurrentStep === 2) {
-    // Validate at least one member with a name
     var named = wizData.members.filter(function(m){ return m.name.trim(); });
     if (!named.length) {
       hhAlert('Please add at least one person to your household.', '\u{1F464}');
@@ -1656,21 +1667,17 @@ function wizNext() {
     wizData.members = wizData.members.filter(function(m){ return m.name.trim(); });
   }
   if (wizCurrentStep === 3) {
-    // Children saved via oninput — just filter out unnamed
     wizData.children = (wizData.children || []).filter(function(c){ return c.name.trim() || c.dob; });
   }
   if (wizCurrentStep === 4) {
     var fCbs = document.querySelectorAll('#wiz-features-list input[data-fid]');
     if (!wizData.features) wizData.features = {};
     fCbs.forEach(function(cb){ wizData.features[cb.dataset.fid] = cb.checked; });
-    // Auto-enable RESP tip if children exist
     if ((wizData.children||[]).length > 0) wizData.features.resp = true;
   }
   if (wizCurrentStep === 5) {
-    // Pet names saved via oninput
   }
   if (wizCurrentStep === 7) {
-    // Lifestyle collected via oninput/onchange — just save current DOM values
     wizSaveLifestyleFromDOM();
   }
   if (wizCurrentStep === WIZ_TOTAL) {
@@ -1680,7 +1687,6 @@ function wizNext() {
   wizCurrentStep++;
   renderWizardStep(wizCurrentStep);
 }
-
 
 function exportShareableConfig() {
   var config = {
@@ -1708,10 +1714,7 @@ function exportShareableConfig() {
   hhToast('Setup config exported — share this file with friends!', '📋');
 }
 
-// ── URL-BASED SHARING ─────────────────────────────────────────────────────────
-
 function importConfigToWizard(config) {
-  // Map the shareable config JSON into wizData and open the Setup Wizard
   try {
     window.wizData = {
       step: 1,
@@ -1753,7 +1756,6 @@ function importConfigToWizard(config) {
 }
 
 function _buildShareConfig() {
-  // Same shape as exportShareableConfig but returned as an object (not downloaded)
   return {
     _type: 'homehub_config',
     _version: HH_VERSION,
@@ -1790,7 +1792,6 @@ function copyShareURL() {
   } else {
     _fallbackCopyShareURL(url);
   }
-  // Refresh the input in the modal too
   var inp = document.getElementById('share-url-input');
   if (inp) inp.value = url;
 }
@@ -1831,13 +1832,11 @@ function openShareModal() {
     '</div>',
   ].join('\n');
 
-  // Set the URL in the input
   var inp = document.getElementById('share-url-input');
   if (inp) inp.value = url;
 
   openModal('modal-share');
 
-  // Load QR code library and render
   _loadQRAndRender(url);
 }
 
@@ -1868,36 +1867,27 @@ function _renderQR(url) {
 }
 
 function wizFinish() {
-  // Save household
   state.household = { name: wizData.household.name, emoji: wizData.household.emoji, province: wizData.household.province, city: wizData.household.city, setupComplete: true };
 
-  // Save members
   state.members = wizData.members.map(function(m) {
     return { id: m.id, name: m.name.trim(), dob: m.dob||'', color: m.color, incomeType: m.incomeType, hasTips: m.hasTips, hasPension: m.hasPension, hasHealthBenefits: m.hasHealthBenefits||false, isFirstTimeBuyer: m.isFirstTimeBuyer, monthlyIncome: m.monthlyIncome||0 };
   });
 
-  // Save pets
   state.pets = wizData.pets.map(function(p) {
     return { id: p.id, name: p.name.trim() || p.type, emoji: p.emoji, type: p.type };
   });
-  // Init pet feeding
   var today = new Date().toISOString().split('T')[0];
   if (!state.petFeeding) state.petFeeding = {};
   state.pets.forEach(function(pet) {
     if (!state.petFeeding[pet.id]) state.petFeeding[pet.id] = { fed:false, time:null, date:today };
   });
 
-  // Save children
   state.children = (wizData.children || []).filter(function(c){ return c.name.trim() || c.dob; }).map(function(c) {
     return { id: c.id||uid(), name: c.name.trim()||'Child', dob: c.dob||'', color: c.color||'var(--accent)' };
   });
 
-  // Save lifestyle details
   state.lifestyle = wizData.lifestyle || {};
 
-  // ── Seed dietPrefs from lifestyle data if not yet customised ─────────────
-  // Only auto-fill fields that are still at their factory defaults so we never
-  // overwrite deliberate changes the user made in the Meal Preferences modal.
   var dp = state.dietPrefs || {};
   var isDefaultDiet = !dp.avoid && !dp.favourites && !dp.notes &&
     (dp.complexity === 'moderate' || !dp.complexity) &&
@@ -1905,11 +1895,9 @@ function wizFinish() {
 
   if (isDefaultDiet) {
     var ls = state.lifestyle || {};
-    // Allergies → avoid list
     if (ls.allergies && ls.allergies.trim()) {
       dp.avoid = ls.allergies.trim();
     }
-    // Member diets → dietStyle (union of all members, mapped to dietPrefs values)
     var dietMap = {
       omnivore:'omnivore', vegetarian:'vegetarian', vegan:'vegetarian',
       pescatarian:'omnivore', glutenfree:'omnivore', dairyfree:'omnivore',
@@ -1920,21 +1908,18 @@ function wizFinish() {
       (arr || []).forEach(function(d) { if (allDiets.indexOf(d) === -1) allDiets.push(d); });
     });
     if (allDiets.length) {
-      // Build a dietStyle list — keep specific flags like vegetarian; default to omnivore
       var styleSet = [];
       if (allDiets.indexOf('vegetarian') !== -1 || allDiets.indexOf('vegan') !== -1) styleSet.push('vegetarian');
       else styleSet.push('omnivore');
       if (allDiets.indexOf('glutenfree') !== -1 || allDiets.indexOf('dairyfree') !== -1) styleSet.push('low-carb');
       dp.dietStyle = styleSet.length ? styleSet : ['omnivore'];
     }
-    // Housing cost → budget hint (sets housing budget if wizard budget step was skipped/zero)
     if (ls.housingCost && ls.housingCost > 0 && (!state.budgets.housing || state.budgets.housing === 0)) {
       state.budgets.housing = ls.housingCost;
     }
     state.dietPrefs = dp;
   }
 
-  // Generate goals (only if no goals yet, or if resetting)
   var goalTemplates = {
     wedding: { emoji:'💍', name:'Wedding Fund', target:25000, notes:'TFSA' },
     house:   { emoji:'🏠', name:'House Down Payment', target:80000, notes:'FHSA + RRSP HBP', link:'https://www.ratehub.ca/mortgage-affordability-calculator' },
@@ -1955,24 +1940,20 @@ function wizFinish() {
     });
   }
 
-  // Update budgets
   if (wizData.budgets) {
     Object.assign(state.budgets, wizData.budgets);
   }
 
-  // Setup gcalConfig for each member
   if (!state.gcalConfig) state.gcalConfig = {};
   state.members.forEach(function(m) {
     if (!state.gcalConfig[m.id]) state.gcalConfig[m.id] = { url:'', name: m.name + "'s Calendar" };
   });
 
-  // Weather location
   if (state.household.city) {
     state.weatherLocations = [{ city: state.household.city, province: state.household.province }];
     state.weatherLocationIndex = 0;
   }
 
-  // Apply features chosen in wizard step 3
   if (wizData.features) {
     state.features = wizData.features;
   } else {
@@ -1987,8 +1968,6 @@ function wizFinish() {
   renderDashboard();
 }
 
-
-// ── Feature Toggle System ──────────────────────────────────────────────────
 var FEATURE_DEFS = [
   { id:'calendar', label:'📅 Calendar',             desc:'Sync & view personal calendars' },
   { id:'tips',     label:'💵 Cash Tips',             desc:'Track tip income and CRA reserve' },
@@ -2015,7 +1994,6 @@ function isFeatureOn(id) { return getFeatures()[id] !== false; }
 
 function applyFeatureToggles() {
   var f = getFeatures();
-  // Map feature id → { navId, pageId }
   var map = [
     { id:'calendar', navId:'nav-calendar-btn', pageId:'page-calendar' },
     { id:'tips',     navId:'nav-tips-btn',      pageId:'page-tips'     },
@@ -2034,25 +2012,20 @@ function applyFeatureToggles() {
   ];
   map.forEach(function(m) {
     var show = f[m.id] !== false;
-    // Nav button
     var navBtn = document.getElementById(m.navId);
     if (navBtn) {
       if (m.id === 'tips') {
-        // Tips button already controlled by hasTips — only show if BOTH feature is on AND someone has tips
         var tipsMember = getTipsMember();
         navBtn.style.display = (show && tipsMember) ? '' : 'none';
       } else {
         navBtn.style.display = show ? '' : 'none';
       }
     }
-    // Page visibility (hide so if someone lands on a disabled page it shows nothing)
     var pageEl = document.getElementById(m.pageId);
     if (pageEl && !show) pageEl.classList.remove('active');
   });
-  // Pet tracker widget on dashboard — controlled by pets feature
   var petWidget = document.getElementById('pet-feeding-card');
   if (petWidget) petWidget.style.display = f['pets'] !== false ? '' : 'none';
-  // Update topbar title in case tips member name changed
   var activePage = document.querySelector('.page.active');
   if (activePage) {
     var curId = activePage.id.replace('page-','');
@@ -2098,7 +2071,6 @@ function saveFeatures() {
   applyFeatureToggles();
   populatePersonSelects(); // refresh nav tips button state
   closeModal('features-modal');
-  // If currently on a now-disabled page, go home
   var activePage = document.querySelector('.page.active');
   if (activePage) {
     var pageId = activePage.id.replace('page-','');
@@ -2107,18 +2079,14 @@ function saveFeatures() {
   }
   hhToast('Features updated!','✅');
 }
-// ── End Feature Toggle System ─────────────────────────────────────────────
 
 function applyHouseholdConfig() {
   var household = state.household || {};
-  // Nav brand
   var navBrand = document.getElementById('nav-brand');
   if (navBrand) navBrand.textContent = (household.emoji || '🏠') + ' ' + (household.name || 'Home Hub');
-  // Populate all person selects
   populatePersonSelects();
   populateAccountDropdowns();
   renderAccountsList();
-  // Goals tax tip
   var goalsTipEl = document.getElementById('goals-tax-tip');
   if (goalsTipEl) {
     var prov = household.province || 'ON';
@@ -2135,31 +2103,20 @@ function applyHouseholdConfig() {
     tip += 'Click a goal name to visit its linked webpage.';
     goalsTipEl.textContent = tip;
   }
-  // Tips page alert
   var tipsAlertEl = document.getElementById('tips-page-alert');
   if (tipsAlertEl) {
     var prov2 = household.province || 'ON';
     tipsAlertEl.textContent = '⚠️ Cash tips ARE taxable in ' + prov2 + ' / Canada. Keep records — CRA expects you to report them. Set aside ~20–25% for tax season.';
   }
-  // Apply feature visibility
   applyFeatureToggles();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CAREER PLANNER  — V6.27
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Active member tab for career page ────────────────────────────────────
 var _careerActiveMemberId = null;
 
-// ── Seed careerData from wizard member profiles ───────────────────────────
-// Called once on first load and whenever a member is added via Setup.
-// Only fills fields that haven't been manually edited yet (no overwrite).
 function seedCareerDataFromMembers() {
   if (!state.careerData) state.careerData = {};
   (state.members || []).forEach(function(m) {
     var existing = state.careerData[m.id] || {};
-    // Only auto-fill if these specific fields are still blank
     var seeded = {
       memberId:    m.id,
       memberName:  m.name,
@@ -2177,7 +2134,6 @@ function seedCareerDataFromMembers() {
       milestones:  existing.milestones  || [],
       training:    existing.training    || [],
     };
-    // Default titles based on known roles
     if (!seeded.title) {
       if (m.incomeType === 'salary')  seeded.title = 'Employee';
       if (m.incomeType === 'hourly')  seeded.title = 'Team Member';
@@ -2188,14 +2144,11 @@ function seedCareerDataFromMembers() {
   saveState();
 }
 
-// ── Helper: get career profile for a member id ────────────────────────────
 function getCareerProfile(memberId) {
   if (!state.careerData) state.careerData = {};
   return state.careerData[memberId] || null;
 }
 
-// ── Helper: get projected salary at a given date from milestones ──────────
-// Used by Forecast and Retirement to pull salary trajectory per member.
 function getProjectedSalaryAt(memberId, targetDateStr) {
   var profile = getCareerProfile(memberId);
   if (!profile) return 0;
@@ -2207,9 +2160,7 @@ function getProjectedSalaryAt(memberId, targetDateStr) {
   return milestones[milestones.length - 1].salary;
 }
 
-// ── Helper: get all salary milestones for the forecast chart ─────────────
 function getCareerSalarySteps(memberId) {
-  // Returns array of {date, salary} sorted chronologically, starting from today
   var profile = getCareerProfile(memberId);
   if (!profile) return [];
   var steps = [{ date: new Date().toISOString().split('T')[0], salary: profile.salary || 0 }];
@@ -2220,9 +2171,7 @@ function getCareerSalarySteps(memberId) {
   return steps;
 }
 
-// ── RENDER: Main career page ──────────────────────────────────────────────
 function renderCareer() {
-  // Ensure careerData is seeded from member profiles
   seedCareerDataFromMembers();
   var members = state.members || [];
   if (!members.length) {
@@ -2230,11 +2179,9 @@ function renderCareer() {
       '<div class="empty-state">No household members found. Complete ⚙️ Setup first to add members.</div>';
     return;
   }
-  // Default active tab to first member
   if (!_careerActiveMemberId || !members.find(function(m){ return m.id === _careerActiveMemberId; })) {
     _careerActiveMemberId = members[0].id;
   }
-  // Build member tabs
   var tabsEl = document.getElementById('career-member-tabs');
   tabsEl.innerHTML = members.map(function(m) {
     var active = m.id === _careerActiveMemberId;
@@ -2245,7 +2192,6 @@ function renderCareer() {
       + 'transition:all 0.15s;font-family:Nunito,sans-serif">'
       + (m.emoji || '👤') + ' ' + m.name + '</button>';
   }).join('');
-  // Render active member
   renderCareerMember(_careerActiveMemberId);
 }
 
@@ -2264,7 +2210,6 @@ function renderCareerMember(memberId) {
   var milestones = (profile.milestones || []).sort(function(a, b){ return a.date.localeCompare(b.date); });
   var training   = (profile.training   || []).sort(function(a, b){ return (a.date || '9999').localeCompare(b.date || '9999'); });
 
-  // ── Ontario tax + RRSP impact of career growth ──────────────────────────
   var currentSalary   = profile.salary || 0;
   var futureSalaries  = milestones.filter(function(ms){ return ms.salary > 0; });
   var peakSalary      = futureSalaries.length
@@ -2275,7 +2220,6 @@ function renderCareerMember(memberId) {
   var currentMarginal = Math.round(getMarginalRate(currentSalary) * 100);
   var peakMarginal    = Math.round(getMarginalRate(peakSalary)    * 100);
 
-  // ── Total training cost ──────────────────────────────────────────────────
   var totalTrainingCost = training.reduce(function(s, t){
     return s + (t.reimbursed ? 0 : (t.cost || 0));
   }, 0);
@@ -2283,12 +2227,10 @@ function renderCareerMember(memberId) {
   var completedCount   = training.filter(function(t){ return t.status === 'completed'; }).length;
   var expiredCount     = training.filter(function(t){ return t.status === 'expired'; }).length;
 
-  // ── EMPLOYMENT TYPE LABEL ────────────────────────────────────────────────
   var empLabels = { salary:'💼 Salaried', hourly:'⏰ Hourly', selfemployed:'🧾 Self-Employed', parttime:'🕐 Part-Time', freelance:'💻 Freelance' };
   var pensionLabels = { db:'🏛️ Defined Benefit', dc:'💼 Defined Contribution', none:'❌ None' };
   var benefitsLabels = { full:'✅ Full Benefits', partial:'⚡ Partial Benefits', none:'❌ No Benefits' };
 
-  // ── SERVICE LENGTH ───────────────────────────────────────────────────────
   var serviceStr = '';
   if (profile.startDate) {
     var sd = new Date(profile.startDate + 'T00:00:00');
@@ -2298,7 +2240,6 @@ function renderCareerMember(memberId) {
     serviceStr = profile.yearsService + ' yr' + (profile.yearsService===1?'':'s') + ' (estimated)';
   }
 
-  // ── TIMELINE HTML ────────────────────────────────────────────────────────
   var LIKELIHOOD_COLORS = { planned:'var(--green)', likely:'var(--accent)', possible:'var(--muted)' };
   var LIKELIHOOD_LABELS = { planned:'✅ Planned', likely:'📈 Likely', possible:'🤔 Possible' };
   var MILESTONE_ICONS   = { promotion:'🏆', raise:'💰', role_change:'🔄', certification:'📜', retirement:'🌅', other:'📌' };
@@ -2312,9 +2253,7 @@ function renderCareerMember(memberId) {
       + '<button class="btn btn-primary" onclick="openAddMilestoneModal(\'' + memberId + '\')">+ Add First Milestone</button>'
       + '</div>';
   } else {
-    // Current position node
     timelineHtml = '<div style="display:flex;flex-direction:column;gap:0">';
-    // "Today" node
     timelineHtml += _careerTimelineNode({
       icon: '📍', title: profile.title || 'Current Role',
       subtitle: profile.employer || '',
@@ -2334,7 +2273,6 @@ function renderCareerMember(memberId) {
       var salaryIncrease = (ms.salary > 0 && currentSalary > 0)
         ? '+' + fmt(ms.salary - currentSalary) + '/yr (' + Math.round((ms.salary - currentSalary) / currentSalary * 100) + '%)'
         : '';
-      // Find training items linked to this milestone
       var linked = training.filter(function(t){ return t.linkedMilestone === ms.id; });
       timelineHtml += _careerTimelineNode({
         id: ms.id, memberId: memberId,
@@ -2354,7 +2292,6 @@ function renderCareerMember(memberId) {
     timelineHtml += '</div>';
   }
 
-  // ── TRAINING TABLE ───────────────────────────────────────────────────────
   var STATUS_COLORS  = { not_started:'var(--muted)', in_progress:'var(--accent)', completed:'var(--green)', expired:'var(--red)' };
   var STATUS_LABELS  = { not_started:'🔲 Not Started', in_progress:'⏳ In Progress', completed:'✅ Completed', expired:'⚠️ Renewal Needed' };
   var CAT_ICONS      = { certification:'📜', course:'📖', degree:'🎓', mandatory:'⚠️', skills:'🛠️', license:'🪪' };
@@ -2364,7 +2301,6 @@ function renderCareerMember(memberId) {
     trainingHtml = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">'
       + 'No courses or certifications yet. <button class="btn btn-ghost btn-sm" onclick="openAddTrainingModal(\'' + memberId + '\')" style="margin-left:8px">+ Add Training</button></div>';
   } else {
-    // Group: urgent first (in_progress / expired / not_started with date), then completed
     var urgent    = training.filter(function(t){ return t.status !== 'completed'; });
     var completed = training.filter(function(t){ return t.status === 'completed'; });
     var renderRow = function(t) {
@@ -2400,7 +2336,6 @@ function renderCareerMember(memberId) {
       + '</tbody></table></div>';
   }
 
-  // ── ONTARIO FINANCIAL IMPACT PANEL ───────────────────────────────────────
   var rrspImpact = peakSalary > currentSalary
     ? '<div style="font-size:12px;color:var(--green);margin-top:4px">↑ RRSP room grows to ~' + fmt(peakRrspRoom) + '/yr at peak salary</div>'
     : '';
@@ -2408,10 +2343,8 @@ function renderCareerMember(memberId) {
     ? '<div style="font-size:12px;color:var(--yellow);margin-top:4px">⚠️ Marginal rate rises from ' + currentMarginal + '% → ' + peakMarginal + '% — maximize RRSP contributions as salary grows</div>'
     : '';
 
-  // ── ASSEMBLE PAGE ────────────────────────────────────────────────────────
   container.innerHTML =
 
-    // ── ROW 1: Profile snapshot stats ──────────────────────────────────────
     '<div class="grid-4" style="margin-bottom:16px">'
       + _cstat(profile.title || '—', 'Current Title', color)
       + _cstat(profile.employer || '—', 'Employer', 'var(--text)')
@@ -2419,7 +2352,6 @@ function renderCareerMember(memberId) {
       + _cstat(serviceStr || '—', 'Time at Employer', 'var(--muted)')
     + '</div>'
 
-    // ── ROW 2: Meta badges + edit button ────────────────────────────────────
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">'
       + '<span style="font-size:12px;font-weight:700;background:' + color + '18;color:' + color + ';border:1.5px solid ' + color + '44;border-radius:20px;padding:4px 12px">' + (empLabels[profile.empType] || '💼 Employee') + '</span>'
       + '<span style="font-size:12px;font-weight:700;background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:4px 12px">' + (pensionLabels[profile.pension] || '—') + '</span>'
@@ -2428,7 +2360,6 @@ function renderCareerMember(memberId) {
       + '<button class="btn btn-ghost btn-sm" onclick="openCareerSettingsModal(\'' + memberId + '\')" style="margin-left:auto">⚙️ Edit Profile</button>'
     + '</div>'
 
-    // ── ROW 3: Ontario financial impact ─────────────────────────────────────
     + (currentSalary > 0 ? '<div class="card" style="margin-bottom:16px;border:2px solid color-mix(in srgb,var(--accent) 30%,transparent)">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
       + '<div class="card-title" style="margin:0">🇨🇦 Ontario Financial Impact</div>'
@@ -2445,10 +2376,8 @@ function renderCareerMember(memberId) {
           : '')
       + '</div>' : '')
 
-    // ── ROW 4: Career timeline + Training in grid ────────────────────────────
     + '<div class="grid-2" style="margin-bottom:16px">'
 
-      // Timeline card
       + '<div class="card" style="margin-bottom:0">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
           + '<div class="card-title" style="margin:0">🗺️ Career Roadmap</div>'
@@ -2457,7 +2386,6 @@ function renderCareerMember(memberId) {
         + timelineHtml
       + '</div>'
 
-      // Training card
       + '<div class="card" style="margin-bottom:0">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
           + '<div class="card-title" style="margin:0">📚 Training & Certifications</div>'
@@ -2473,7 +2401,6 @@ function renderCareerMember(memberId) {
       + '</div>'
     + '</div>'
 
-    // ── ROW 5: Forecast integration callout ─────────────────────────────────
     + (milestones.filter(function(ms){return ms.salary>0;}).length > 0
         ? '<div class="card" style="border:2px solid color-mix(in srgb,var(--green) 35%,transparent)">'
           + '<div class="card-title">📈 Salary Growth → Financial Forecast</div>'
@@ -2496,7 +2423,6 @@ function renderCareerMember(memberId) {
     ;
 }
 
-// ── Helper: render one timeline node ─────────────────────────────────────
 function _careerTimelineNode(opts) {
   var isFuture = !opts.isPast && !opts.isToday;
   var salaryLine = '';
@@ -2519,12 +2445,10 @@ function _careerTimelineNode(opts) {
     : '';
 
   return '<div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)">'
-    // Circle node
     + '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
       + '<div style="width:36px;height:36px;border-radius:50%;background:' + (opts.isToday ? opts.color : (opts.isPast ? 'var(--surface)' : opts.color + '22')) + ';border:2.5px solid ' + opts.color + ';display:flex;align-items:center;justify-content:center;font-size:16px">' + opts.icon + '</div>'
       + (opts.isToday ? '' : '<div style="width:2px;flex:1;min-height:16px;background:' + (isFuture ? 'var(--border)' : 'var(--accent)') + ';margin:4px 0;border-radius:2px"></div>')
     + '</div>'
-    // Content
     + '<div style="flex:1;min-width:0">'
       + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
         + '<div>'
@@ -2542,17 +2466,14 @@ function _careerTimelineNode(opts) {
   + '</div>';
 }
 
-// ── CAREER SETTINGS MODAL ─────────────────────────────────────────────────
 function openCareerSettingsModal(memberId) {
   seedCareerDataFromMembers();
   var members = state.members || [];
   if (!members.length) { hhAlert('No household members set up yet. Complete ⚙️ Setup first.', '👤'); return; }
-  // Populate member select
   var sel = document.getElementById('cs-member-select');
   sel.innerHTML = members.map(function(m){
     return '<option value="' + m.id + '">' + m.name + '</option>';
   }).join('');
-  // Use passed memberId or active tab or first member
   var targetId = memberId || _careerActiveMemberId || members[0].id;
   sel.value = targetId;
   loadCareerSettingsForMember(targetId);
@@ -2573,7 +2494,6 @@ function loadCareerSettingsForMember(memberId) {
   document.getElementById('cs-yearsservice').value= profile.yearsService|| '';
   document.getElementById('cs-industry').value    = profile.industry    || '';
   document.getElementById('cs-notes').value       = profile.notes       || '';
-  // Show/hide hourly rate row
   var isHourly = profile.empType === 'hourly' || profile.empType === 'parttime';
   document.getElementById('cs-hourlyrate-row').style.display = isHourly ? '' : '';
   document.getElementById('cs-emptype').onchange = function() {
@@ -2601,7 +2521,6 @@ function saveCareerSettings() {
     industry:    document.getElementById('cs-industry').value.trim(),
     notes:       document.getElementById('cs-notes').value.trim(),
   });
-  // Also sync back to member profile so retirement/forecast use the latest salary
   var member = (state.members||[]).find(function(m){ return m.id === memberId; });
   if (member && state.careerData[memberId].salary > 0) {
     member.monthlyIncome = Math.round(state.careerData[memberId].salary / 12);
@@ -2612,7 +2531,6 @@ function saveCareerSettings() {
   hhToast('Career profile saved!', '💼');
 }
 
-// ── ADD / EDIT MILESTONE ──────────────────────────────────────────────────
 var _careerMilestoneEditId = null;
 var _careerMilestoneMemberId = null;
 
@@ -2661,7 +2579,6 @@ function openEditMilestoneModal(memberId, milestoneId) {
 function toggleMilestoneType() {
   var type = document.getElementById('cm-type').value;
   var salaryBlock = document.getElementById('cm-salary-block');
-  // Show salary fields for promotion, raise, role_change, retirement
   salaryBlock.style.display = (type === 'certification' || type === 'other') ? 'none' : '';
 }
 
@@ -2729,7 +2646,6 @@ function deleteCareerMilestone(memberId, milestoneId) {
   });
 }
 
-// ── ADD / EDIT TRAINING ───────────────────────────────────────────────────
 var _careerTrainingEditId  = null;
 var _careerTrainingMemberId = null;
 
@@ -2829,11 +2745,7 @@ function deleteCareerTraining(memberId, trainingId) {
   });
 }
 
-// ── FORECAST INTEGRATION: inject career salary steps into avgInc calc ─────
-// Called by renderForecast() to get projected monthly income at a given month offset
 function getCareerProjectedMonthlyIncome(monthOffset) {
-  // For each member, check if any milestone date falls at or before this offset,
-  // and use the most recent salary at that point.
   var members = state.members || [];
   var total = 0;
   var targetDate = new Date();
@@ -2842,11 +2754,9 @@ function getCareerProjectedMonthlyIncome(monthOffset) {
   members.forEach(function(m) {
     var steps = getCareerSalarySteps(m.id);
     if (!steps.length) {
-      // Fall back to member monthlyIncome
       total += (m.monthlyIncome || 0);
       return;
     }
-    // Find the most recent salary step at or before targetStr
     var salary = steps[0].salary; // current baseline
     steps.forEach(function(step) {
       if (step.date <= targetStr && step.salary > 0) salary = step.salary;
@@ -2856,28 +2766,18 @@ function getCareerProjectedMonthlyIncome(monthOffset) {
   return total;
 }
 
-// ── RETIREMENT INTEGRATION: get projected final salary for pension formula ─
 function getCareerFinalSalary(memberId) {
   var profile = getCareerProfile(memberId);
   if (!profile) return 0;
   var milestones = (profile.milestones || []).filter(function(ms){ return ms.salary > 0; });
   if (!milestones.length) return profile.salary || 0;
-  // Return the salary of the latest milestone (closest to retirement)
   milestones.sort(function(a, b){ return a.date.localeCompare(b.date); });
   return milestones[milestones.length - 1].salary;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-
-// INIT
 function _initApp() {
-  // Restore saved theme first so colours are right before any render
   if(state.theme) applyTheme(state.theme);
-  // Restore sidebar collapsed state
   try { if(localStorage.getItem('hh_sidebar_collapsed')==='1') { var sb=document.getElementById('sidebar'); if(sb) sb.classList.add('collapsed'); } } catch(e){}
-  // Migrate: if any account has type Cash-Claimed/Unclaimed but a uid()-based id,
-  // re-point its transactions to the canonical fixed id and remove the orphan.
-  // This cleans up accounts that were accidentally created via the Upload form.
   ['Cash-Claimed','Cash-Unclaimed'].forEach(function(canonId) {
     var orphans = (state.accounts||[]).filter(function(a){ return a.type === canonId && a.id !== canonId; });
     orphans.forEach(function(orphan) {
@@ -2886,27 +2786,19 @@ function _initApp() {
     });
     if (orphans.length) saveState();
   });
-  // Migrate: re-point transactions stored with legacy plain-string account IDs
-  // (e.g. t.account === 'Chequing') to the real uid-based account for that person+type.
-  // This fixes the filter mismatch where acctBadge hides the wrong ID visually.
   (function migrateLeagcyAccountIds() {
     var legacyTypes = ['Chequing','Savings','Credit Card','TFSA','RRSP','FHSA','Loan','Line of Credit'];
     var accounts = state.accounts || [];
     var changed = false;
     state.transactions.forEach(function(t) {
-      // Only process transactions whose account value is one of the legacy plain-type strings
-      // AND that string is not itself a valid account id (i.e. no account has id === that string)
       if (!t.account) return;
       var isLegacyString = legacyTypes.indexOf(t.account) !== -1;
       if (!isLegacyString) return;
       var alreadyValid = accounts.some(function(a) { return a.id === t.account; });
       if (alreadyValid) return; // e.g. Cash-Claimed which uses type as id — already handled above
-      // Find the best matching real account: same type, same person (or joint)
       var matches = accounts.filter(function(a) {
         return a.type === t.account && (a.person === t.person || a.isJoint);
       });
-      // If only one match, re-point unconditionally
-      // If multiple, prefer the one whose person matches exactly
       var best = null;
       if (matches.length === 1) {
         best = matches[0];
@@ -2921,10 +2813,7 @@ function _initApp() {
     if (changed) saveState();
   })();
 
-  // Migrate: ensure Cash-Claimed / Cash-Unclaimed exist as real accounts if tips present
   if (state.tips && state.tips.length) ensureCashAccounts();
-  // Migrate: re-classify pantry items that are missing a section or defaulted
-  // to 'Groceries' but actually match a non-food keyword (e.g. Dish Soap, Cat Litter)
   (function migratePantrySections() {
     var changed = false;
     (state.pantry || []).forEach(function(p) {
@@ -2939,7 +2828,6 @@ function _initApp() {
     if (changed) saveState();
   })();
 
-  // ── URL hash config import (#setup=<base64>) ──────────────────────────────
   var hashMatch = window.location.hash.match(/^#setup=(.+)$/);
   if (hashMatch) {
     try {
@@ -2962,7 +2850,6 @@ function _initApp() {
         return; // Don't fall through to the normal init path
       }
     } catch(e) {
-      // Malformed hash — ignore silently, fall through to normal init
     }
   }
 
@@ -2980,12 +2867,10 @@ function _initApp() {
     var badge = document.createElement('span');
     badge.className = 'v-badge';
     badge.style.cssText = 'font-size:9px;font-weight:800;background:var(--accent);color:#fff;border-radius:6px;padding:1px 5px;vertical-align:middle;margin-left:4px;opacity:0.7';
-    badge.textContent = 'v6.27';
+    badge.textContent = 'v6.38';
     brand.appendChild(badge);
   }
 }
-
-// ── THEME SYSTEM ─────────────────────────────────────────────────────────────
 
 var THEMES = {
   'Warm Terracotta': {
@@ -3051,11 +2936,9 @@ var _themeCustomAccent = null;
 function applyTheme(themeObj) {
   var t = themeObj || {};
   var root = document.documentElement;
-  // Core palette
   var vars = ['--bg','--surface','--card','--border','--accent','--accent-dark','--accent2',
                '--text','--text2','--muted','--shadow','--shadow-md','--shadow-lg'];
   vars.forEach(function(v){ if(t[v]) root.style.setProperty(v, t[v]); });
-  // Custom accent override
   if(t.customAccent) {
     root.style.setProperty('--accent', t.customAccent);
     root.style.setProperty('--accent-dark', shadeColor(t.customAccent, -15));
@@ -3064,7 +2947,6 @@ function applyTheme(themeObj) {
 }
 
 function shadeColor(hex, pct) {
-  // Lighten (positive) or darken (negative) a hex colour by pct percent
   var num = parseInt(hex.replace('#',''), 16);
   var r = Math.min(255, Math.max(0, (num>>16) + Math.round(2.55*pct)));
   var g = Math.min(255, Math.max(0, ((num>>8)&0xff) + Math.round(2.55*pct)));
@@ -3083,13 +2965,11 @@ function _buildThemeObj() {
 }
 
 function openThemePicker() {
-  // Sync state
   var saved = state.theme || {};
   _activeThemeName = saved._name || 'Warm Terracotta';
   _themeDark = !!saved._dark;
   _themeCustomAccent = saved._customAccent || null;
 
-  // Render preset tiles
   var container = document.getElementById('theme-presets');
   container.innerHTML = Object.keys(THEMES).map(function(name){
     var th = THEMES[name];
@@ -3105,24 +2985,20 @@ function openThemePicker() {
       +'</div>';
   }).join('');
 
-  // Dark mode button state
   document.getElementById('theme-dark-btn').textContent = _themeDark ? 'On ✓' : 'Off';
   document.getElementById('theme-dark-btn').style.background = _themeDark ? 'var(--accent)' : '';
   document.getElementById('theme-dark-btn').style.color = _themeDark ? '#fff' : '';
 
-  // Accent input
   var accentInput = document.getElementById('theme-accent-input');
   accentInput.value = _themeCustomAccent || (THEMES[_activeThemeName]||THEMES['Warm Terracotta'])['--accent'];
 }
 
 function selectThemePreset(name) {
   _activeThemeName = name;
-  // Update tile borders
   Object.keys(THEMES).forEach(function(n){
     var tile = document.getElementById('theme-tile-'+n.replace(/\s/g,'-'));
     if(tile) tile.style.borderColor = n===name ? 'var(--accent)' : 'var(--border)';
   });
-  // Preview immediately
   applyTheme(_buildThemeObj());
 }
 
@@ -3132,7 +3008,6 @@ function toggleThemeDark() {
   btn.textContent = _themeDark ? 'On ✓' : 'Off';
   btn.style.background = _themeDark ? 'var(--accent)' : '';
   btn.style.color = _themeDark ? '#fff' : '';
-  // Apply dark overrides on top of current theme
   var t = _buildThemeObj();
   if(_themeDark) {
     t['--bg'] = '#0f1117'; t['--surface'] = '#181c26'; t['--card'] = '#1e2330'; t['--border'] = '#2e3650';
@@ -3156,7 +3031,6 @@ function saveThemePick() {
   closeModal('theme-modal');
 }
 
-// Populate the theme picker before opening the modal
 var _origOpenModal2 = openModal;
 openModal = function(id) {
   if(id === 'theme-modal') openThemePicker();
@@ -3165,11 +3039,9 @@ openModal = function(id) {
 
 (function() {
   if (_useIDB) {
-    // Wait for IDB to be ready, then preload cache, then init
     function waitForIDB() {
       if (_idbReady) {
         _preloadIDBCache(function() {
-          // Re-load state from IDB cache
           try { Object.assign(state, JSON.parse(hhStorageGet(KEY)) || {}); } catch(e){}
           _initApp();
         });
@@ -3183,13 +3055,11 @@ openModal = function(id) {
   }
 })();
 
-// CHART STATE
 var budgetChartInst = null;
 var txnChartInst = null;
 var currentBudgetView = 'bars';
 var currentTxnView = 'table';
 
-// BUDGET CHART VIEWS
 function setBudgetView(view, btn){
   document.querySelectorAll('#bud-v-bars,#bud-v-pie,#bud-v-bar').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
@@ -3242,7 +3112,6 @@ function renderBudgetChart(){
   }
 }
 
-// Patch renderBudget to also call chart and forecast
 var _origRenderBudget = renderBudget;
 renderBudget = function(){
   _origRenderBudget();
@@ -3250,7 +3119,6 @@ renderBudget = function(){
   renderForecast();
 };
 
-// FINANCIAL FORECAST
 var forecastChartInst = null;
 var forecastPastMonths = 6;
 var forecastFutureMonths = 6;
@@ -3281,7 +3149,6 @@ function renderForecast(){
   var now = new Date();
   var nowKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 
-  // ── BUILD MONTH LIST (past + present + future) ──────────────────────────
   var allMonths = []; // { key, label, isPast, isNow, isFuture }
   for(var i = -forecastPastMonths; i <= forecastFutureMonths; i++){
     var d = new Date(now.getFullYear(), now.getMonth()+i, 1);
@@ -3290,10 +3157,9 @@ function renderForecast(){
     allMonths.push({ key:key, label:label, isPast:i<0, isNow:i===0, isFuture:i>0, offset:i });
   }
 
-  // ── REAL DATA: income & expenses per historical month ───────────────────
   function monthIncome(mk){
     var txnInc = state.transactions
-      .filter(function(t){ return getMonthKey(t.date)===mk && t.amount>0 && t.category!=='transfer' && t.source!=='tips'; })
+      .filter(function(t){ return getMonthKey(t.date)===mk && t.amount>0 && t.category!=='transfer' && t.source!=='tips' && t.source!=='split'; })
       .reduce(function(s,t){ return s+t.amount; }, 0);
     return txnInc + getTipsForMonth(mk);
   }
@@ -3303,7 +3169,6 @@ function renderForecast(){
       .reduce(function(s,t){ return s+Math.abs(t.amount); }, 0);
   }
 
-  // Compute averages from up to last 6 months with real data
   var avgBasisKeys = [];
   for(var bi=1; bi<=6; bi++){
     var bd = new Date(now.getFullYear(), now.getMonth()-bi, 1);
@@ -3317,22 +3182,18 @@ function renderForecast(){
   var avgExp = sumExp / numBasis;
   var avgSurplus = avgInc - avgExp;
 
-  // Current month: use actual if data exists, else projection
   var curInc = monthIncome(nowKey) || avgInc;
   var curExp = monthExpenses(nowKey) || avgExp;
 
-  // Tips member for CRA reserve
   var tipsMember = getTipsMember();
   var avgTips = (function(){
     var tkm = avgBasisKeys.filter(function(mk){ return getTipsForMonth(mk)>0; });
     return tkm.length ? tkm.reduce(function(s,mk){ return s+getTipsForMonth(mk); },0)/tkm.length : 0;
   })();
 
-  // ── BUILD PER-MONTH DATA ARRAYS ─────────────────────────────────────────
   var labels=[], incData=[], expData=[], surplusData=[];
   var savingsData=[], runBal=0;
 
-  // Running balance seeded from actual account balances (assets minus debts)
   var windowStart = allMonths[0].key;
   (function(){
     var accounts = state.accounts || [];
@@ -3364,13 +3225,10 @@ function renderForecast(){
     if(m.isPast){
       var inc = monthIncome(m.key);
       var exp = monthExpenses(m.key);
-      // If no data for that month, use avg (greyed out in tooltip)
       var hasData = state.transactions.some(function(t){ return getMonthKey(t.date)===m.key; });
       incData.push(hasData ? inc : null);
       expData.push(hasData ? exp : null);
       surplusData.push(hasData ? (inc-exp) : null);
-      // Past months: savings chart shows the current real balance for all past points
-      // (we don't reconstruct historical balance — just anchor at today)
       savingsData.push(Math.round(runBal));
     } else if(m.isNow){
       incData.push(curInc);
@@ -3378,7 +3236,6 @@ function renderForecast(){
       surplusData.push(curInc - curExp);
       savingsData.push(Math.round(runBal));
     } else {
-      // Future — use career-projected monthly income if available, else avgInc
       var careerProjectedInc = getCareerProjectedMonthlyIncome(m.offset);
       var forecastInc = careerProjectedInc > 0 ? careerProjectedInc : avgInc;
       var forecastSurplus = forecastInc - avgExp;
@@ -3390,16 +3247,12 @@ function renderForecast(){
     }
   });
 
-  // "Today" divider index
   var todayIdx = allMonths.findIndex(function(m){ return m.isNow; });
 
-  // ── DESTROY OLD CHART ────────────────────────────────────────────────────
   if(forecastChartInst){ forecastChartInst.destroy(); forecastChartInst=null; }
   var ctx = document.getElementById('forecast-chart').getContext('2d');
 
-  // ── CHART: CASHFLOW ──────────────────────────────────────────────────────
   if(forecastChartView === 'cashflow'){
-    // Split income/expense into past-solid vs future-faded via segment coloring
     var incColors = allMonths.map(function(m){ return m.isFuture ? 'rgba(90,158,122,0.35)' : 'rgba(90,158,122,0.85)'; });
     var expColors = allMonths.map(function(m){ return m.isFuture ? 'rgba(217,95,95,0.30)' : 'rgba(217,95,95,0.80)'; });
 
@@ -3437,9 +3290,7 @@ function renderForecast(){
       }
     });
 
-  // ── CHART: SAVINGS TRAJECTORY ────────────────────────────────────────────
   } else if(forecastChartView === 'savings'){
-    // Shade past vs future differently
     var savColors = savingsData.map(function(_,i){ return i<=todayIdx ? 'rgba(90,158,122,0.12)' : 'rgba(155,127,189,0.08)'; });
     forecastChartInst = new Chart(ctx, {
       type:'line',
@@ -3473,14 +3324,12 @@ function renderForecast(){
       }
     });
 
-  // ── CHART: GOALS ─────────────────────────────────────────────────────────
   } else {
     var goalDatasets = [];
     var goalColors = ['#e07a9a','#9b7fbd','#c97d5a','#5a9e7a','#5bb8f7','#f59e0b'];
     (state.goals||[]).forEach(function(g, gi){
       var color = g.color || goalColors[gi % goalColors.length];
       var currentSaved = g.current + getGoalContributions(g.id);
-      // Allocate a share of monthly surplus proportional to goal priority (equal split for now)
       var numGoals = Math.max((state.goals||[]).length, 1);
       var monthlyToGoal = Math.max(0, avgSurplus) / numGoals;
       var gData = [];
@@ -3501,7 +3350,6 @@ function renderForecast(){
         tension:0.35, fill:false, pointRadius:2,
         segment:{ borderDash:function(c){ return c.p0DataIndex>=todayIdx?[5,4]:undefined; } }
       });
-      // Target line
       if(g.target>0){
         goalDatasets.push({
           label: g.name+' target ($'+g.target.toLocaleString()+')',
@@ -3535,7 +3383,6 @@ function renderForecast(){
     });
   }
 
-  // ── RECOMMENDATIONS PANEL ────────────────────────────────────────────────
   var recs = [];
   var surplusColor = avgSurplus>0?'var(--green)':'var(--red)';
   var province = (state.household && state.household.province) || 'ON';
@@ -3543,7 +3390,6 @@ function renderForecast(){
   var fhsaMembers = (state.members||[]).filter(function(m){ return m.isFirstTimeBuyer; });
   var pensionMembers = (state.members||[]).filter(function(m){ return m.hasPension; });
 
-  // Career salary steps callout — show when any member has future milestones with salary
   var careerMilestoneCount = (state.members||[]).reduce(function(total, m) {
     var steps = getCareerSalarySteps(m.id);
     return total + (steps.length > 1 ? steps.length - 1 : 0);
@@ -3555,19 +3401,16 @@ function renderForecast(){
       + '</div>');
   }
 
-  // ─ Section A: Cashflow summary ──────────────────────────────────────────
   recs.push('<div style="margin-bottom:18px">');
   recs.push('<div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">📊 Cashflow Summary <span style="font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0">(avg last '+numBasis+' month'+(numBasis!==1?'s':'')+')</span></div>');
   recs.push('<div style="display:flex;flex-wrap:wrap;gap:10px">');
   recs.push('<div style="background:var(--green-light);border:1.5px solid var(--green);border-radius:12px;padding:12px 16px;flex:1;min-width:130px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--green);font-weight:800">Avg Monthly Income</div><div style="font-size:22px;font-weight:700;color:var(--green);font-family:Playfair Display,serif">'+fmt(avgInc)+'</div>'+(avgTips>0?'<div style="font-size:11px;color:var(--muted)">incl. ~'+fmt(avgTips)+'/mo tips</div>':'')+'</div>');
   recs.push('<div style="background:var(--red-light);border:1.5px solid var(--red);border-radius:12px;padding:12px 16px;flex:1;min-width:130px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--red);font-weight:800">Avg Monthly Expenses</div><div style="font-size:22px;font-weight:700;color:var(--red);font-family:Playfair Display,serif">'+fmt(avgExp)+'</div></div>');
   recs.push('<div style="background:var(--surface);border:1.5px solid '+(avgSurplus>0?'var(--green)':'var(--red)')+';border-radius:12px;padding:12px 16px;flex:1;min-width:130px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800">Monthly Surplus</div><div style="font-size:22px;font-weight:700;color:'+surplusColor+';font-family:Playfair Display,serif">'+fmtSigned(avgSurplus)+'</div><div style="font-size:11px;color:var(--muted)">'+(avgSurplus>0?'Available to allocate':'Spending exceeds income')+'</div></div>');
-  // Current month actual
   var curSurplus = curInc - curExp;
   recs.push('<div style="background:var(--surface);border:1.5px solid var(--accent2);border-radius:12px;padding:12px 16px;flex:1;min-width:130px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800">This Month</div><div style="font-size:22px;font-weight:700;color:'+(curSurplus>=0?'var(--green)':'var(--red)')+';font-family:Playfair Display,serif">'+fmtSigned(curSurplus)+'</div><div style="font-size:11px;color:var(--muted)">'+fmt(curInc)+' in / '+fmt(curExp)+' out</div></div>');
   recs.push('</div></div>');
 
-  // ─ Section B: Savings Allocation ────────────────────────────────────────
   recs.push('<div style="margin-bottom:18px">');
   recs.push('<div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">💡 '+provLabel+' Savings Allocation</div>');
 
@@ -3577,7 +3420,6 @@ function renderForecast(){
     var remaining = avgSurplus;
     var alloc = [];
 
-    // Priority 1 — Emergency fund check (3 months expenses)
     var emergTarget = avgExp * 3;
     var emergSaved = Math.max(0, state.transactions
       .filter(function(t){ return t.account==='Savings'||t.category==='emergency'; })
@@ -3591,7 +3433,6 @@ function renderForecast(){
       remaining -= emergAmt;
     }
 
-    // Priority 2 — CRA reserve for tips income
     if(avgTips > 0 && tipsMember){
       var craAmt = Math.min(avgTips * 0.22, remaining * 0.15);
       if(craAmt > 0){
@@ -3603,7 +3444,6 @@ function renderForecast(){
       }
     }
 
-    // Priority 3 — FHSA for first-time buyers
     fhsaMembers.forEach(function(m){
       var fhsaAmt = Math.min(667, remaining * 0.25); // $8,000/yr ÷ 12
       if(fhsaAmt > 0 && remaining > 0){
@@ -3615,7 +3455,6 @@ function renderForecast(){
       }
     });
 
-    // Priority 4 — RRSP for pension members
     pensionMembers.forEach(function(m){
       var rrspAmt = Math.min(remaining * 0.15, 500);
       if(rrspAmt > 0 && remaining > 0){
@@ -3627,7 +3466,6 @@ function renderForecast(){
       }
     });
 
-    // Priority 5 — Active goals split evenly from remainder
     var activeGoals = (state.goals||[]).filter(function(g){
       return (g.current + getGoalContributions(g.id)) < g.target;
     });
@@ -3647,7 +3485,6 @@ function renderForecast(){
       remaining = 0;
     }
 
-    // Leftover
     if(remaining > 5){
       alloc.push({ color:'var(--green)', bg:'var(--green-light)', border:'var(--green)',
         title:'💚 Unallocated Surplus',
@@ -3669,7 +3506,6 @@ function renderForecast(){
   }
   recs.push('</div>');
 
-  // ─ Section C: Goal projections ──────────────────────────────────────────
   if((state.goals||[]).length > 0){
     recs.push('<div>');
     recs.push('<div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">🎯 Goal Projections</div>');
@@ -3698,7 +3534,6 @@ function renderForecast(){
   document.getElementById('forecast-recommendations').innerHTML = recs.join('');
 }
 
-// TRANSACTION CHART VIEWS
 function setTxnView(view, btn){
   document.querySelectorAll('#txn-v-table,#txn-v-pie,#txn-v-bar,#txn-v-line').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
@@ -3751,13 +3586,11 @@ function renderTxnChart(view){
     });
 
   } else if(view === 'line'){
-    // Spending over time — group by day
     var byDay = {};
     txns.forEach(function(t){
       var d = t.date; byDay[d]=(byDay[d]||0)+Math.abs(t.amount);
     });
     var days = Object.keys(byDay).sort();
-    // Running total
     var running = 0;
     var runData = days.map(function(d){running+=byDay[d];return running;});
     txnChartInst = new Chart(ctx, {
@@ -3771,13 +3604,11 @@ function renderTxnChart(view){
   }
 }
 
-// CATEGORY SPLIT
 var catSplitRows = [];
 
 function openCatSplit(txnId){
   var t = state.transactions.find(function(x){return x.id===txnId;});
   if(!t) return;
-  // If already split, load existing children; otherwise start fresh
   document.getElementById('cat-split-txn-id').value = txnId;
   document.getElementById('cat-split-txn-info').innerHTML =
     '<strong>'+(t.description||'')+'</strong><br>'
@@ -3795,12 +3626,22 @@ function openCatSplit(txnId){
 
 function renderCatSplitRows(maxAmt){
   var cats = (state.categories||[]).filter(function(c){return c.id!=='transfer';});
-  var catOpts = cats.map(function(c){return '<option value="'+c.id+'">'+c.name+'</option>';}).join('');
   document.getElementById('cat-split-rows').innerHTML = catSplitRows.map(function(row,i){
+    var rowOpts = cats.map(function(c){return '<option value="'+c.id+'"'+(c.id===row.catId?' selected':'')+'>'+c.name+'</option>';}).join('');
+    if ((state.goals||[]).length) {
+      rowOpts += '<optgroup label="--- Goals ---">'
+        + state.goals.map(function(g){var v='goal:'+g.id;return '<option value="'+v+'"'+(v===row.catId?' selected':'')+'>'+g.emoji+' '+g.name+'</option>';}).join('')
+        + '</optgroup>';
+    }
+    if ((state.carFunds||[]).length) {
+      rowOpts += '<optgroup label="--- Car Funds ---">'
+        + state.carFunds.map(function(c){var v='car:'+c.id;return '<option value="'+v+'"'+(v===row.catId?' selected':'')+'>'+(c.emoji||'🚗')+' '+c.name+'</option>';}).join('')
+        + '</optgroup>';
+    }
     return '<div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px">'
       +'<input type="text" value="'+(row.desc||'')+'" placeholder="Description" oninput="catSplitRows['+i+'].desc=this.value" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px">'
       +'<select onchange="catSplitRows['+i+'].catId=this.value" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px">'
-        +cats.map(function(c){return '<option value="'+c.id+'"'+(c.id===row.catId?' selected':'')+'>'+c.name+'</option>';}).join('')
+        +rowOpts
       +'</select>'
       +'<input type="number" value="'+(row.amount||'')+'" placeholder="$0.00" step="0.01" min="0" oninput="catSplitRows['+i+'].amount=parseFloat(this.value)||0;updateCatSplitRemaining()" style="width:100px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px">'
       +(catSplitRows.length>1?'<button onclick="catSplitRows.splice('+i+',1);renderCatSplitRows('+maxAmt+')" style="background:var(--red-light);border:none;border-radius:6px;padding:6px 10px;cursor:pointer;color:var(--red);font-weight:700;font-size:14px">&#215;</button>':'')
@@ -3839,7 +3680,6 @@ function saveCatSplit(){
   var t = state.transactions.find(function(x){return x.id===txnId;});
   if(!t) return;
   var max = Math.abs(t.amount);
-  // If already split (parent zeroed), re-derive max from existing children
   if(max < 0.01){
     var oldKids = state.transactions.filter(function(c){return c.parentTxnId===txnId && c.source==='cat-split';});
     max = oldKids.reduce(function(s,c){return s+Math.abs(c.amount);},0);
@@ -3849,18 +3689,14 @@ function saveCatSplit(){
   var valid = catSplitRows.filter(function(r){return r.amount>0;});
   if(!valid.length){closeModal('cat-split-modal');return;}
 
-  // Capture original sign BEFORE zeroing
   var origIsExpense = t.amount < 0 || (t.amount === 0 && t.source==='cat-split-parent' &&
     state.transactions.some(function(c){return c.parentTxnId===txnId && c.amount<0;}));
 
-  // Remove any existing cat-split children for this transaction
   state.transactions = state.transactions.filter(function(tx){return !(tx.parentTxnId===txnId && tx.source==='cat-split');});
 
-  // Mark parent as split (zero amount so it doesn't double-count budgets)
   t.source = 'cat-split-parent';
   t.amount = 0;
 
-  // Create child transactions — income category → positive, everything else mirrors original sign
   valid.forEach(function(r){
     var childSign = (r.catId==='income') ? 1 : (origIsExpense ? -1 : 1);
     state.transactions.push({
@@ -3878,7 +3714,6 @@ function saveCatSplit(){
   hhToast('Transaction split into '+valid.length+' categories ✅','success');
 }
 
-// GOAL SPLIT (transaction splitting)
 var splitRows = [];
 
 function openGoalSplit(txnId){
@@ -3890,7 +3725,6 @@ function openGoalSplit(txnId){
     +'<span style="color:var(--muted)">'+t.date+' &mdash; </span>'
     +'<span style="color:'+(t.amount<0?'var(--red)':'var(--green)')+';font-weight:700">'+fmtSigned(t.amount)+'</span>';
 
-  // Load existing splits if any
   var existing = (state.goalSplits||{})[txnId]||[];
   splitRows = existing.length ? existing.map(function(s){return{goalId:s.goalId,amount:s.amount};}) : [{goalId:'',amount:''}];
   renderSplitRows(Math.abs(t.amount));
@@ -3943,23 +3777,18 @@ function saveGoalSplit(){
   var validSplits=splitRows.filter(function(r){return r.goalId&&r.amount>0;});
   if(!validSplits.length){closeModal('split-modal');return;}
 
-  // Remove old split transactions for this txn
   if(!state.goalSplits)state.goalSplits={};
   var oldSplits=state.goalSplits[txnId]||[];
   oldSplits.forEach(function(s){
-    // Also remove any balancing debit transactions created
     state.transactions=state.transactions.filter(function(tx){return tx.id!==s.splitTxnId && tx.splitDebitId!==s.splitTxnId;});
   });
 
-  // Create new split transactions
   var savedSplits=[];
   validSplits.forEach(function(r){
     var splitId=uid();
     var desc='Split: '+t.description;
-    // Positive entry to goal category
     state.transactions.push({id:splitId,date:t.date,description:desc,amount:parseFloat(r.amount),
       category:'goal:'+r.goalId,person:t.person,account:t.account,source:'split',parentTxnId:txnId});
-    // Balancing debit from the source account to keep balance accurate
     var debitId=uid();
     state.transactions.push({id:debitId,date:t.date,description:desc+' (transfer)',amount:-parseFloat(r.amount),
       category:'transfer',person:t.person,account:t.account,source:'split_debit',parentTxnId:txnId,splitDebitId:splitId});
@@ -3976,3 +3805,91 @@ function saveGoalSplit(){
 
 
 
+function generateMonthlyReport() {
+  var months = getMonths();
+  var targetMk = months.find(function(mk){ return mk < getCurrentMonthKey(); }) || months[0];
+  if (!targetMk) { hhAlert('No transaction data yet.', 'info'); return; }
+  var parts = targetMk.split('-');
+  var mNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var monthLabel = mNames[parseInt(parts[1])-1] + ' ' + parts[0];
+  var hhName = (state.household && state.household.name) ? state.household.name : 'Home Hub';
+
+  var txns = state.transactions.filter(function(t){ return getMonthKey(t.date)===targetMk; });
+  var income = txns.filter(function(t){ return t.amount>0 && t.category!=='transfer' && t.source!=='tips' && t.source!=='split'; })
+                   .reduce(function(s,t){ return s+t.amount; },0);
+  var tipsInc = typeof getTipsForMonth==='function' ? getTipsForMonth(targetMk) : 0;
+  var totalIncome = income + tipsInc;
+  var expenses = txns.filter(function(t){ return t.amount<0 && t.category!=='transfer'; })
+                     .reduce(function(s,t){ return s+Math.abs(t.amount); },0);
+  var srPct = totalIncome>0 ? Math.round(((totalIncome-expenses)/totalIncome)*100) : 0;
+
+  var catSpend = {};
+  txns.filter(function(t){ return t.amount<0 && t.category!=='transfer'; })
+      .forEach(function(t){ catSpend[t.category]=(catSpend[t.category]||0)+Math.abs(t.amount); });
+  var catRows = Object.entries(catSpend).sort(function(a,b){ return b[1]-a[1]; }).map(function(e){
+    var cat = getCatById(e[0]); var budget = state.budgets[e[0]]||0;
+    var variance = budget ? budget-e[1] : null;
+    var varStyle = variance===null?'':'color:'+(variance>=0?'#16a34a':'#dc2626');
+    return '<tr><td>'+cat.name+'</td><td style="text-align:right">$'+e[1].toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="text-align:right">'+(budget?'$'+budget.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2}):'--')+'</td>'
+      +'<td style="text-align:right;'+varStyle+'">'+(variance===null?'--':(variance>=0?'+':'')+variance.toFixed(2))+'</td></tr>';
+  }).join('');
+
+  var top5 = txns.filter(function(t){ return t.amount<0; }).sort(function(a,b){ return a.amount-b.amount; }).slice(0,5);
+  var top5Rows = top5.map(function(t){
+    return '<tr><td>'+t.date+'</td><td>'+t.description.substring(0,40)+'</td><td style="text-align:right;color:#dc2626">-$'+Math.abs(t.amount).toFixed(2)+'</td></tr>';
+  }).join('');
+
+  var nwHist = state.netWorthHistory||[];
+  var nwCur = nwHist.find(function(s){ return s.date===targetMk; });
+  var nwIdx = nwHist.indexOf(nwCur);
+  var nwPrev = nwIdx>0 ? nwHist[nwIdx-1] : null;
+  var nwChange = (nwCur && nwPrev) ? nwCur.netWorth - nwPrev.netWorth : null;
+
+  var goalRows = (state.goals||[]).map(function(g){
+    var saved = (g.current||0) + (typeof getGoalContributions==='function' ? getGoalContributions(g.id) : 0);
+    var pct = g.target>0 ? Math.round((saved/g.target)*100) : 0;
+    return '<tr><td>'+(g.emoji||'')+' '+g.name+'</td><td style="text-align:right">$'+saved.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="text-align:right">$'+g.target.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="text-align:right">'+pct+'%</td></tr>';
+  }).join('');
+
+  var rrspNote = (parseInt(parts[1])===1 || parseInt(parts[1])===2)
+    ? '<div style="margin:16px 0;padding:12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px"><strong>RRSP Reminder:</strong> Deadline is March 1 for the prior tax year.</div>' : '';
+
+  var css = 'body{font-family:system-ui,sans-serif;color:#111;padding:32px;max-width:820px;margin:0 auto}'
+    + 'h1{font-size:22px;margin-bottom:4px}h2{font-size:15px;margin:24px 0 8px;border-bottom:2px solid #e5e7eb;padding-bottom:4px}'
+    + 'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px}'
+    + 'th,td{padding:7px 10px;border:1px solid #e5e7eb;text-align:left}'
+    + 'th{background:#f9fafb;font-weight:700}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}'
+    + '.box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;text-align:center}'
+    + '.box .val{font-size:20px;font-weight:800}.box .lbl{font-size:11px;color:#6b7280;margin-top:2px}'
+    + '.g{color:#16a34a}.r{color:#dc2626}@media print{button{display:none}}';
+
+  var html = '<!DOCTYPE html><html><head><title>'+hhName+' Report</title><style>'+css+'</style></head><body>';
+  html += '<button onclick="window.print()" style="margin-bottom:20px;padding:7px 18px;cursor:pointer;border:1px solid #ccc;border-radius:6px">Print / Save PDF</button>';
+  html += '<h1>'+hhName+' — Monthly Report</h1>';
+  html += '<p style="color:#6b7280;font-size:13px;margin:0">'+monthLabel+' &bull; Generated '+new Date().toLocaleDateString('en-CA')+'</p>';
+  html += '<h2>Income &amp; Expenses</h2><div class="grid3">';
+  html += '<div class="box"><div class="val g">$'+totalIncome.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="lbl">Total Income</div></div>';
+  html += '<div class="box"><div class="val r">$'+expenses.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="lbl">Total Expenses</div></div>';
+  html += '<div class="box"><div class="val" style="color:'+(srPct>=20?'#16a34a':srPct>=10?'#d97706':'#dc2626')+'">'+srPct+'%</div><div class="lbl">Savings Rate</div></div>';
+  html += '</div>';
+  html += '<h2>Spending by Category</h2><table><thead><tr><th>Category</th><th style="text-align:right">Actual</th><th style="text-align:right">Budget</th><th style="text-align:right">Variance</th></tr></thead><tbody>'+catRows+'</tbody></table>';
+  html += '<h2>Top 5 Largest Expenses</h2><table><thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead><tbody>'+top5Rows+'</tbody></table>';
+  if (nwChange !== null) {
+    html += '<h2>Net Worth</h2><div class="grid3">';
+    html += '<div class="box"><div class="val">$'+nwPrev.netWorth.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0})+'</div><div class="lbl">Opening</div></div>';
+    html += '<div class="box"><div class="val">$'+nwCur.netWorth.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0})+'</div><div class="lbl">Closing</div></div>';
+    html += '<div class="box"><div class="val '+(nwChange>=0?'g':'r')+'">'+(nwChange>=0?'+':'')+nwChange.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0})+'</div><div class="lbl">Change</div></div>';
+    html += '</div>';
+  }
+  if (goalRows) {
+    html += '<h2>Goal Progress</h2><table><thead><tr><th>Goal</th><th style="text-align:right">Saved</th><th style="text-align:right">Target</th><th style="text-align:right">% Done</th></tr></thead><tbody>'+goalRows+'</tbody></table>';
+  }
+  html += rrspNote + '</body></html>';
+
+  var w = window.open('','_blank');
+  if (!w) { hhAlert('Pop-up blocked — allow pop-ups for this page and try again.', 'warning'); return; }
+  w.document.write(html); w.document.close();
+}

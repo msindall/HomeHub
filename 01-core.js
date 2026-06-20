@@ -1,11 +1,7 @@
-// HOME HUB v4.0 — CROSS-PLATFORM COMPATIBILITY LAYER | Works in: Chrome, Firefox, Safari, Edge, Claude Desktop App
-
-// Native alert/confirm are blocked in some contexts (iframes, Claude Desktop)
 var _dlgQueue = [];
 var _dlgActive = false;
 
 function hhDialog(opts) {
-  // opts: { type:'alert'|'confirm', icon, title, message, okText, cancelText, onOk, onCancel }
   return new Promise(function(resolve) {
     _dlgQueue.push({ opts: opts, resolve: resolve });
     if (!_dlgActive) _processDialogQueue();
@@ -19,7 +15,6 @@ function _processDialogQueue() {
   var o = item.opts;
   var overlay = document.getElementById('hh-dialog-overlay');
   if (!overlay) {
-    // Fallback if DOM not ready — use native as last resort
     if (o.type === 'confirm') { item.resolve(window.confirm(o.message)); }
     else { window.alert(o.message); item.resolve(true); }
     _processDialogQueue();
@@ -51,7 +46,6 @@ function _closeDialog() {
   if (overlay) overlay.classList.remove('open');
 }
 
-// Async wrappers that match alert/confirm signatures
 function hhAlert(message, icon, title) {
   return hhDialog({ type: 'alert', message: message, icon: icon, title: title });
 }
@@ -59,7 +53,6 @@ function hhConfirm(message, icon, title) {
   return hhDialog({ type: 'confirm', message: message, icon: icon, title: title });
 }
 function hhToast(message, type) {
-  // Remove any existing toast
   var old = document.getElementById('hh-toast');
   if (old) old.remove();
   var icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
@@ -73,7 +66,6 @@ function hhToast(message, type) {
   setTimeout(function() { if (el.parentNode) el.remove(); }, 3000);
 }
 
-// localStorage is blocked in some sandboxed environments (Claude Desktop, certain iframes)
 var _storageCache = {};
 var _useIDB = false;
 var _idbReady = false;
@@ -81,14 +73,11 @@ var _idbDB = null;
 var _idbQueue = [];
 
 (function initStorage() {
-  // Test localStorage
   try {
     var testKey = '__hh_test__';
     localStorage.setItem(testKey, '1');
     localStorage.removeItem(testKey);
-    // localStorage works — nothing more needed
   } catch(e) {
-    // localStorage blocked — use IndexedDB
     _useIDB = true;
     console.log('[HomeHub] localStorage unavailable, switching to IndexedDB');
     var req = indexedDB.open('HomeHubDB', 1);
@@ -98,12 +87,10 @@ var _idbQueue = [];
     req.onsuccess = function(e) {
       _idbDB = e.target.result;
       _idbReady = true;
-      // Replay queued reads
       _idbQueue.forEach(function(fn) { fn(); });
       _idbQueue = [];
     };
     req.onerror = function() {
-      // Both storage methods failed — use in-memory only (data won't persist)
       console.warn('[HomeHub] Both localStorage and IndexedDB unavailable — running in memory mode');
       _useIDB = false;
     };
@@ -128,7 +115,6 @@ function _idbRemove(key) {
   tx.objectStore('kv').delete(key);
 }
 
-// Synchronous-style wrappers that use cache
 function hhStorageGet(key) {
   if (!_useIDB) {
     try { return localStorage.getItem(key); } catch(e) { return _storageCache[key] || null; }
@@ -152,7 +138,6 @@ function hhStorageRemove(key) {
   }
 }
 
-// Load IDB data into cache on startup (async, called after IDB ready)
 function _preloadIDBCache(cb) {
   if (!_useIDB || !_idbDB) { if(cb)cb(); return; }
   var tx = _idbDB.transaction('kv', 'readonly');
@@ -173,8 +158,6 @@ function _preloadIDBCache(cb) {
   req.onerror = function() { if(cb)cb(); };
 }
 
-// Flipp API blocks direct browser calls in Firefox/Safari/Desktop
-// We try direct first, then fall back to a CORS proxy
 var FLIPP_CORS_PROXIES = [
   '', // Direct first
   'https://corsproxy.io/?',
@@ -200,7 +183,6 @@ async function flippFetch(url) {
   throw lastErr || new Error('All Flipp fetch methods failed');
 }
 
-// PDF TEXT EXTRACTION (uses PDF.js — no server needed)
 async function extractPDFText(file) {
   if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded — please refresh the page.');
   const arrayBuf = await file.arrayBuffer();
@@ -220,8 +202,6 @@ async function extractPDFText(file) {
   return fullText.trim();
 }
 
-// Render each PDF page to a canvas and return base64 JPEG images.
-// Used for image-based / scanned PDFs where text extraction returns nothing.
 async function extractPDFImages(file) {
   if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded.');
   const arrayBuf = await file.arrayBuffer();
@@ -240,7 +220,6 @@ async function extractPDFImages(file) {
   return images;
 }
 
-// Send a single PDF page image to Claude Vision API and get transactions back.
 async function callClaudeVision(base64, pageNum, totalPages) {
   var resp;
   try {
@@ -279,7 +258,6 @@ async function callClaudeVision(base64, pageNum, totalPages) {
   try { return JSON.parse(arr ? arr[0] : '[]'); } catch(e) { return []; }
 }
 
-// STATE & PERSISTENCE
 const KEY = 'mh_v5';
 function loadState() { try { return JSON.parse(hhStorageGet(KEY)) || defaultState(); } catch { return defaultState(); } }
 function saveState() { hhStorageSet(KEY, JSON.stringify(state)); }
@@ -326,8 +304,6 @@ function defaultState() {
     startingBalances: {},
     accounts: [],
     features: { calendar:true, tips:true, grocery:true, pets:true, upload:true, wedding:true, house:true, bills:true, networth:true, carfunds:true, maintenance:true, tax:true, retirement:true, career:true },
-    // Fields that were previously missing from defaultState — included here so
-    // backup/restore cycles always produce a fully-valid state object.
     maintenanceTasks: [],
     carFunds: [],
     taxData: {},
@@ -374,59 +350,41 @@ function defaultBudgets() {
 
 function defaultCatRules() {
   return [
-    // Groceries
     {match:'FOOD BASICS',cat:'groceries'},{match:'NO FRILLS',cat:'groceries'},
     {match:'METRO',cat:'groceries'},{match:'PC EXPRESS PASS',cat:'subscriptions'},
     {match:'PC EXPRESS',cat:'groceries'},{match:'COBS BREAD',cat:'groceries'},
     {match:'COUNTRY TRADI',cat:'groceries'},
-    // Dining
     {match:'MCDONALDS',cat:'dining'},{match:"MCDONALD'S",cat:'dining'},
     {match:'SKIPTHEDISHES',cat:'dining'},{match:'RAXX BAR',cat:'dining'},
     {match:'THE BARRIEFIELD',cat:'dining'},{match:'HONEYBEAR',cat:'dining'},
     {match:"TANYA'S",cat:'dining'},{match:'THE ORCHID',cat:'dining'},
-    // Auto
     {match:'DAVID GOUETT',cat:'auto'},{match:'MIDAS',cat:'auto'},
-    // Gas
     {match:'PETRO-CANADA',cat:'gas'},{match:'MOHAWK DUTY',cat:'gas'},
     {match:'611 TRUCK STOP',cat:'gas'},
-    // Phone
     {match:'TELUS',cat:'phone'},
-    // Fitness
     {match:'GOODLIFE',cat:'fitness'},
-    // Insurance
     {match:'ALLSTATE',cat:'insurance'},{match:'ELITE INSURANCE',cat:'insurance'},
     {match:'CANADIAN SECURI',cat:'insurance'},
-    // Cannabis
     {match:'CALYX',cat:'cannabis'},
-    // Entertainment
     {match:'LCBO',cat:'entertainment'},{match:'THE BEER STORE',cat:'entertainment'},
     {match:'GRAND THEAT',cat:'entertainment'},{match:'TICKETSCENE',cat:'entertainment'},
     {match:'OLG',cat:'entertainment'},{match:'UPPER CANADA',cat:'entertainment'},
     {match:'WHATNOT',cat:'entertainment'},
-    // Shopping
     {match:'SVP SPORTS',cat:'shopping'},{match:'CANADIAN TIRE',cat:'shopping'},
     {match:'AMAZON',cat:'shopping'},{match:'AMZN',cat:'shopping'},
     {match:'SLPC',cat:'shopping'},{match:'CHARM DIAMOND',cat:'shopping'},
-    // Pets
     {match:'M&R KAHLON',cat:'pets'},{match:'HAIR OF THE DOG',cat:'pets'},
-    // Subscriptions
     {match:'KOHO',cat:'subscriptions'},{match:'SPOTIFY',cat:'subscriptions'},
     {match:'MICROSOFT*PC GAME PASS',cat:'subscriptions'},
-    // Health
     {match:'INSURANCE RBC DENTAL',cat:'health'},
-    // Charity
     {match:'CHEO',cat:'charity'},
-    // Other
     {match:'MECP-FERRIS',cat:'other'},{match:'BROOM FACTO',cat:'other'},
     {match:'ATM WITHDRAWAL',cat:'other'},
-    // NOTE: E-TRANSFER RECEIVED is NOT here — handled by isTransferDesc / isIncomeDesc
   ];
 }
 
-// Pre-loaded flyer data
 let state = loadState();
 
-// Initialize missing state keys on first load
 (function() {
   if (!state.flyers) { state.flyers = []; saveState(); }
   if (!state.calEvents) { state.calEvents = []; saveState(); }
@@ -456,7 +414,6 @@ let state = loadState();
   if (!state.bills) { state.bills = []; saveState(); }
   if (!state.netWorthHistory) { state.netWorthHistory = []; saveState(); }
   if (!state.manualAssets) { state.manualAssets = []; saveState(); }
-  // Migrate existing pets to include medical fields
   var petsNeedSave = false;
   (state.pets||[]).forEach(function(pet) {
     if (!pet.vetVisits)    { pet.vetVisits = [];     petsNeedSave = true; }
@@ -467,7 +424,6 @@ let state = loadState();
   });
   if (petsNeedSave) saveState();
   if (!state.features) {
-    // Auto-detect sensible defaults for existing setups
     state.features = {
       calendar: true,
       tips: !!(state.members||[]).find(function(m){return m.hasTips;}),
@@ -477,7 +433,6 @@ let state = loadState();
     };
     saveState();
   }
-  // Initialize petFeeding for all dynamic pets
   var today = new Date().toISOString().split('T')[0];
   (state.pets || []).forEach(function(pet) {
     if (!state.petFeeding[pet.id]) { state.petFeeding[pet.id] = { fed: false, time: null, date: null }; }
@@ -485,17 +440,13 @@ let state = loadState();
   });
   saveState();
 
-  // Ensure 'transfer' category exists (migrating from old state)
   if (!state.categories.find(function(c){return c.id==='transfer';})) {
     state.categories.push({ id:'transfer', name:'Transfers', color:'#94a3b8' });
     saveState();
   }
-  // Rename old 'Savings & Transfers' category to just 'Savings'
   var savCat = state.categories.find(function(c){return c.id==='savings';});
   if (savCat && savCat.name === 'Savings & Transfers') { savCat.name = 'Savings'; saveState(); }
 
-  // ── Init guards for fields missing from older saved-state versions ────────
-  // These mirror what is now in defaultState() so restore/backup cycles work too.
   if (!state.maintenanceTasks)  { state.maintenanceTasks  = [];  saveState(); }
   if (!state.carFunds)          { state.carFunds          = [];  saveState(); }
   if (!state.weddingChecklist)  { state.weddingChecklist  = [];  saveState(); }
@@ -508,8 +459,6 @@ let state = loadState();
   if (!state.mealPlanDates)     { state.mealPlanDates     = {};  }
   if (!state.careerData)        { state.careerData        = {};  saveState(); }
 
-  // Reclassify old transactions that were wrongly saved as 'savings' or 'income'
-  // when they were actually transfers between accounts
   var changed = false;
   state.transactions.forEach(function(t) {
     var raw = t.rawDescription || t.description || '';
@@ -520,7 +469,6 @@ let state = loadState();
   if (changed) saveState();
 })();
 
-// HELPERS
 function fmt(n) { return '$' + Math.abs(n).toFixed(2); }
 function fmtC(n) { return '$' + Math.abs(n).toLocaleString('en-CA', {minimumFractionDigits:0, maximumFractionDigits:0}); }
 function fmtSigned(n) { return (n>=0?'+$':'-$') + Math.abs(n).toFixed(2); }
@@ -535,94 +483,65 @@ function getCatById(id) {
     const c = (state.carFunds||[]).find(function(x){return x.id===carId;});
     if(c) return {name:(c.emoji||'🚗')+' '+c.name, color:c.color||'#4f8ef7', isCar:true, carId};
   }
+  if(id === 'wedding-transfer') return {name:'💍 Wedding Fund', color:'#c97d5a'};
   return state.categories.find(c=>c.id===id) || {name:id,color:'#b8957a'};
 }
-function parseDate(s) { if (!s) return new Date(0); const p=s.split('/'); if(p.length===3) return new Date(p[2],p[0]-1,p[1]); return new Date(s); }
+function parseDate(s) {
+  if (!s) return new Date(0);
+  const p = s.split('/');
+  if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1]));
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2])-1, parseInt(iso[3]));
+  return new Date(s);
+}
 function getMonthKey(dateStr) { const d=parseDate(dateStr); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function getMonths() { return [...new Set(state.transactions.map(t=>getMonthKey(t.date)))].sort().reverse(); }
 function getCurrentMonthKey() { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
 
-// TRANSFER & INCOME DETECTION
-
-// Returns true if the transaction is money moving between household members' own accounts.
-// These must NEVER count as income or expenses — they are neutral transfers.
 function isTransferDesc(desc) {
   const d = (desc || '').toUpperCase();
-  // Internal RBC bank transfers
   if (/ONLINE TRANSFER TO DEPOSIT|ONLINE BANKING TRANSFER|BR TO BR/.test(d)) return true;
-  // E-transfer sent to self
   if (/E-TRANSFER SENT ME\b/.test(d)) return true;
-  // Household members sending to each other internally (not external income)
-  // DMD savings account: member funding another member's savings
-  // DMD loan/savings transfer out
   if (/TRANSFER OUT/.test(d)) return true;
-  // DMD bank-generated fee/interest summary rows
   if (/SYSTEM GENERATED ENTRY/.test(d)) return true;
-  // TFSA deposit — savings vehicle, not an expense
   if (/MISC PAYMENT TFSA/.test(d)) return true;
-  // Credit card payment — paying off balance from chequing (not income on card)
   if (/^PAYMENT$/.test(d.trim())) return true;
-  // Online bill pay routing
   if (/ONLINE BANKING PAYMENT/.test(d)) return true;
   return false;
 }
 
-// Returns true only for real external money coming in (actual earnings/benefits)
 function isIncomeDesc(desc) {
   const d = (desc || '').toUpperCase();
-  // Employment income
   if (/PAYROLL|STAFF\s*-\s*PAY|DIRECT DEP|SALARY|WAGES/.test(d)) return true;
-  // Government benefits
   if (/EI BENEFIT|CPP|OAS|GST CANADA|HST CANADA|TRILLIUM/.test(d)) return true;
-  // Known external e-transfer senders — internal household transfers are handled above
   if (/E-TRANSFER RECEIVED WOODBECK/.test(d)) return true;
   if (/E-TRANSFER RECEIVED VICTORIACORDEIRO/.test(d)) return true;
   if (/E-TRANSFER RECEIVED TAMARABORRELLO/.test(d)) return true;
-  // Rewards / cashback from merchants
   if (/MISC PAYMENT OFFER/.test(d)) return true;
   return false;
 }
 
 function autoCategorize(desc) {
   const d = (desc || '').toUpperCase();
-  // 1. Transfers first — never count as income or expense
   if (isTransferDesc(desc)) return 'transfer';
-  // 2. User-defined rules
   for (const r of state.catRules) { if (d.includes(r.match.toUpperCase())) return r.cat; }
-  // 3. Real income
   if (isIncomeDesc(desc)) return 'income';
-  // 4. Groceries
   if (/FOOD BASIC|NO FRILLS|METRO|SOBEYS|LOBLAWS|WALMART GROCERY|SAVE ON|REAL CANADIAN|IGA|FARM BOY|FORTINOS|ZEHRS|FRESHCO|WHOLE FOOD|COSTCO|COBS BREAD|COUNTRY TRADI/.test(d)) return 'groceries';
   if (/PC EXPRESS/.test(d) && !/PC EXPRESS PASS/.test(d)) return 'groceries';
-  // 5. Dining
   if (/MCDONALD|TIM HORTON|STARBUCKS|SUBWAY|TANYA|THE ORCHID|BARRIEFIELD|HONEYBEAR|RAXX BAR|SKIPTHEDISHES|SKIP THE DISH|DOORDASH|UBER EATS|PIZZA|RESTAURANT|BISTRO|CAFE|COFFEE|WENDY|BURGER KING|KFC|POPEYE|A&W|HARVEY|SWISS CHALET|BOSTON PIZZA|EAST SIDE|JACK ASTOR|THE KITCH|PITA|SUSHI|THAI|CHINESE/.test(d)) return 'dining';
-  // 6. Gas
   if (/PETRO.CANADA|SHELL|ESSO|HUSKY|MOHAWK DUTY|MOHAWK|PIONEER|ULTRAMAR|611 TRUCK|GAS STATION|FUEL/.test(d)) return 'gas';
-  // 7. Phone
   if (/TELUS|ROGERS|BELL |FIDO|VIRGIN MOBILE|KOODO|CHATR|WIND MOBILE|FREEDOM|PUBLIC MOBILE|SHAW|COGECO/.test(d)) return 'phone';
-  // 8. Fitness
   if (/GOODLIFE|YMCA|GYM|FITNESS|PLANET FITNESS|ANYTIME FITNESS|CRUNCH|EQUINOX|CROSSFIT|YOGA|SPIN CLASS/.test(d)) return 'fitness';
-  // 9. Insurance
   if (/ALLSTATE|INTACT|BELAIR|CO.OP INSURANCE|TD INSURANCE|RBC INSURANCE|AVIVA|COOPERATORS|INSURANCE RBC|CANADIAN SECURI|ELITE INSURANCE/.test(d)) return 'insurance';
-  // 10. Subscriptions
   if (/NETFLIX|SPOTIFY|DISNEY|AMAZON PRIME|APPLE\.COM|GOOGLE PLAY|YOUTUBE|HULU|CRAVE|PARAMOUNT|KOHO|PC EXPRESS PASS|MICROSOFT.PC GAME PASS|MEMBERSHIP|SUBSCRIPTION/.test(d)) return 'subscriptions';
-  // 11. Shopping
   if (/AMAZON|AMZN|CANADIAN TIRE|WALMART|WINNERS|HOMESENSE|MARSHALLS|THE BAY|HUDSON|IKEA|BEST BUY|STAPLES|DOLLARAMA|DOLLAR TREE|SVP SPORTS|SPORT CHEK|MEC|REITMANS|OLD NAVY|H&M|UNIQLO|ZARA|SLPC|CHARM DIAMOND/.test(d)) return 'shopping';
-  // 12. Pets
   if (/PET SMART|PETCO|PETSMART|M&R KAHLON|HAIR OF THE DOG|GLOBAL PET|PET VALUE|PET SUPPLY|VET|VETERINAR|ANIMAL HOSP/.test(d)) return 'pets';
-  // 13. Entertainment
   if (/LCBO|THE BEER STORE|LIQUOR|CINEMA|THEATRE|THEATER|TICKETMASTER|TICKETSCENE|EVENTBRITE|GRAND THEAT|OLG|CASINO|LOTTERY|UPPER CANADA|WHATNOT/.test(d)) return 'entertainment';
-  // 14. Auto
   if (/DAVID GOUETT|MIDAS|JIFFY LUBE|MR LUBE|CARWASH|CAR WASH|MECHANIC|AUTO PART|WOODBECK|TRANSMISSION|TIRE|BRAKES/.test(d)) return 'auto';
-  // 15. Cannabis
   if (/CALYX|TRICHOM|OCS|ONTARIO CANNABIS|CANNABIS|DISPENSARY|WEED|420|FIRE & FLOWER|CANNA/.test(d)) return 'cannabis';
-  // 16. Health
   if (/PHARMACY|SHOPPERS DRUG|REXALL|LONDON DRUG|JEAN COUTU|UNIPRIX|DENTAL|VISION|OPTOM|HOSPITAL|CLINIC|DOCTOR|PHYSIO|CHIRO|MASSAGE|LAB WORK|MEDICAL/.test(d)) return 'health';
-  // 17. Charity
   if (/CHEO|UNICEF|RED CROSS|SALVATION ARMY|FOOD BANK|DONATION|CHARITY/.test(d)) return 'charity';
-  // 18. Travel
   if (/AIRBNB|EXPEDIA|BOOKING\.COM|HOTELS\.COM|AIR CANADA|WESTJET|PORTER|SUNWING|VIA RAIL|TRAVELODGE|HOLIDAY INN|MARRIOTT|HILTON/.test(d)) return 'travel';
-  // 19. Bank fees / charges
   if (/INTEREST CHARGES|INTEREST CHARGE|NSF|OVERDRAFT|SERVICE FEE|BANK FEE|ATM WITHDRAWAL/.test(d)) return 'other';
   return 'other';
 }
@@ -634,19 +553,15 @@ function cleanDesc(desc) {
     .trim();
 }
 
-// NAVIGATION
 function showPage(id) {
-  // Guard: redirect to dashboard if feature is disabled
   var featureMap = { calendar:'calendar', tips:'tips', grocery:'grocery', upload:'upload', career:'career' };
   if (featureMap[id] && !isFeatureOn(featureMap[id])) { id = 'dashboard'; }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   var pageEl = document.getElementById('page-'+id);
   if (pageEl) pageEl.classList.add('active');
-  // Activate matching sidebar button by ID
   var activeBtn = document.getElementById('nav-'+id+'-btn');
   if (activeBtn) activeBtn.classList.add('active');
-  // Update topbar title
   var PAGE_TITLES = { dashboard:'🏠 Home', calendar:'📅 Calendar', transactions:'📋 Transactions', budget:'💰 Budget', goals:'🎯 Goals', tips:'💵 Tips', grocery:'🛒 Grocery', upload:'📤 Upload', career:'💼 Career Planner' };
   var tbTitle = document.getElementById('topbar-title');
   if (tbTitle) {
@@ -656,11 +571,9 @@ function showPage(id) {
   }
   const renders = { dashboard:renderDashboard, calendar:renderCalendar, transactions:renderTransactions, budget:renderBudget, goals:renderGoals, wedding:renderWedding, house:renderHouse, pets:renderPetsPage, bills:renderBills, networth:renderNetWorth, cars:renderCarFunds, maintenance:renderMaintenance, tax:renderTax, retirement:renderRetirement, tips:renderTipsPage, grocery:renderGrocery, upload:renderStatements, career:renderCareer };
   if (renders[id]) renders[id]();
-  // Auto-sync live calendar links when switching to Calendar tab
   if (id === 'calendar') {
     setTimeout(function() { autoSyncAllCalendars(true); }, 300);
   }
-  // Close mobile sidebar after navigation
   closeMobileSidebar();
 }
 
@@ -758,7 +671,6 @@ function clearEventForm(withDate) {
   if(withDate) document.getElementById('event-date').value=today();
 }
 
-// PET FEEDING TOGGLES
 function renderPetToggles() {
   var today = new Date().toISOString().split('T')[0];
   var pets = state.pets || [];
@@ -801,7 +713,6 @@ function togglePetFed(petKey, isFed) {
   renderPetToggles();
 }
 
-// WEATHER WIDGET
 var weatherCache = {}; // { 'Kingston,ON': { data, fetchedAt } }
 var weatherRefreshTimer = null;
 
@@ -846,19 +757,15 @@ function getWeatherClass(code) {
 async function fetchWeatherForLocation(city, province) {
   var cacheKey = city + ',' + province;
   var cached = weatherCache[cacheKey];
-  // Use cache if less than 30 minutes old
   if (cached && (Date.now() - cached.fetchedAt) < 30 * 60 * 1000) return cached.data;
 
-  // Geocode using Open-Meteo geocoding API (free, no key)
   var geoUrl = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) + '&count=5&language=en&format=json&countryCode=CA';
   var geoResp = await fetch(geoUrl);
   var geoData = await geoResp.json();
   if (!geoData.results || !geoData.results.length) throw new Error('City not found: ' + city);
-  // Pick best match (prefer province match)
   var result = geoData.results.find(function(r){ return r.admin1 && r.admin1.includes(province === 'ON' ? 'Ontario' : province); }) || geoData.results[0];
   var lat = result.latitude, lon = result.longitude;
 
-  // Fetch weather from Open-Meteo (free, no key)
   var wUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,is_day'
     + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code'
@@ -1032,7 +939,6 @@ function populatePersonSelects() {
   if (upEl) upEl.innerHTML = '<option value="Joint">Joint / Both</option>' + optsAdultsOnly;
   var txnEl = document.getElementById('txn-person');
   if (txnEl) txnEl.innerHTML = '<option value="">All</option>' + opts;
-  // Tips nav button
   var tipsMember = getTipsMember();
   var tipsBtn = document.getElementById('nav-tips-btn');
   if (tipsBtn) {
@@ -1044,15 +950,11 @@ function populatePersonSelects() {
       tipsBtn.style.display = 'none';
     }
   }
-  // Tips page title
   var tipsTitleEl = document.getElementById('tips-page-title');
   if (tipsTitleEl) tipsTitleEl.textContent = tipsMember ? tipsMember.name + "'s Cash Tips" : 'Cash Tips';
   var budgetTipsTitle = document.getElementById('budget-tips-title');
   if (budgetTipsTitle) budgetTipsTitle.textContent = tipsMember ? '💰 ' + tipsMember.name + "'s Tips This Month" : '💰 Tips This Month';
 }
-// ── REMINDERS SYSTEM ─────────────────────────────────────────────────────────
-// Collects reminders from all feature areas, prioritises by urgency, and renders
-// into the #dash-reminders card. Call renderReminders() to refresh at any time.
 
 function buildReminders() {
   var reminders = [];
@@ -1067,7 +969,6 @@ function buildReminders() {
     return Math.ceil((d - now) / 86400000);
   }
 
-  // ── BILLS ─────────────────────────────────────────────────────────────────
   if (isFeatureOn('bills')) {
     (state.bills || []).forEach(function(b) {
       var d = b.nextDue ? new Date(b.nextDue + 'T00:00:00') : null;
@@ -1085,7 +986,6 @@ function buildReminders() {
     });
   }
 
-  // ── MAINTENANCE ───────────────────────────────────────────────────────────
   if (isFeatureOn('maintenance')) {
     (state.maintenanceTasks || []).forEach(function(t) {
       var days = getMaintenanceDaysUntil(t);
@@ -1101,7 +1001,6 @@ function buildReminders() {
     });
   }
 
-  // ── PET CARE — vet/vaccine/medication alerts ───────────────────────────────
   if (isFeatureOn('pets')) {
     getPetAlerts().forEach(function(a) {
       var urg = a.days < 0 ? 'urgent' : a.days <= 7 ? 'warning' : 'info';
@@ -1113,7 +1012,6 @@ function buildReminders() {
     });
   }
 
-  // ── WEDDING — deposit alerts ───────────────────────────────────────────────
   if (isFeatureOn('wedding')) {
     var today2 = now;
     (state.weddingVendors || []).forEach(function(v) {
@@ -1131,7 +1029,6 @@ function buildReminders() {
           action: "showPage('wedding')" });
       }
     });
-    // Wedding countdown nudge if date is set and within 90 days
     if ((state.wedding||{}).date) {
       var wDays = daysUntil(state.wedding.date);
       if (wDays !== null && wDays > 0 && wDays <= 90) {
@@ -1142,7 +1039,6 @@ function buildReminders() {
     }
   }
 
-  // ── TIPS — CRA reserve ────────────────────────────────────────────────────
   if (isFeatureOn('tips') && tipsMember) {
     var tipsThisMonth = getTipsForMonth(mk);
     if (tipsThisMonth > 0) {
@@ -1151,7 +1047,6 @@ function buildReminders() {
         text: tipsMember.name + ' earned <strong>' + fmt(tipsThisMonth) + '</strong> in tips this month — set aside <strong>' + fmt(reserve) + '</strong> for CRA',
         action: "showPage('tips')" });
     }
-    // CRA instalment months: March, June, September, December (due 15th)
     var instalMonths = [2, 5, 8, 11]; // 0-indexed
     var curMonth = new Date().getMonth();
     var curDay   = new Date().getDate();
@@ -1166,7 +1061,6 @@ function buildReminders() {
     }
   }
 
-  // ── TAX — RRSP deadline (Jan 1 – Mar 1) ──────────────────────────────────
   if (isFeatureOn('tax')) {
     var curYear = new Date().getFullYear();
     var rrspDeadline = new Date(curYear + '-03-01T00:00:00');
@@ -1177,7 +1071,6 @@ function buildReminders() {
         text: 'RRSP contribution deadline in <strong>' + (rrspDays === 0 ? 'today!' : rrspDays + ' day' + (rrspDays===1?'':'s')) + '</strong> (Mar 1, ' + curYear + ')',
         action: "showPage('tax')" });
     }
-    // Tax filing deadline (Apr 30)
     var fileDeadline = new Date(curYear + '-04-30T00:00:00');
     var fileDays = Math.ceil((fileDeadline - now) / 86400000);
     if (fileDays >= 0 && fileDays <= 30) {
@@ -1188,7 +1081,6 @@ function buildReminders() {
     }
   }
 
-  // ── NET WORTH — snapshot nudge ────────────────────────────────────────────
   if (isFeatureOn('networth')) {
     var snaps = state.netWorthHistory || [];
     var hasThisMonth = snaps.some(function(s){ return s.date === mk; });
@@ -1199,9 +1091,7 @@ function buildReminders() {
     }
   }
 
-  // ── GOALS — closest milestone ──────────────────────────────────────────────
   if ((state.goals||[]).length) {
-    // Find goal closest to a round milestone (25/50/75/100%)
     var bestGoal = null, bestMsg = '';
     (state.goals||[]).forEach(function(g) {
       var saved = g.current + getGoalContributions(g.id);
@@ -1227,7 +1117,6 @@ function buildReminders() {
       action: "showPage('goals')" });
   }
 
-  // ── CAR FUNDS — close to target ────────────────────────────────────────────
   if (isFeatureOn('carfunds')) {
     (state.carFunds || []).forEach(function(c) {
       var saved = (c.savedAmount||0) + getCarFundContributions(c.id);
@@ -1247,7 +1136,6 @@ function buildReminders() {
     });
   }
 
-  // ── SALARY — payroll check ─────────────────────────────────────────────────
   if (dayOfMonth <= 5) {
     (state.members || []).filter(function(m){ return m.incomeType === 'salary'; }).forEach(function(m) {
       reminders.push({ urgency:'info', icon:'🏦', days:999,
@@ -1256,7 +1144,6 @@ function buildReminders() {
     });
   }
 
-  // ── PET FEEDING — daily nudge ──────────────────────────────────────────────
   if (isFeatureOn('pets') && (state.pets||[]).length > 0) {
     var today3 = new Date().toISOString().split('T')[0];
     var unfedPets = (state.pets||[]).filter(function(p) {
@@ -1270,7 +1157,6 @@ function buildReminders() {
     }
   }
 
-  // ── HOUSE — savings milestone ─────────────────────────────────────────────
   if (isFeatureOn('house') && (state.house||{}).targetPrice) {
     var h = state.house;
     var saved2 = (h.savedAmount||0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
@@ -1287,7 +1173,6 @@ function buildReminders() {
     }
   }
 
-  // ── PANTRY STAPLES — restock alert when stock hits zero ──────────────────
   if (isFeatureOn('grocery')) {
     var emptyStaples = (state.pantry||[]).filter(function(p){ return p.isStaple && (p.stock||0) === 0; });
     if (emptyStaples.length === 1) {
@@ -1302,7 +1187,6 @@ function buildReminders() {
     }
   }
 
-  // ── SORT: urgent → warning → info, then by days asc within each tier ──────
   var order = { urgent:0, warning:1, info:2 };
   reminders.sort(function(a, b) {
     var od = order[a.urgency] - order[b.urgency];
@@ -1354,4 +1238,3 @@ function renderReminders(showAll) {
     }
   }
 }
-

@@ -13,7 +13,6 @@ function renderTipsPage(){
     +'<div class="stat"><div class="stat-label">Put Toward Goals</div><div class="stat-value clr-green">'+fmt(allGoal)+'</div></div>'
     +'<div class="stat"><div class="stat-label">This Month</div><div class="stat-value" style="color:'+(getTipsMember()?getTipsMember().color:'var(--pink)')+'">'+fmt(mClaimed+mUnclaimed)+'</div><div class="stat-sub">Claimed: '+fmt(mClaimed)+'</div></div>';
 
-  // ── Weekly trend chart (last 12 weeks) ──
   var weeklyData = _buildWeeklyTips(12);
   var chartCanvas = document.getElementById('tips-weekly-chart');
   var chartEmpty = document.getElementById('tips-weekly-empty');
@@ -26,7 +25,6 @@ function renderTipsPage(){
     _renderTipsWeeklyChart(weeklyData);
   }
 
-  // ── Tax installment card ──
   var ytdTotal = _getTipsYTD();
   var craReserve = ytdTotal * 0.25;
   var today = new Date();
@@ -59,7 +57,6 @@ function renderTipsPage(){
     '</div></div>';
   document.getElementById('tips-tax-card').innerHTML = taxCardHtml;
 
-  // ── YTD breakdown by month ──
   var ytdMonths = _getTipsYTDByMonth();
   var ytdRows = ytdMonths.map(function(m) {
     var total = m.claimed + m.unclaimed;
@@ -70,7 +67,6 @@ function renderTipsPage(){
     '<div class="table-wrap"><table><thead><tr><th>Month</th><th>Claimed</th><th>Cash</th><th>Total</th><th>CRA Reserve</th></tr></thead>' +
     '<tbody>' + ytdRows + '</tbody></table></div></div>';
 
-  // ── Insights card ──
   var insights = _buildTipsInsights();
   document.getElementById('tips-insights-card').innerHTML = '<div class="card" style="margin-bottom:0">' +
     '<div class="card-title">💡 Insights</div>' +
@@ -83,7 +79,6 @@ function renderTipsPage(){
     }).join('') +
     '</div></div>';
 
-  // ── Day-of-week chart ──
   var dowData = _buildTipsByDayOfWeek();
   var dowCanvas = document.getElementById('tips-dayofweek-chart');
   var dowEmpty  = document.getElementById('tips-dayofweek-empty');
@@ -97,11 +92,9 @@ function renderTipsPage(){
   }
   _renderTipsBestDaysCard(dowData);
 
-  // ── History (paged) ──
   _tipsCurrentPage = 0;
   _renderTipsHistoryPage();
 }
-// Tips analytics helpers
 function _getTipsYTD() {
   var year = new Date().getFullYear();
   return state.tips.filter(function(t){ return t.date && t.date.startsWith(year); })
@@ -194,7 +187,6 @@ function _renderTipsWeeklyChart(data) {
   if (_tipsWeeklyChartInstance) { try { _tipsWeeklyChartInstance.destroy(); } catch(e){} _tipsWeeklyChartInstance = null; }
   var style = getComputedStyle(document.documentElement);
   var mutedRaw = style.getPropertyValue('--muted').trim() || '#888888';
-  // Use safe explicit colours for bar fills rather than CSS var hex-alpha manipulation
   var claimedFill   = 'rgba(224,122,154,0.6)';
   var claimedBorder = 'rgba(224,122,154,1)';
   var cashFill      = 'rgba(108,142,191,0.6)';
@@ -248,7 +240,6 @@ function _buildTipsInsights() {
   return insights;
 }
 
-// ── TIPS: Day-of-Week Analysis ───────────────────────────────────────────────
 var _tipsDayChartInstance = null;
 
 function _buildTipsByDayOfWeek() {
@@ -268,7 +259,6 @@ function _buildTipsByDayOfWeek() {
   });
   var maxAvg = Math.max.apply(null, avgs);
   var bestDayIdx = avgs.indexOf(maxAvg);
-  // Reorder to start on Monday (index 1) for a work-week feel
   var order = [1,2,3,4,5,6,0]; // Mon..Sun
   return {
     labels: order.map(function(i){ return DAY_SHORT[i]; }),
@@ -291,7 +281,6 @@ function _renderTipsDayOfWeekChart(data) {
   if (_tipsDayChartInstance) { try { _tipsDayChartInstance.destroy(); } catch(e){} _tipsDayChartInstance = null; }
   var style = getComputedStyle(document.documentElement);
   var mutedRaw = style.getPropertyValue('--muted').trim() || '#888';
-  // Colour bars: best day gold, weekends warm, weekdays muted
   var WEEKEND_IDX_IN_ORDER = [5, 6]; // Sat=index5, Sun=index6 in Mon-first order
   var barColors = data.avgs.map(function(avg, i) {
     if (avg === data.bestAvg && avg > 0) return 'rgba(212,160,23,0.9)';  // gold for best
@@ -341,7 +330,6 @@ function _renderTipsBestDaysCard(data) {
     el.innerHTML = '<div class="card" style="margin-bottom:0"><div class="card-title">🏆 Shift Insights</div><div style="color:var(--muted);font-size:13px;padding:8px 0">Log tips to see your best days.</div></div>';
     return;
   }
-  // Sort days by avg
   var ranked = data.order.map(function(origIdx, i) {
     return { name: data.dayNames[origIdx], short: data.dayShort[origIdx], avg: data.avgs[i], count: data.counts[i], total: data.totals[i] };
   }).filter(function(d){ return d.count > 0; }).sort(function(a,b){ return b.avg - a.avg; });
@@ -355,7 +343,6 @@ function _renderTipsBestDaysCard(data) {
   weekdayAvg = weekdayCount ? weekdayAvg / weekdayCount : 0;
   var weekendPremium = weekdayAvg > 0 ? Math.round((weekendAvg - weekdayAvg) / weekdayAvg * 100) : null;
 
-  // Medal emoji for top 3
   var medals = ['🥇','🥈','🥉'];
 
   var podiumHtml = ranked.slice(0,3).map(function(d, i) {
@@ -389,7 +376,6 @@ function _renderTipsBestDaysCard(data) {
       + '</div>';
   }
 
-  // Worst day (only if has enough data)
   var worstLine = '';
   if (ranked.length >= 3) {
     var worst = ranked[ranked.length-1];
@@ -406,8 +392,6 @@ function _renderTipsBestDaysCard(data) {
     + worstLine
     + '</div>';
 }
-
-// ── WEDDING CHECKLIST ────────────────────────────────────────────────────────
 
 var WEDDING_CHECKLIST_PRESETS = [
   { id:'wc01', task:'Set your wedding date & overall budget', monthsBefore:18, category:'Planning', emoji:'📅' },
@@ -522,14 +506,12 @@ function renderWeddingChecklist() {
   var items = state.weddingChecklist || [];
   var wDate = (state.wedding||{}).date;
 
-  // Progress
   var done = items.filter(function(x){ return x.done; }).length;
   var total = items.length;
   var pct = total > 0 ? Math.round(done/total*100) : 0;
   var overdue = items.filter(function(x){ if(x.done) return false; var s=weddingChecklistStatus(x); return s.urgency===1; }).length;
   var duesSoon = items.filter(function(x){ if(x.done) return false; var s=weddingChecklistStatus(x); return s.urgency===2; }).length;
 
-  // Sort: overdue → due soon → upcoming (by due date) → no date → done
   var sorted = items.slice().sort(function(a,b) {
     if (a.done !== b.done) return a.done ? 1 : -1;
     var sa = weddingChecklistStatus(a), sb = weddingChecklistStatus(b);
@@ -578,7 +560,6 @@ function renderWeddingChecklist() {
     + '<button class="btn btn-primary" onclick="loadWeddingChecklistPresets()">📋 Load Starter Checklist</button>'
     + '</div>' : '';
 
-  // Add task inline form
   var addFormHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:10px 0 0">'
     + '<div style="flex:2;min-width:200px"><label style="font-size:10px;text-transform:uppercase;font-weight:800;color:var(--muted)">New Task</label><input type="text" id="wc-new-task" placeholder="e.g. Book rehearsal dinner venue" style="margin-top:4px"></div>'
     + '<div style="min-width:130px"><label style="font-size:10px;text-transform:uppercase;font-weight:800;color:var(--muted)">Category</label><select id="wc-new-cat" style="margin-top:4px;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-family:Nunito,sans-serif;font-size:13px">'
@@ -610,7 +591,6 @@ function renderWeddingChecklist() {
 }
 
 function openWeddingChecklistModal() {
-  // Just scroll to the checklist on the page
   renderWeddingChecklist();
   var el = document.getElementById('wedding-checklist-wrap');
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -656,7 +636,6 @@ function clearAllTips(){
   });
 }
 
-// ─── TIP TRACKER CSV IMPORT (scan-tips skill) ───────────────────────────────
 var _tipImportParsed = null; // holds parsed result until user confirms
 
 function parseTipTrackerCSV(csvText) {
@@ -684,7 +663,6 @@ function parseTipTrackerCSV(csvText) {
     return m[3]+'-'+String(mo).padStart(2,'0')+'-'+String(parseInt(m[2])).padStart(2,'0');
   }
 
-  // Simple CSV row splitter that respects quoted fields
   function splitCSVRow(line) {
     var cols = [];
     var cur = '';
@@ -771,20 +749,17 @@ function showTipImportPreview(parsed) {
   var existingDates = new Set(state.tips.map(function(t){ return t.date; }));
   var s = parsed.summary;
 
-  // Summary bar
   document.getElementById('tip-import-summary').innerHTML =
     '<strong>File contains '+s.totalDaysWorked+' worked days</strong> &nbsp;|&nbsp; '
     +s.dateRangeStart+' → '+s.dateRangeEnd
     +(s.totalHours?' &nbsp;|&nbsp; '+s.totalHours+' hrs total':'');
 
-  // Stat pills
   document.getElementById('tip-import-stats').innerHTML =
     '<div class="tips-stat-card" style="flex:1;min-width:120px"><div class="tips-stat-icon">💵</div><div class="tips-stat-value">'+fmt(s.totalTips)+'</div><div class="tips-stat-label">Total Tips</div></div>'
     +'<div class="tips-stat-card" style="flex:1;min-width:120px"><div class="tips-stat-icon">🏦</div><div class="tips-stat-value">'+fmt(s.totalClaimed)+'</div><div class="tips-stat-label">To Claim (T4)</div></div>'
     +'<div class="tips-stat-card" style="flex:1;min-width:120px"><div class="tips-stat-icon">💸</div><div class="tips-stat-value">'+fmt(s.totalUnclaimed)+'</div><div class="tips-stat-label">Unclaimed Cash</div></div>'
     +'<div class="tips-stat-card" style="flex:1;min-width:120px"><div class="tips-stat-icon">🇨🇦</div><div class="tips-stat-value">'+fmt(s.totalTips*0.25)+'</div><div class="tips-stat-label">CRA Reserve (25%)</div></div>';
 
-  // Table rows
   var newCount = 0;
   var rows = parsed.records.map(function(r) {
     var isDupe = existingDates.has(r.date);
@@ -841,7 +816,6 @@ function confirmTipImport() {
     };
     state.tips.push(t);
 
-    // Create income transactions (same logic as saveTips)
     var dp = r.date.split('-');
     var fmtD = dp[1]+'/'+dp[2]+'/'+dp[0];
     if (r.tipsToClaim > 0) {
@@ -868,9 +842,7 @@ function cancelTipImport() {
   _tipImportParsed = null;
   document.getElementById('tip-import-card').style.display = 'none';
 }
-// ─── END TIP TRACKER CSV IMPORT ──────────────────────────────────────────────
 
-// GROCERY
 function renderGrocery(){
   if(!state.pantry)state.pantry=[];
   if(!state.shoppingList)state.shoppingList=[];
@@ -878,7 +850,6 @@ function renderGrocery(){
   if(state.mealPlan)renderMealPlanGrid();
   renderShoppingList();
   renderPantry();
-  // Ensure the flyer tab is active on page load
   var flyerBtn=document.getElementById('tab-flyer');
   if(flyerBtn&&!flyerBtn.classList.contains('active')){
     switchGroceryTab('flyer',flyerBtn);
@@ -890,13 +861,11 @@ function renderFlyers(){
   if(!container)return;
   if(!state.flyers.length){
     container.innerHTML='<div class="empty-sm">No flyers loaded yet. Upload a PDF or import from Flipp above!</div>';
-    // Remove stale expired banner if present
     var stale=document.getElementById('flyer-expired-banner');
     if(stale)stale.innerHTML='';
     return;
   }
 
-  // V6.22: All-expired banner
   var now=new Date(); now.setHours(0,0,0,0);
   function flyerIsExpired(f){ var vt=f.validTo?new Date(f.validTo):null; if(vt){vt.setHours(0,0,0,0);} return vt&&vt<now; }
   function daysLeft(f){ if(!f.validTo||flyerIsExpired(f))return null; var vt=new Date(f.validTo);vt.setHours(0,0,0,0); return Math.ceil((vt-now)/86400000); }
@@ -926,7 +895,6 @@ function renderFlyers(){
     }).length;
     var sourceTag=f.source==='flipp'
       ?'<span style="font-size:10px;background:#e8f5e9;color:#388e3c;border-radius:4px;padding:1px 6px;font-weight:600">Flipp</span>':'' ;
-    // Expiry badge — red if expired, amber if expiring in ≤3 days, grey otherwise
     var validTag='';
     if(expired){
       validTag='<span style="font-size:10px;background:var(--red-light);color:var(--red);border-radius:4px;padding:2px 7px;font-weight:700;border:1px solid color-mix(in srgb,var(--red) 40%,transparent)">&#9888; Expired '+f.validTo+'</span>';
@@ -942,7 +910,6 @@ function renderFlyers(){
     var itemsHtml='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">';
     (f.items||[]).forEach(function(item,iIdx){
       if(expired){
-        // Greyed-out, no action buttons, strikethrough name
         itemsHtml+='<div style="display:flex;flex-direction:column;padding:8px 10px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;font-size:12px;gap:3px;opacity:0.45">'
           +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
             +'<span style="font-weight:700;color:var(--muted);flex:1;line-height:1.3;text-decoration:line-through">'+item.name+'</span>'
@@ -967,7 +934,6 @@ function renderFlyers(){
       }
     });
     itemsHtml+='</div>';
-    // Expired: red-tinted border and body callout with remove button
     var cardBorder=expired?'1.5px solid color-mix(in srgb,var(--red) 35%,var(--border))':'1.5px solid var(--border)';
     var cardBg=expired?'color-mix(in srgb,var(--red) 3%,var(--card))':'var(--card)';
     var hdrBg=expired?'color-mix(in srgb,var(--red) 5%,var(--surface))':'var(--surface)';
@@ -1079,7 +1045,6 @@ function renderFlyerSearch(){
     });
   });
   if(!matches.length){
-    // V6.22: check if matches exist only in expired flyers
     var expiredMatches=[];
     (state.flyers||[]).forEach(function(f){
       var vt=f.validTo?new Date(f.validTo):null; if(vt){vt.setHours(0,0,0,0);}
@@ -1137,7 +1102,6 @@ async function uploadFlyer(){
   var status = document.getElementById('flyer-upload-status');
 
   try {
-    // Step 1 — try text extraction first (fast, cheap)
     status.innerHTML = '<div class="spinner" style="display:inline-block"></div> Reading PDF...';
     var pdfText = '';
     try { pdfText = await extractPDFText(file); } catch(e) { pdfText = ''; }
@@ -1145,7 +1109,6 @@ async function uploadFlyer(){
     var allItems = [];
 
     if (pdfText && pdfText.length > 100) {
-      // Text-based PDF — send text to Claude
       status.innerHTML = '<div class="spinner" style="display:inline-block"></div> Scanning text with AI...';
       var flyerPrompt = 'Here is text from a ' + storeName + ' grocery flyer:\n\n' + pdfText.slice(0, 12000)
         + '\n\nExtract ALL sale items with prices. Return ONLY a JSON array, no markdown: '
@@ -1154,7 +1117,6 @@ async function uploadFlyer(){
       try { allItems = JSON.parse(rawText.replace(/```json|```/g,'').trim()); } catch(e) { allItems = []; }
 
     } else {
-      // Image-based PDF (like No Frills, Food Basics) — render pages and use Vision AI
       status.innerHTML = '<div class="spinner" style="display:inline-block"></div> Rendering pages...';
       var pages = await extractPDFImages(file);
       var maxPages = Math.min(pages.length, 8); // Cap at 8 pages to keep cost down
@@ -1171,7 +1133,6 @@ async function uploadFlyer(){
         }
       }
 
-      // Deduplicate by name
       var seen = {};
       allItems = allItems.filter(function(item) {
         var key = item.name.toLowerCase().trim();
@@ -1186,7 +1147,6 @@ async function uploadFlyer(){
       return;
     }
 
-    // Split compound "Item A or Item B" names and sort by category
     allItems = splitFlyerItems(allItems);
 
     var newFlyer = { id: uid(), store: storeName, validFrom: '', validTo: '', items: allItems, uploadedAt: new Date().toLocaleDateString() };
@@ -1197,7 +1157,6 @@ async function uploadFlyer(){
     status.innerHTML = '&#x2705; Scanned ' + allItems.length + ' items from ' + storeName + '!';
     fileInput.value = '';
     document.getElementById('flyer-store-name').value = '';
-    // Suggest non-food items
     var nfItems=detectNonFoodItems(allItems.map(function(it){return {name:it.name,price:it.price,store:storeName};}));
     if(nfItems.length)setTimeout(function(){showNonFoodConfirm(nfItems);},400);
 
@@ -1206,7 +1165,6 @@ async function uploadFlyer(){
   }
 }
 
-// Vision scan a single flyer page image — returns array of sale items
 async function scanFlyerPageWithVision(base64, storeName, pageNum, totalPages) {
   var apiKey = getApiKey();
   var headers = {
@@ -1258,7 +1216,6 @@ async function scanFlyerPageWithVision(base64, storeName, pageNum, totalPages) {
 }
 
 function switchGroceryTab(tab,btn){
-  // Only clear grocery tab buttons, not all toggle buttons across the page
   var groceryTabBtns = document.querySelectorAll('#tab-flyer, #tab-meals, #tab-list, #tab-pantry, #tab-recipes');
   groceryTabBtns.forEach(function(b){b.classList.remove('active');});
   if(btn) btn.classList.add('active');
@@ -1282,9 +1239,7 @@ function renderPantry(){
   }
   const SECTION_ORDER=['Groceries','Household','Bathroom','Pet','Other'];
   const SECTION_ICONS={Groceries:'🛒',Household:'🏠',Bathroom:'🧴',Pet:'🐾',Other:'📦'};
-  // Default missing sections
   state.pantry.forEach(function(p){if(!p.section)p.section='Groceries';});
-  // Sort state
   if(!window._pantrySortCol)window._pantrySortCol='name';
   if(!window._pantrySortDir)window._pantrySortDir=1;
   const col=window._pantrySortCol, dir=window._pantrySortDir;
@@ -1307,7 +1262,6 @@ function renderPantry(){
     return 'cursor:pointer;padding:7px 10px;font-size:11px;font-weight:700;color:'+(active?'var(--accent)':'var(--text2)')+';white-space:nowrap;user-select:none;';
   }
 
-  // ── Build a shared row renderer used by both Staples and regular sections ──
   function buildItemRow(p, isStapleSection){
     var stock=p.stock!==undefined?p.stock:1;
     var outOfStock=stock===0;
@@ -1315,11 +1269,8 @@ function renderPantry(){
     var rowBg=outOfStock?(isStapleSection?'background:rgba(239,68,68,0.07)':'background:rgba(239,68,68,0.04)'):'';
     var sourceTag=p.fromFlyer&&p.store?'<span style="font-size:10px;background:var(--green-light);color:var(--green);border-radius:4px;padding:1px 5px;font-weight:600;margin-left:5px">📍'+p.store+'</span>':'';
     var addedShort=p.addedDate?p.addedDate.slice(5).replace('-','/'):'';
-    // Section badge shown inside staple rows so you know what category it is
     var secBadge=isStapleSection?'<span style="font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;margin-left:5px">'+SECTION_ICONS[p.section||'Groceries']+(p.section||'Groceries')+'</span>':'';
-    // Restock badge — shown when staple is out of stock
     var restockBadge=outOfStock&&isStapleSection?'<span style="font-size:10px;font-weight:800;background:var(--red-light);color:var(--red);border-radius:5px;padding:2px 7px;margin-left:6px;border:1px solid var(--red)">⚠️ Restock Needed</span>':'';
-    // Staple toggle button
     var stapleBtn=isStapleSection
       ?'<button onclick="removeFromStaples(\''+p.id+'\')" title="Remove from Staples" style="background:rgba(212,160,23,0.12);border:1px solid var(--yellow);border-radius:6px;padding:2px 7px;cursor:pointer;color:var(--yellow);font-size:12px;font-weight:700" title="Remove from Staples">★ Staple</button>'
       :'<button onclick="togglePantryStaple(\''+p.id+'\')" title="Mark as Staple" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 7px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:700">☆ Staple</button>';
@@ -1358,10 +1309,8 @@ function renderPantry(){
 
   var html='';
 
-  // ── STAPLES SECTION (always at the top) ────────────────────────────────
   var staples = state.pantry.filter(function(p){return !!p.isStaple;});
   if(staples.length){
-    // Out-of-stock first, then alphabetical
     staples.sort(function(a,b){
       var aOut=(a.stock||0)===0, bOut=(b.stock||0)===0;
       if(aOut!==bOut) return aOut?-1:1;
@@ -1381,7 +1330,6 @@ function renderPantry(){
       +buildSectionTable(staples, true)
       +'</div>';
   } else {
-    // Hint strip when no staples exist yet
     html+='<div style="margin-bottom:20px;padding:12px 16px;background:color-mix(in srgb,var(--yellow) 8%,var(--card));border:1.5px dashed color-mix(in srgb,var(--yellow) 50%,var(--border));border-radius:12px;display:flex;align-items:center;gap:10px">'
       +'<span style="font-size:22px">⭐</span>'
       +'<div><div style="font-size:13px;font-weight:700;color:var(--text)">No Staples yet</div>'
@@ -1389,8 +1337,6 @@ function renderPantry(){
       +'</div>';
   }
 
-  // ── REGULAR SECTIONS ──────────────────────────────────────────────────
-  // Exclude staple items from section groups (they're already shown above)
   var nonStaples = state.pantry.filter(function(p){return !p.isStaple;});
   var bySection={};
   nonStaples.forEach(function(p){var s=p.section||'Groceries';if(!bySection[s])bySection[s]=[];bySection[s].push(p);});
@@ -1453,7 +1399,6 @@ function addPantryItem(){
 function removePantryItem(id){state.pantry=state.pantry.filter(p=>p.id!==id);saveState();renderPantry();}
 function clearPantry(){hhConfirm('Clear all pantry items?','🗑️','Clear Pantry').then(function(ok){if(!ok)return;state.pantry=[];saveState();renderPantry();});}
 
-// API KEY MANAGEMENT
 function getApiKey() {
   return hhStorageGet('mh_anthropic_key') || '';
 }
@@ -1483,7 +1428,6 @@ function updateApiKeyBtn() {
   btn.style.color = hasKey ? 'var(--green)' : '';
   btn.style.borderColor = hasKey ? 'var(--green)' : '';
 }
-// Pre-fill input when opening modal
 var _origOpenModal = openModal;
 openModal = function(id) {
   if (id === 'api-key-modal') {
@@ -1496,7 +1440,6 @@ openModal = function(id) {
   _origOpenModal(id);
 };
 
-// Shared helper — wraps all Anthropic API calls, uses stored API key
 async function callClaude(prompt, maxTokens) {
   var apiKey = getApiKey();
   var headers = {
@@ -1525,7 +1468,6 @@ async function callClaude(prompt, maxTokens) {
     try {
       var j = await resp.json();
       errText = (j.error && j.error.message) || resp.statusText;
-      // 401 = bad/missing key
       if (resp.status === 401) {
         throw new Error('Invalid or missing API key. Click the &#x1F511; API Key button in the top-right to add your key from console.anthropic.com');
       }
@@ -1540,7 +1482,6 @@ async function callClaude(prompt, maxTokens) {
   return ((data.content || []).find(function(c){ return c.type === 'text'; }) || {}).text || '';
 }
 
-// ── Sale catalogue helpers ────────────────────────────────────────────────
 function buildSaleCatalogue(){
   var allItems=[];
   (state.flyers||[]).forEach(function(f){
@@ -1551,8 +1492,6 @@ function buildSaleCatalogue(){
         store:f.store||'Unknown',category:i.category||'other',unit:i.unit||i.description||''});
     });
   });
-  // Normalize: strip units/numbers, keep meaningful words, sort alphabetically so
-  // "Boneless Chicken Breast" and "Chicken Breast Boneless" map to the same key
   function normKey(n){
     return n.toLowerCase()
       .replace(/\d+\s*(g|kg|lb|lbs|oz|ml|l|pk|pack|packs|count|ct|piece|pieces)\b/gi,'')
@@ -1601,7 +1540,6 @@ function findBestPrice(name,cat){
 
 async function generateMealPlan(){
   var btn=document.getElementById('gen-meal-btn');
-  // V6.22: warn if all flyers are expired before burning an API call
   var nowCheck=new Date(); nowCheck.setHours(0,0,0,0);
   var activeFlyers0=(state.flyers||[]).filter(function(f){
     var vt=f.validTo?new Date(f.validTo):null; if(vt)vt.setHours(0,0,0,0); return !vt||vt>=nowCheck;
@@ -1622,21 +1560,17 @@ async function generateMealPlan(){
   document.getElementById('meal-plan-empty').style.display='none';
   try{
     var catalogue=buildSaleCatalogue(); var saleItems=catalogue.saleItems;
-    // Build per-category sale string with best price first, all alternatives listed
     var byCat={};
     Object.keys(catalogue.grouped).forEach(function(normK){
       var variants=catalogue.grouped[normK];
-      // Sort all variants cheapest first
       variants.sort(function(a,b){return (a.priceNum||999)-(b.priceNum||999);});
       var best=variants[0]; var cat=best.category||'other';
       if(!byCat[cat])byCat[cat]=[];
-      // Show best price store, then all other stores with their prices
       var alts=variants.slice(1)
         .filter(function(v,i,arr){return arr.findIndex(function(x){return x.store===v.store;})==i;}) // dedupe stores
         .map(function(v){return v.store+(v.price?' '+v.price:'');}).join(', ');
       byCat[cat].push(best.name+(best.price?' '+best.price:'')+'@'+best.store+(alts?' (also: '+alts+')':''));
     });
-    // Active (non-expired) flyers with item counts for the prompt header
     var activeFlyers=(state.flyers||[]).filter(function(f){var vt=f.validTo?new Date(f.validTo):null;return !vt||vt>=new Date();});
     var storeNames=activeFlyers.map(function(f){return f.store;}).filter(function(s,i,a){return a.indexOf(s)===i;});
     var flyerSummary=activeFlyers.length
@@ -1658,21 +1592,17 @@ async function generateMealPlan(){
     if(disliked.length)prefLines.push('Disliked (avoid): '+disliked.slice(0,8).join(', '));
     var dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var now=new Date();
-    // Start from today if before 7 PM, otherwise start from tomorrow
     var planStart=new Date(now);
     planStart.setHours(0,0,0,0);
     if(now.getHours()>=19) planStart.setDate(planStart.getDate()+1);
-    // Build DAYS array as 7 consecutive days from planStart
     var DAYS=[];
     for(var _i=0;_i<7;_i++){var _sd=new Date(planStart);_sd.setDate(planStart.getDate()+_i);DAYS.push(dayNames[_sd.getDay()]);}
     var nextMonday=planStart; // alias so remaining code using nextMonday still works
-    // Keywords that identify a work/shift calendar event title
     var WORK_KWS=['work','shift','office','on shift','opening','closing','morning shift','afternoon shift','evening shift','breakfast shift','lunch shift','dinner shift','am shift','pm shift','early shift','late shift','on duty'];
     function isWorkEvent(title){
       var t=(title||'').toLowerCase().trim();
       return WORK_KWS.some(function(kw){return t===kw||t.startsWith(kw+' ')||t.endsWith(' '+kw)||t.indexOf(kw)!==-1;});
     }
-    // Parse time string ("6:00 AM", "14:30", "6:00") → decimal hours
     function parseHour(str){
       if(!str)return null;
       var s=str.trim().toUpperCase();
@@ -1682,7 +1612,6 @@ async function generateMealPlan(){
       if(pm&&h!==12)h+=12; if(am&&h===12)h=0;
       return h+mn/60;
     }
-    // Build rich per-member per-day schedule
     var richSchedule={};
     DAYS.forEach(function(d){richSchedule[d]={};});
     for(var d=0;d<7;d++){
@@ -1691,7 +1620,6 @@ async function generateMealPlan(){
       var dayName=dayNames[dd.getDay()];
       (state.calEvents||[]).filter(function(e){return e.date===dateStr;}).forEach(function(e){
         if(!isWorkEvent(e.title))return;
-        // Prefer resolved name (e.person) over raw calendar ID (e.gcalPerson)
         var personName=(e.person||'').toLowerCase();
         var startH=parseHour(e.start), endH=parseHour(e.end);
         var timeStr=e.start?(e.start+(e.end?' – '+e.end:'')):(e.allDay?'all day':'');
@@ -1706,23 +1634,19 @@ async function generateMealPlan(){
           };
         });
       });
-      // Members with no matching work event = day off
       (state.members||[]).forEach(function(mb){
         var mk=mb.name.charAt(0).toLowerCase()+mb.name.slice(1);
         if(!richSchedule[dayName][mk])
           richSchedule[dayName][mk]={working:false,timeStr:'',atBreakfast:false,atLunch:false,atDinner:false};
       });
     }
-    // Store on window so renderMealPlanGrid can use schedule data and dates for labels
     window._richSchedule=richSchedule;
     window._mealPlanDayOrder=DAYS;
     var _dayDateMap={};
     for(var _d=0;_d<7;_d++){var _dd=new Date(planStart);_dd.setDate(planStart.getDate()+_d);_dayDateMap[dayNames[_dd.getDay()]]=_dd.toISOString();}
     window._mealPlanDates=_dayDateMap;
-    // Persist to state so dates and order survive page reload
     state.mealPlanDayOrder=DAYS;
     state.mealPlanDates=_dayDateMap;
-    // Build AI prompt context
     var calCtxLines=[], workingDayCount=0;
     DAYS.forEach(function(dayName){
       var parts=[];
@@ -1756,7 +1680,6 @@ async function generateMealPlan(){
     if(hintEl)hintEl.innerHTML=workingDayCount>0
       ?'&#x1F4C5; Work schedules read for <strong>'+workingDayCount+' member-day'+(workingDayCount!==1?'s':'')+'</strong> this week.'
       :'';
-    // Locked meals context
     var locked=state.lockedMeals||{}; var lockedDays=DAYS.filter(function(d){return locked[d];});
     var lockedCtx='';
     if(lockedDays.length&&state.mealPlan){
@@ -1773,7 +1696,6 @@ async function generateMealPlan(){
     var numChildren=(state.children||[]).length;
     var totalPeople=numPeople+numChildren;
     var memberNames=(state.members||[]).map(function(m){return m.name;}).join(' and ')||'a couple';
-    // Build dietary context
     var dietCtx='';
     var ls=state.lifestyle||{};
     if(ls.allergies) dietCtx+='ALLERGIES/RESTRICTIONS: '+ls.allergies+'\n';
@@ -1795,7 +1717,6 @@ async function generateMealPlan(){
       dietCtx+='Note: include simple kid-friendly options for young children.\n';
     }
     var storeList=storeNames.length?storeNames.join(', '):'any grocery store';
-    // Build name-based JSON keys for the prompt example so AI returns mattBreakfast, hollyLunch etc.
     var mems=state.members&&state.members.length?state.members:[{name:'Member1'},{name:'Member2'}];
     var mk1=mems[0].name.charAt(0).toLowerCase()+mems[0].name.slice(1); // e.g. "matt"
     var mk2=mems[1]?(mems[1].name.charAt(0).toLowerCase()+mems[1].name.slice(1)):'member2';
@@ -1859,9 +1780,7 @@ function rateMeal(day,stars,mealKey){
   var plan=state.mealPlan&&state.mealPlan[day]; if(!plan)return;
   mealKey=mealKey||'dinner';
   if(!state.mealRatings)state.mealRatings={};
-  // Key by day+mealKey so each slot is rated independently
   state.mealRatings[day+'__'+mealKey]=stars;
-  // Auto-save to Recipe Book when rated 4+ stars (dinners only — they have full recipe data)
   if(stars>=4 && mealKey==='dinner' && plan.dinner && plan.recipe){
     autoSaveRecipeFromMealPlan(day, stars);
   }
@@ -1875,22 +1794,15 @@ function clearMealRatings(){
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// RECIPE BOOK — V6.26
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Auto-save a dinner from the meal plan when rated 4+ stars
 function autoSaveRecipeFromMealPlan(day, stars) {
   if (!state.mealPlan || !state.mealPlan[day]) return;
   var plan = state.mealPlan[day];
   if (!plan.dinner || !plan.recipe) return;
   if (!state.recipes) state.recipes = [];
-  // Check if this exact dinner name is already saved — avoid duplicates
   var exists = state.recipes.find(function(r) {
     return r.name.toLowerCase() === plan.dinner.toLowerCase() && r.source === 'mealplan';
   });
   if (exists) {
-    // Update rating only
     exists.rating = stars;
     saveState();
     hhToast('⭐ Rating updated for ' + plan.dinner + ' in Recipe Book', 'success');
@@ -1921,7 +1833,6 @@ function autoSaveRecipeFromMealPlan(day, stars) {
   hhToast('📖 ' + plan.dinner + ' saved to Recipe Book! (rated ' + stars + '★)', 'success');
 }
 
-// Parse ingredient name from a raw ingredient line like "2 cups chicken broth"
 function _parseIngredientName(line) {
   return (line || '')
     .replace(/^\d[\d\/\.\s]*(cup|tbsp|tsp|oz|lb|lbs|g|kg|ml|l|clove|cloves|can|cans|pkg|bunch|head|piece|pieces|large|medium|small|whole|pinch|dash)s?\s*/i, '')
@@ -1935,7 +1846,6 @@ function _parseIngredientQty(line) {
   return m ? m[0].trim() : '';
 }
 
-// Find sale matches for a recipe's ingredients
 function _recipeSaleMatches(recipe) {
   if (!recipe || !recipe.ingredients || !recipe.ingredients.length) return [];
   var now = new Date(); now.setHours(0,0,0,0);
@@ -1956,7 +1866,6 @@ function _recipeSaleMatches(recipe) {
       });
     });
   });
-  // Deduplicate by ingredient
   var seen = {};
   return matches.filter(function(m) {
     if (seen[m.ingredient]) return false;
@@ -1965,7 +1874,6 @@ function _recipeSaleMatches(recipe) {
   });
 }
 
-// Check if ingredients are in pantry
 function _recipeIngredientPantryStatus(recipe) {
   if (!recipe || !recipe.ingredients) return [];
   return recipe.ingredients.map(function(ing) {
@@ -1978,7 +1886,6 @@ function _recipeIngredientPantryStatus(recipe) {
   });
 }
 
-// ── RENDER RECIPES TAB ────────────────────────────────────────────────────
 function renderRecipesTab() {
   if (!state.recipes) state.recipes = [];
   var container = document.getElementById('recipes-container');
@@ -1989,7 +1896,6 @@ function renderRecipesTab() {
   var filterTag = (document.getElementById('recipe-filter-tag') || {}).value || '';
   var now = new Date(); now.setHours(0,0,0,0);
 
-  // Filter
   var recipes = state.recipes.slice();
   if (search) {
     var sq = search.toLowerCase();
@@ -2006,7 +1912,6 @@ function renderRecipesTab() {
   else if (filterTag === 'rated')        recipes = recipes.sort(function(a,b){ return (b.rating||0)-(a.rating||0); });
   else if (filterTag === 'sale-match')   recipes = recipes.filter(function(r){ return _recipeSaleMatches(r).length > 0; });
 
-  // Sort: by rating desc, then date desc
   if (filterTag !== 'rated') {
     recipes.sort(function(a,b) {
       var rd = (b.rating||0) - (a.rating||0);
@@ -2015,7 +1920,6 @@ function renderRecipesTab() {
     });
   }
 
-  // Stats bar
   var totalRecipes = state.recipes.length;
   var avgRating = totalRecipes ? (state.recipes.reduce(function(s,r){return s+(r.rating||0);},0)/totalRecipes).toFixed(1) : 0;
   var mealplanCount = state.recipes.filter(function(r){return r.source==='mealplan';}).length;
@@ -2069,10 +1973,8 @@ function renderRecipesTab() {
         if (r.servings) metaParts.push('🍽️ Serves '+r.servings);
         if (r.estimatedCost) metaParts.push('💰 '+r.estimatedCost);
         return '<div class="card" style="margin-bottom:0;padding:0;overflow:hidden;transition:transform 0.2s,box-shadow 0.2s" onmouseover="this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'var(--shadow-md)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">'
-          // Header band with tag colour
           + '<div style="height:5px;background:'+(tagColor)+';"></div>'
           + '<div style="padding:14px 16px">'
-          // Title row
           + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">'
             + '<div style="font-weight:800;font-size:15px;color:var(--text);line-height:1.3;flex:1">'+r.name+'</div>'
             + '<div style="display:flex;gap:4px;flex-shrink:0">'
@@ -2080,7 +1982,6 @@ function renderRecipesTab() {
               + '<button onclick="deleteRecipe(\''+r.id+'\')" title="Delete" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--red);font-size:12px">🗑️</button>'
             + '</div>'
           + '</div>'
-          // Stars + badges
           + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">'
             + stars
             + sourceLabel
@@ -2088,16 +1989,12 @@ function renderRecipesTab() {
             + saleBadge
             + pantryBadge
           + '</div>'
-          // Meta info
           + (metaParts.length ? '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">'+metaParts.join(' · ')+'</div>' : '')
-          // Ingredients preview
           + (totalIngr > 0 ? '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5">'
               + (r.ingredients || []).slice(0,3).map(function(i){ return (i.name||i.raw||''); }).join(', ')
               + (totalIngr > 3 ? ' <span style="color:var(--muted)">+'+( totalIngr-3)+' more</span>' : '')
             + '</div>' : '')
-          // Notes
           + (r.notes ? '<div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:10px">'+r.notes+'</div>' : '')
-          // Action buttons
           + '<div style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px;margin-top:2px">'
             + '<button class="btn btn-primary btn-sm" onclick="openRecipeDetail(\''+r.id+'\')" style="font-size:11px">👀 View</button>'
             + '<button class="btn btn-ghost btn-sm" onclick="addRecipeToShoppingList(\''+r.id+'\')" style="font-size:11px">🛒 Shop</button>'
@@ -2110,7 +2007,6 @@ function renderRecipesTab() {
     + '</div>';
 }
 
-// ── RECIPE DETAIL MODAL ────────────────────────────────────────────────────
 function openRecipeDetail(id) {
   var r = (state.recipes || []).find(function(x){ return x.id === id; });
   if (!r) return;
@@ -2122,7 +2018,6 @@ function openRecipeDetail(id) {
     var raw = p.ing.raw || '';
     var name = p.ing.name || raw;
     var qty  = p.ing.qty  || '';
-    // Sale match for this ingredient?
     var saleMatch = saleMatches.find(function(sm){ return sm.ingredient === name; });
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:'+(p.inPantry?'var(--green-light)':'var(--surface)')+';border:1px solid '+(p.inPantry?'var(--green)':'var(--border)');+'";margin-bottom:4px">'
       + '<span style="font-size:14px">'+(p.inPantry?'✅':'🛒')+'</span>'
@@ -2146,23 +2041,15 @@ function openRecipeDetail(id) {
 
   document.getElementById('recipe-detail-title').textContent = r.name;
   document.getElementById('recipe-detail-body').innerHTML =
-    // Stars
     '<div style="display:flex;align-items:center;gap:4px;margin-bottom:12px">'+stars+'<span style="font-size:12px;color:var(--muted);margin-left:6px">Click to update rating</span></div>'
-    // Meta
     + (metaParts.length ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">'+metaParts.map(function(m){return '<span style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700">'+m+'</span>';}).join('')+'</div>' : '')
-    // Sale alert
     + (saleMatches.length ? '<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;font-weight:700;color:#92400e">🏷️ '+saleMatches.length+' ingredient'+(saleMatches.length!==1?'s':'')+' on sale this week: '+saleMatches.map(function(s){return s.item+' ('+s.price+' @ '+s.store+')';}).join(' · ')+'</div>' : '')
-    // Pantry note
     + (pantryStatus.filter(function(p){return p.inPantry;}).length ? '<div style="background:var(--green-light);border:1px solid var(--green);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--green);font-weight:700">✅ '+pantryStatus.filter(function(p){return p.inPantry;}).length+' of '+pantryStatus.length+' ingredients already in your pantry</div>' : '')
-    // Source / link
     + (r.sourceUrl ? '<div style="margin-bottom:12px"><a href="'+r.sourceUrl+'" target="_blank" style="font-size:12px;color:var(--accent);font-weight:700">🔗 View Original Recipe</a></div>' : '')
-    // Ingredients
     + '<div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Ingredients</div>'
     + ingHtml
-    // Steps
     + '<div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 8px">Steps</div>'
     + stepHtml
-    // Notes
     + (r.notes ? '<div style="margin-top:12px;padding:10px 12px;background:var(--yellow-light);border-radius:8px;font-size:12px;color:var(--text2)"><strong>📝 Notes:</strong> '+r.notes+'</div>' : '');
 
   document.getElementById('recipe-detail-shop-btn').setAttribute('onclick', 'addRecipeToShoppingList(\''+id+'\');closeModal(\'recipe-detail-modal\')');
@@ -2179,7 +2066,6 @@ function rateRecipeInBook(id, stars) {
   openRecipeDetail(id); // re-render with new stars
 }
 
-// ── ADD / EDIT RECIPE MODAL ────────────────────────────────────────────────
 function openAddRecipeModal() {
   _recipeEditId = null;
   document.getElementById('add-recipe-modal-title').textContent = '+ Add Recipe';
@@ -2250,7 +2136,6 @@ async function parseRecipeWithAI() {
     var cleaned = raw.replace(/```json|```/g,'').trim();
     var match = cleaned.match(/\{[\s\S]*\}/);
     var parsed = JSON.parse(match ? match[0] : cleaned);
-    // Pre-fill the manual form
     if (parsed.name)      document.getElementById('recipe-form-name').value      = parsed.name;
     if (parsed.servings)  document.getElementById('recipe-form-servings').value  = parsed.servings;
     if (parsed.prepTime)  document.getElementById('recipe-form-prep').value      = parsed.prepTime;
@@ -2319,14 +2204,12 @@ function deleteRecipe(id) {
   });
 }
 
-// ── ADD RECIPE INGREDIENTS TO SHOPPING LIST ────────────────────────────────
 function addRecipeToShoppingList(id) {
   var r = (state.recipes||[]).find(function(x){return x.id===id;});
   if (!r || !r.ingredients || !r.ingredients.length) { hhAlert('This recipe has no ingredients to add.', 'ℹ️'); return; }
   var pantryStatus = _recipeIngredientPantryStatus(r);
   var saleMatches  = _recipeSaleMatches(r);
 
-  // Build the confirmation list showing pantry status + sale info
   var listHtml = pantryStatus.map(function(p, i) {
     var name = p.ing.name || p.ing.raw || '';
     var qty  = p.ing.qty  || '';
@@ -2339,7 +2222,6 @@ function addRecipeToShoppingList(id) {
     + '</div>';
   }).join('');
 
-  // Use a custom modal-style confirm via the hhDialog queue
   hhDialog({
     type: 'confirm',
     icon: '🛒',
@@ -2373,7 +2255,6 @@ function addRecipeToShoppingList(id) {
   });
 }
 
-// ── COOK IT (deducts from pantry) ─────────────────────────────────────────
 function cookFromRecipeBook(id) {
   var r = (state.recipes||[]).find(function(x){return x.id===id;});
   if (!r) return;
@@ -2404,7 +2285,6 @@ function cookFromRecipeBook(id) {
   });
 }
 
-// ── SLOT RECIPE INTO MEAL PLAN ─────────────────────────────────────────────
 function slotRecipeIntoMealPlan(id) {
   var r = (state.recipes||[]).find(function(x){return x.id===id;});
   if (!r) return;
@@ -2432,7 +2312,6 @@ function slotRecipeIntoMealPlan(id) {
     var selected = document.querySelector('input[name="slot-day"]:checked');
     if (!selected) { hhAlert('Please select a day.', '⚠️'); return; }
     var day = selected.value;
-    // Build a mealPlan-compatible entry from the recipe
     var plan = state.mealPlan[day] || {};
     plan.dinner = r.name;
     plan.dinnerTag = r.tag || 'normal';
@@ -2443,7 +2322,6 @@ function slotRecipeIntoMealPlan(id) {
       ingredients: (r.ingredients||[]).map(function(i){return i.raw||((i.qty?i.qty+' ':'')+i.name);}),
       steps: r.steps || []
     };
-    // Rebuild toBuy from recipe ingredients not in pantry
     plan.toBuy = (r.ingredients||[])
       .filter(function(ing){ return !strictPantryCheck(ing.name||ing.raw||''); })
       .map(function(ing){
@@ -2457,8 +2335,6 @@ function slotRecipeIntoMealPlan(id) {
     hhToast('📅 '+r.name+' slotted into '+day+' dinner!', 'success');
   });
 }
-
-// END RECIPE BOOK
 
 function saveDietPrefs(){
   if(!state.dietPrefs)state.dietPrefs={};
@@ -2502,7 +2378,6 @@ function generateShoppingListFromPlan(plan,catalogue){
     var exists=state.shoppingList.find(function(s){return s.name.toLowerCase()===c.item.toLowerCase();});
     if(!exists)state.shoppingList.push({id:uid(),name:c.item,qty:unit,store:store,price:price,checked:false,fromMealPlan:true,section:'Groceries'});
   });
-  // Check for non-food items in meal plan ingredients
   var allIngredients=[];
   Object.values(consolidated).forEach(function(c){allIngredients.push({name:c.item,price:c.price,store:c.store||'Any'});});
   var nfItems=detectNonFoodItems(allIngredients);
@@ -2512,13 +2387,11 @@ function generateShoppingListFromPlan(plan,catalogue){
 function renderMealPlanGrid(){
   if(!state.mealPlan)return;
   var VALID_DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  // Use stored day order from generation if available, otherwise fall back to Mon-Sun
   var dayOrder=state.mealPlanDayOrder||window._mealPlanDayOrder||VALID_DAYS;
   var days=dayOrder.filter(function(d){return state.mealPlan[d];});
   var pantryCount=(state.pantry||[]).length;
   document.getElementById('meal-plan-empty').style.display='none';
 
-  // Weekly cost
   var totalCostLow=0,totalCostHigh=0;
   days.forEach(function(day){
     var m=state.mealPlan[day];
@@ -2529,7 +2402,6 @@ function renderMealPlanGrid(){
   });
   var weekCostStr=totalCostHigh>0?(totalCostLow===totalCostHigh?'~$'+totalCostLow.toFixed(0):'~$'+totalCostLow.toFixed(0)+'–$'+totalCostHigh.toFixed(0)):'';
 
-  // Summary bar
   var ratingCount=Object.keys(state.mealRatings||{}).length;
   var flyerCount=(state.flyers||[]).filter(function(f){var vt=f.validTo?new Date(f.validTo):null;return !vt||vt>=new Date();}).length;
   var summaryHtml='<div class="meal-week-summary">'
@@ -2542,7 +2414,6 @@ function renderMealPlanGrid(){
     +'<button class="btn btn-ghost btn-sm" onclick="openModal(\'diet-prefs-modal\')" style="font-size:11px;padding:3px 10px">&#x2699;&#xFE0F; Prefs</button>'
     +'</div>';
 
-  // Helper: render mini star row for any slot
   function slotStars(day, mealKey) {
     var rating = (state.mealRatings||{})[day+'__'+mealKey] || 0;
     var s = '<div class="meal-slot-stars">';
@@ -2552,14 +2423,12 @@ function renderMealPlanGrid(){
     return s+'</div>';
   }
 
-  // Helper: lock button for any slot
   function slotLock(day, mealKey) {
     var k = mealKey ? day+'__'+mealKey : day;
     var locked = !!(state.lockedMeals&&state.lockedMeals[k]);
     return '<button class="meal-slot-lock" onclick="toggleMealLock(\''+day+'\',\''+mealKey+'\')" title="'+(locked?'Unlock — allow regeneration':'Lock — keep on regenerate')+'">'+(locked?'&#x1F512;':'&#x1F513;')+'</button>';
   }
 
-  // Helper: Made It button or Made badge
   function madeBtn(day, mealKey, size) {
     var cooked = !!(state.cookedMeals&&state.cookedMeals[day+'_'+mealKey]);
     var sm = size==='sm';
@@ -2580,7 +2449,6 @@ function renderMealPlanGrid(){
     function getKey(memberName,meal){
       var k=memberName.charAt(0).toLowerCase()+memberName.slice(1);
       var mealCap=meal.charAt(0).toUpperCase()+meal.slice(1);
-      // Try name-based key first (mattBreakfast), then positional fallbacks (mem1Breakfast), then bare meal key
       var idx=mems.findIndex(function(mb){return mb.name===memberName;});
       var posKey='mem'+(idx+1)+mealCap;
       return m[k+mealCap]||m[posKey]||m[meal]||'';
@@ -2591,7 +2459,6 @@ function renderMealPlanGrid(){
 
     var mem1Breakfast=getKey(mems[0].name,'breakfast');
     var mem2Breakfast=mem2Name?getKey(mems[1].name,'breakfast'):'';
-    // Derive schedule context for this day's rendering
     var mk1r=mems[0].name.charAt(0).toLowerCase()+mems[0].name.slice(1);
     var mk2r=mem2Name?(mem2Name.charAt(0).toLowerCase()+mem2Name.slice(1)):'';
     var sched1=(window._richSchedule&&window._richSchedule[day]&&window._richSchedule[day][mk1r])||{};
@@ -2604,13 +2471,11 @@ function renderMealPlanGrid(){
     var dinner=m.dinner||'';
     var note=m.note||'';
 
-    // Key aliases matching cookMeal's mealType keys
     var mk1B = mems[0].name.charAt(0).toLowerCase()+mems[0].name.slice(1)+'Breakfast'; // e.g. mem1Breakfast
     var mk1L = mems[0].name.charAt(0).toLowerCase()+mems[0].name.slice(1)+'Lunch';
     var mk2B = mem2Name?(mem2Name.charAt(0).toLowerCase()+mem2Name.slice(1)+'Breakfast'):'';
     var mk2L = mem2Name?(mem2Name.charAt(0).toLowerCase()+mem2Name.slice(1)+'Lunch'):'';
 
-    // Compute display date for this day
     var dayDateStr='';
     var _dateMap=state.mealPlanDates||window._mealPlanDates||{};
     if(_dateMap[day]){
@@ -2620,7 +2485,6 @@ function renderMealPlanGrid(){
 
     listHtml+='<div class="meal-day-row" id="mdr-'+idx+'">'
 
-      // Header
       +'<div class="meal-day-row-header" onclick="toggleMealDay('+idx+')">'
         +'<div class="meal-day-row-title">'+emoji+' '+day+(dayDateStr?'<span style="font-size:11px;font-weight:400;opacity:0.85;margin-left:8px">'+dayDateStr+'</span>':'')+'</div>'
         +'<div class="meal-day-row-meta">'
@@ -2629,10 +2493,8 @@ function renderMealPlanGrid(){
         +'</div>'
       +'</div>'
 
-      // 3-column body
       +'<div class="meal-day-body-grid">'
 
-        // ── BREAKFAST ──────────────────────────────────
         +'<div class="meal-slot-block">'
           +'<div class="meal-slot-header">'
             +'<div class="meal-slot-label" style="margin:0"><span class="meal-slot-label-icon">&#x1F305;</span>Breakfast</div>'
@@ -2654,7 +2516,6 @@ function renderMealPlanGrid(){
             :'')
         +'</div>'
 
-        // ── LUNCH ──────────────────────────────────────
         +'<div class="meal-slot-block">'
           +'<div class="meal-slot-header">'
             +'<div class="meal-slot-label" style="margin:0"><span class="meal-slot-label-icon">☀️</span>Lunch</div>'
@@ -2673,7 +2534,6 @@ function renderMealPlanGrid(){
             :'')
         +'</div>'
 
-        // ── DINNER ─────────────────────────────────────
         +'<div class="meal-slot-block">'
           +'<div class="meal-slot-header">'
             +'<div class="meal-slot-label" style="margin:0"><span class="meal-slot-label-icon">&#x1F37D;&#xFE0F;</span>Dinner <span style="font-size:9px;color:var(--accent);font-weight:700;margin-left:4px">TOGETHER</span></div>'
@@ -2698,7 +2558,6 @@ function renderMealPlanGrid(){
         +'</div>'
       +'</div>' // end body-grid
 
-      // -- INGREDIENTS NEEDED TODAY --
       +(function(){
         var items=m.toBuy||[];
         var subtotal=0,hasPrice=false;
@@ -2746,8 +2605,6 @@ function renderMealPlanGrid(){
         +'</div>';
       }())
 
-
-      // Footer — note + view list only (ratings now live in slots)
       +'<div class="meal-day-footer">'
         +(note?'<div class="meal-note-tag">&#x1F6D2; '+note+'</div>':'<div style="flex:1"></div>')
         +'<div class="meal-footer-actions">'
@@ -2870,7 +2727,6 @@ function cookMeal(day,mealType){
   });
 }
 
-// NON-FOOD ITEM DETECTION
 var DEFAULT_NONFOOD_KEYWORDS=[
   {kw:'toilet paper',section:'Household'},{kw:'paper towel',section:'Household'},{kw:'paper towels',section:'Household'},
   {kw:'garbage bag',section:'Household'},{kw:'garbage bags',section:'Household'},{kw:'trash bag',section:'Household'},
@@ -2899,7 +2755,6 @@ function classifyNonFoodItem(name){
   return null;
 }
 function detectNonFoodItems(items){
-  // items: array of {name, price, store}
   var found=[];
   items.forEach(function(item){
     var section=classifyNonFoodItem(item.name||'');
@@ -2910,7 +2765,6 @@ function detectNonFoodItems(items){
     if(onList)return;
     found.push({name:item.name,price:item.price||null,store:item.store||'Any',section:section});
   });
-  // Deduplicate by name
   var seen={};
   return found.filter(function(f){var k=f.name.toLowerCase();if(seen[k])return false;seen[k]=true;return true;});
 }
@@ -3069,6 +2923,12 @@ function toggleListItem(id,checked){
         store:item.store||'',addedDate:new Date().toISOString().split('T')[0],
         fromFlyer:!!(item.fromMealPlan&&item.store&&item.store!=='Any')});
     }
+  } else {
+    if(state.pantry){
+      const cleanName=item.name.toLowerCase().trim();
+      const exists=state.pantry.find(p=>p.name.toLowerCase()===cleanName);
+      if(exists && (exists.stock||0) > 0) exists.stock--;
+    }
   }
   saveState();renderShoppingList();renderPantry();renderFlyers();
 }
@@ -3085,4 +2945,3 @@ function addListItem(){
   renderShoppingList();
 }
 
-// UPLOAD (CSV + PDF)

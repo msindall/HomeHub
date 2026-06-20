@@ -1,13 +1,11 @@
 function renderNetWorth() {
-  // Auto-snapshot on page load if none this month
   takeNetWorthSnapshot(false);
   var history = state.netWorthHistory || [];
   var prev = history.length >= 2 ? history[history.length-2] : null;
 
-  // Chart
   _renderNWChart();
+  renderNWProjection();
 
-  // Assets breakdown — compute total from the same values shown in the list
   var accounts = state.accounts || [];
   var assetAccts = accounts.filter(function(a){ return !ACCT_IS_DEBT[a.type]; });
   var debtAccts  = accounts.filter(function(a){ return  ACCT_IS_DEBT[a.type]; });
@@ -24,7 +22,6 @@ function renderNetWorth() {
     return isDebt ? -ts2 : ts2;
   }
 
-  // Compute totals from breakdown line items — single source of truth
   var displayAssets = 0;
   var assetLines = assetAccts.map(function(a){ var b = getAcctBalance(a); displayAssets += b; return { name: a.nickname, value: b }; });
   (state.manualAssets||[]).filter(function(a){return !a.isDebt;}).forEach(function(a){ displayAssets += (a.value||0); });
@@ -37,7 +34,6 @@ function renderNetWorth() {
   var change = prev ? displayNetWorth - prev.netWorth : null;
   var changePct = (prev && prev.netWorth !== 0) ? ((displayNetWorth - prev.netWorth)/Math.abs(prev.netWorth)*100).toFixed(1) : null;
 
-  // Overwrite stats with the consistent breakdown-derived numbers
   document.getElementById('nw-stats').innerHTML =
     '<div class="stat"><div class="stat-label">Net Worth</div><div class="stat-value" style="color:'+(displayNetWorth>=0?'var(--green)':'var(--red)')+'">'+fmt(displayNetWorth)+'</div></div>' +
     '<div class="stat"><div class="stat-label">Total Assets</div><div class="stat-value clr-accent">'+fmt(displayAssets)+'</div></div>' +
@@ -60,7 +56,6 @@ function renderNetWorth() {
   });
   if (!assetLines.length && !(state.manualAssets||[]).filter(function(a){return !a.isDebt;}).length)
     assetsHtml += '<div style="color:var(--muted);font-size:13px;padding:8px 0">No asset accounts yet.</div>';
-  // Car funds — shown as auto-assets with a 🚗 tag
   (state.carFunds||[]).forEach(function(c){
     var saved = (c.savedAmount||0) + getCarFundContributions(c.id);
     if (saved <= 0) return;
@@ -91,10 +86,8 @@ function renderNetWorth() {
   debtsHtml += '</div></div>';
   document.getElementById('nw-debts-card').innerHTML = debtsHtml;
 
-  // Manual assets info card
   document.getElementById('nw-manual-card').innerHTML = '<div class="alert alert-info">💡 <strong>Manual Assets</strong> — Add items not tracked via bank statements: pension estimated value, car market value, FHSA balance, investments, rental property, etc. Click <strong>+ Manual Asset</strong> above.</div>';
 
-  // History table
   var histRows = history.slice().reverse().map(function(s, i, arr){
     var prevS = arr[i+1];
     var chg = prevS ? s.netWorth - prevS.netWorth : null;
@@ -153,9 +146,6 @@ function deleteManualAsset(id) {
   });
 }
 
-
-// CAR FUND TRACKER ─────────────────────────────────────────────────────────
-
 var _carModalId = null; // null = new, else edit id
 
 function uid6() { return Math.random().toString(36).slice(2,8); }
@@ -171,7 +161,6 @@ function openCarModal(id) {
   document.getElementById('car-monthly').value      = fund ? fund.monthlyContrib : '';
   document.getElementById('car-color').value        = fund ? (fund.color||'#4f8ef7') : '#4f8ef7';
   document.getElementById('car-notes').value        = fund ? (fund.notes||'')    : '';
-  // Financing fields
   var fin = fund ? !!fund.financing : false;
   document.getElementById('car-financing-toggle').checked = fin;
   document.getElementById('car-down').value         = fund ? (fund.downPayment||'')   : '';
@@ -224,9 +213,15 @@ function saveCarFund() {
 }
 
 function deleteCarFund(id) {
-  hhConfirm('Delete this vehicle goal? This cannot be undone.','🗑️','Delete Vehicle Goal').then(function(ok) {
+  var fund = (state.carFunds||[]).find(function(c){return c.id===id;});
+  if (!fund) return;
+  var txnCount = state.transactions.filter(function(t){return t.category==='car:'+id;}).length;
+  var msg = 'Delete <strong>'+(fund.emoji||'🚗')+' '+fund.name+'</strong>? This cannot be undone.'
+    + (txnCount ? '<br><br>⚠️ '+txnCount+' transaction'+(txnCount!==1?'s':'')+' tagged to this fund will be moved to <em>Other</em>.' : '');
+  hhConfirm(msg,'🗑️','Delete Vehicle Goal').then(function(ok) {
     if (!ok) return;
     state.carFunds = (state.carFunds||[]).filter(function(c){return c.id!==id;});
+    state.transactions.forEach(function(t){ if(t.category==='car:'+id) t.category='other'; });
     saveState();
     renderCarFunds();
     renderDashboard();
@@ -237,15 +232,20 @@ function deleteCarFund(id) {
 function addCarSavings(id) {
   var fund = (state.carFunds||[]).find(function(c){return c.id===id;});
   if (!fund) return;
-  var amtStr = prompt('Add savings to ' + (fund.emoji||'🚗') + ' ' + fund.name + ':\nEnter amount to add (e.g. 500):');
-  if (amtStr === null) return;
-  var amt = parseFloat(amtStr);
-  if (isNaN(amt) || amt <= 0) { hhAlert('Please enter a valid positive amount.','⚠️'); return; }
+  document.getElementById('car-savings-fund-id').value = id;
+  document.getElementById('car-savings-amount').value = '';
+  document.getElementById('car-savings-modal-title').textContent = (fund.emoji||'🚗')+' Add Savings — '+fund.name;
+  openModal('car-savings-modal');
+}
+function saveCarSavings() {
+  var id = document.getElementById('car-savings-fund-id').value;
+  var fund = (state.carFunds||[]).find(function(c){return c.id===id;});
+  if (!fund) return;
+  var amt = parseFloat(document.getElementById('car-savings-amount').value)||0;
+  if (amt <= 0) { hhToast('Enter a valid amount.','⚠️'); return; }
   fund.savedAmount = (fund.savedAmount||0) + amt;
-  saveState();
-  renderCarFunds();
-  renderDashboard();
-  hhToast('+$'+amt.toLocaleString()+' added to '+fund.name,'💰');
+  saveState(); closeModal('car-savings-modal'); renderCarFunds(); renderDashboard();
+  hhToast('+'+fmt(amt)+' added to '+fund.name,'💰');
 }
 
 function calcCarPayment(principal, annualRate, termMonths) {
@@ -274,7 +274,6 @@ function renderCarFunds() {
   if (emptyEl)  emptyEl.style.display  = 'none';
   if (tipsCard) tipsCard.style.display = '';
 
-  // Summary bar — track progress toward down payment (financing) or full price (cash)
   var totalSaved = funds.reduce(function(s,c){return s+(c.savedAmount||0);},0);
   var totalGoal  = funds.reduce(function(s,c){return s+(c.financing?(c.downPayment||0):(c.targetPrice||0));},0);
   var pct = totalGoal>0 ? Math.min(100,Math.round(totalSaved/totalGoal*100)) : 0;
@@ -310,7 +309,6 @@ function renderCarFunds() {
     var html = '';
 
     if (!fin) {
-      // ── CASH ──────────────────────────────────────────────────────────────
       var rem     = Math.max(0, target - saved);
       var pctF    = target > 0 ? Math.min(100, Math.round(saved/target*100)) : 0;
       var projStr = '';
@@ -342,7 +340,6 @@ function renderCarFunds() {
             +'\u2705 Goal reached! Budget for total cost with HST: '+fmt(priceWithTax)+'</div>');
 
     } else {
-      // ── FINANCING ─────────────────────────────────────────────────────────
       var effective   = priceWithTax - tradein;
       var principal   = Math.max(0, effective - down);
       var payment     = calcCarPayment(principal, rate, term);
@@ -392,7 +389,6 @@ function renderCarFunds() {
     return '<div class="card" style="margin-bottom:14px;border-left:4px solid '+color+'">' + html + '</div>';
   }).join('');
 
-  // Ontario tips panel
   if (tipsBody) {
     tipsBody.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">'
       +'<div style="padding:10px 12px;background:var(--bg);border-radius:8px"><strong>\u{1F3F7}\uFE0F Ontario HST vs RST</strong><br>Dealer: 13% HST. Private sale: 8% RST only. Buying private can save thousands \u2014 but budget the RST regardless.</div>'
@@ -433,9 +429,6 @@ function _cstat(val, label, valColor) {
     +'<div style="font-size:15px;font-weight:800;color:'+(valColor||'var(--text)')+'">'+val+'</div>'
     +'<div style="font-size:11px;color:var(--muted)">'+label+'</div></div>';
 }
-
-
-// HOUSEHOLD MAINTENANCE ──────────────────────────────────────────────────────
 
 var _maintModalId = null;
 
@@ -577,12 +570,10 @@ function renderMaintenance() {
   }
   if (emptyEl) emptyEl.style.display = 'none';
 
-  // YTD spend from transactions
   var ytdSpend = getMaintenanceSpend(new Date().getFullYear());
 
   var today = new Date(); today.setHours(0,0,0,0);
 
-  // Categorise all tasks
   var overdue = 0, dueSoon = 0, ok = 0;
   allTasks.forEach(function(t) {
     var days = getMaintenanceDaysUntil(t);
@@ -591,7 +582,6 @@ function renderMaintenance() {
     else ok++;
   });
 
-  // Summary bar
   if (summaryEl) {
     summaryEl.innerHTML = '<div class="card" style="padding:12px 18px">'
       +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">'
@@ -603,7 +593,6 @@ function renderMaintenance() {
       +'</div></div>';
   }
 
-  // Filter bar
   var cats = ['All'].concat(MAINT_CATEGORIES.filter(function(c) {
     return allTasks.some(function(t){return (t.category||'Other')===c;});
   }));
@@ -614,10 +603,8 @@ function renderMaintenance() {
     }).join('');
   }
 
-  // Filter tasks
   var tasks = _maintFilter === 'All' ? allTasks : allTasks.filter(function(t){return (t.category||'Other')===_maintFilter;});
 
-  // Sort: overdue first, then due soon, then by next due date
   tasks = tasks.slice().sort(function(a,b) {
     return getMaintenanceNextDue(a) - getMaintenanceNextDue(b);
   });
@@ -661,7 +648,6 @@ function renderMaintenance() {
 
     return '<div class="card" style="margin-bottom:10px;border-left:4px solid '+statusColor+';background:'+statusBg+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
-      // Left: emoji + name + meta
       +'<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'
       +'<div style="font-size:28px;flex-shrink:0">'+(task.emoji||'🔧')+'</div>'
       +'<div style="min-width:0">'
@@ -672,7 +658,6 @@ function renderMaintenance() {
       +'</div>'
       +(task.notes?'<div style="font-size:12px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+task.notes+'</div>':'')
       +'</div></div>'
-      // Right: status + buttons
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">'
       +'<div style="font-size:12px;font-weight:700;color:'+statusColor+';text-align:right;white-space:nowrap">'+statusLabel+'</div>'
       +'<div style="font-size:11px;color:var(--muted);text-align:right">Last done: '+lastDoneStr+'</div>'
@@ -685,10 +670,6 @@ function renderMaintenance() {
   }).join('');
 }
 
-
-// TAX PREP HELPER ─────────────────────────────────────────────────────────
-
-// 2024 Ontario + Federal combined marginal rates (approximate, mid-bracket)
 var ON_TAX_BRACKETS = [
   { min:0,       max:16129,  rate:0.00  },  // Basic personal amount — no tax
   { min:16129,   max:49958,  rate:0.205 },  // ~20.5% combined (15% fed + 5.05% ON)
@@ -726,8 +707,6 @@ function getTaxYear() {
 function populateTaxYearSelect() {
   var sel = document.getElementById('tax-year-select');
   if (!sel) return;
-  // Only rebuild when the dropdown is empty (first render).
-  // Subsequent calls from renderTax() preserve the user's selected year.
   if (sel.options.length > 0) return;
   var cur = new Date().getFullYear();
   var html = '';
@@ -748,7 +727,6 @@ function saveTaxInputs(year, data) {
   saveState();
 }
 
-// Get Holly's total tips for a given year from tips tracker
 function getHollyTipsForYear(year) {
   var tips = state.tips || [];
   return tips.filter(function(t) {
@@ -777,18 +755,13 @@ function openTaxInputModal() {
   var td = getTaxInputs(year);
   document.getElementById('tax-input-year').textContent = year;
 
-  // ── Seed income fields from member profile when no saved tax data exists ──
-  // Only pre-fills fields still at zero so manually entered T4 values are never overwritten.
   var members = state.members || [];
-  // Identify Matt (salary/pension member) and Holly (tips member) by their flags.
-  // Falls back to first/second member if flags aren't set.
   var mattM  = members.find(function(m){ return m.hasPension || m.incomeType === 'salary'; }) || members[0];
   var hollyM = members.find(function(m){ return m.hasTips; }) || members[1];
 
   var mattEstIncome  = mattM  ? Math.round((mattM.monthlyIncome  || 0) * 12) : 0;
   var hollyEstIncome = hollyM ? Math.round((hollyM.monthlyIncome || 0) * 12) : 0;
 
-  // Matt employment
   var mattEmpVal = td.mattEmployment || 0;
   var mattSeeded = false;
   if (!mattEmpVal && mattEstIncome > 0) { mattEmpVal = mattEstIncome; mattSeeded = true; }
@@ -803,7 +776,6 @@ function openTaxInputModal() {
   document.getElementById('tax-matt-ei').value          = td.mattEi          || '';
   document.getElementById('tax-matt-tax-withheld').value= td.mattTaxWithheld || '';
 
-  // Holly employment
   var hollyEmpVal = td.hollyEmployment || 0;
   var hollySeeded = false;
   if (!hollyEmpVal && hollyEstIncome > 0) { hollyEmpVal = hollyEstIncome; hollySeeded = true; }
@@ -899,7 +871,6 @@ function renderTax() {
   var year = getTaxYear();
   var td   = getTaxInputs(year);
 
-  // ── Deadlines banner ──────────────────────────────────────────────────────
   var deadlinesBar = document.getElementById('tax-deadlines-bar');
   if (deadlinesBar) {
     var today = new Date(); today.setHours(0,0,0,0);
@@ -918,7 +889,6 @@ function renderTax() {
       : '';
   }
 
-  // ── Matt card ─────────────────────────────────────────────────────────────
   var mattCard = document.getElementById('tax-matt-card');
   if (mattCard) {
     var mattInc   = td.mattEmployment  || 0;
@@ -954,7 +924,6 @@ function renderTax() {
       + '</div>';
   }
 
-  // ── Holly card ────────────────────────────────────────────────────────────
   var hollyCard = document.getElementById('tax-holly-card');
   if (hollyCard) {
     var hollyInc    = td.hollyEmployment  || 0;
@@ -998,7 +967,6 @@ function renderTax() {
       + '</div>';
   }
 
-  // ── RRSP Planner ──────────────────────────────────────────────────────────
   var rrspCard = document.getElementById('tax-rrsp-card');
   if (rrspCard) {
     var rrspRoom    = td.mattRrspRoom    || 0;
@@ -1007,7 +975,6 @@ function renderTax() {
     var rrspRemaining = Math.max(0, rrspRoom - rrspContrib);
     var mattInc2    = td.mattEmployment  || 0;
     var margRate    = getMarginalRate(Math.max(0, mattInc2 - rrspContrib));
-    // RRSP savings estimator for remaining room
     var savingsAt500  = Math.round(Math.min(500,  rrspRemaining) * margRate);
     var savingsAt1000 = Math.round(Math.min(1000, rrspRemaining) * margRate);
     var savingsAt5000 = Math.round(Math.min(5000, rrspRemaining) * margRate);
@@ -1041,13 +1008,11 @@ function renderTax() {
       + '</div>';
   }
 
-  // ── Holly Tips Breakdown ───────────────────────────────────────────────────
   var tipsCard = document.getElementById('tax-tips-card');
   if (tipsCard) {
     var tips      = state.tips || [];
     var yearTips  = tips.filter(function(t){ return new Date(t.date).getFullYear() === year; });
     if (yearTips.length) {
-      // Monthly breakdown
       var byMonth = {};
       yearTips.forEach(function(t) {
         var mk = new Date(t.date).getMonth();
@@ -1101,7 +1066,6 @@ function renderTax() {
     }
   }
 
-  // ── CRA Deadlines detail card ─────────────────────────────────────────────
   var dlCard = document.getElementById('tax-deadlines-card');
   if (dlCard) {
     dlCard.innerHTML = '<div class="card">'
@@ -1131,9 +1095,6 @@ function _tstat(val, label, valColor) {
     + '<div style="font-size:11px;color:var(--muted)">' + label + '</div></div>';
 }
 
-
-// RETIREMENT PROJECTOR ───────────────────────────────────────────────────────
-
 function getRetInputs() {
   return state.retirementData || {};
 }
@@ -1145,7 +1106,6 @@ function saveRetInputs(data) {
 
 function openRetirementInputModal() {
   var rd = getRetInputs();
-  // Auto-populate account link dropdowns
   var accounts = state.accounts || [];
   var rrspAccts = accounts.filter(function(a){return a.type==='RRSP'||a.type==='FHSA';});
   var tfsaAccts = accounts.filter(function(a){return a.type==='TFSA';});
@@ -1161,7 +1121,6 @@ function openRetirementInputModal() {
     sel.innerHTML = buildAcctOpts(linkedId, isRrsp ? rrspAccts : tfsaAccts);
   });
 
-  // Matt fields
   document.getElementById('ret-matt-age').value           = rd.mattAge          || '';
   document.getElementById('ret-matt-retire-age').value    = rd.mattRetireAge    || 60;
   document.getElementById('ret-matt-salary').value        = rd.mattSalary       || '';
@@ -1176,7 +1135,6 @@ function openRetirementInputModal() {
   document.getElementById('ret-matt-tfsa-monthly').value  = rd.mattTfsaMonthly  || '';
   document.getElementById('ret-cpp-matt').value           = rd.cppMatt          || 900;
 
-  // Holly fields
   document.getElementById('ret-holly-age').value           = rd.hollyAge          || '';
   document.getElementById('ret-holly-retire-age').value    = rd.hollyRetireAge    || 60;
   document.getElementById('ret-holly-income').value        = rd.hollyIncome       || '';
@@ -1191,11 +1149,9 @@ function openRetirementInputModal() {
   document.getElementById('ret-holly-tfsa-monthly').value  = rd.hollyTfsaMonthly  || '';
   document.getElementById('ret-cpp-holly').value           = rd.cppHolly          || 600;
 
-  // Shared
   document.getElementById('ret-growth-rate').value        = rd.growthRate       || 5;
   document.getElementById('ret-inflation-rate').value     = rd.inflationRate    || 2.5;
 
-  // Apply mode visibility
   retUpdatePensionMode('matt');
   retUpdatePensionMode('holly');
   openModal('ret-input-modal');
@@ -1242,7 +1198,6 @@ function saveRetirementModal() {
   var mattSalary  = parseFloat(document.getElementById('ret-matt-salary').value)  || 0;
   var hollyIncome = parseFloat(document.getElementById('ret-holly-income').value) || 0;
 
-  // DC: compute total monthly pension contribution from % inputs
   var mattEmpPct    = parseFloat(document.getElementById('ret-matt-emp-pct').value)    || 0;
   var mattMatchPct  = parseFloat(document.getElementById('ret-matt-match-pct').value)  || 0;
   var mattDcMonthly = mattPensionMode === 'dc' ? Math.round(mattSalary * (mattEmpPct + mattMatchPct) / 100 / 12) : 0;
@@ -1262,15 +1217,12 @@ function saveRetirementModal() {
     mattRetireAge:    parseInt(document.getElementById('ret-matt-retire-age').value)   || 60,
     mattSalary:       mattSalary,
     mattPensionMode:  mattPensionMode,
-    // DB fields
     mattPensionPct:   parseFloat(document.getElementById('ret-matt-pension-pct').value)|| 2,
     mattPensionYears: parseInt(document.getElementById('ret-matt-pension-years').value)|| 0,
-    // DC fields
     mattEmpPct:       mattEmpPct,
     mattMatchPct:     mattMatchPct,
     mattDcMonthly:    mattDcMonthly,
     mattExtraRrsp:    mattExtraRrsp,
-    // Savings
     mattRrsp:         linkedBal('ret-matt-rrsp-acct','ret-matt-rrsp'),
     mattTfsa:         linkedBal('ret-matt-tfsa-acct','ret-matt-tfsa'),
     mattRrspMonthly:  mattRrspMonthly,
@@ -1299,7 +1251,6 @@ function saveRetirementModal() {
   hhToast('Retirement inputs saved!', 'success');
 }
 
-// Project future value of a portfolio: FV = PV*(1+r)^n + PMT*[((1+r)^n -1)/r]
 function projectFV(currentBalance, monthlyContrib, annualRate, years) {
   if (years <= 0) return currentBalance;
   var r = annualRate / 100 / 12;
@@ -1308,8 +1259,6 @@ function projectFV(currentBalance, monthlyContrib, annualRate, years) {
   return currentBalance * Math.pow(1+r, n) + monthlyContrib * ((Math.pow(1+r,n)-1)/r);
 }
 
-// CPP 2024: max ~$1,364/mo at 65. OAS: ~$700/mo at 65.
-// Simple linear CPP reduction for early take-up: -0.6%/month before 65, +0.7%/month after 65
 function estimateCPP(baseCPP, takeupAge) {
   var diff = takeupAge - 65;
   if (diff < 0) return baseCPP * (1 + diff * 12 * 0.006);
@@ -1318,7 +1267,6 @@ function estimateCPP(baseCPP, takeupAge) {
 }
 
 function oasAtAge(takeupAge) {
-  // OAS 2024 ~$713/mo at 65, deferred to 70 = +36%
   var base = 713;
   var diff = Math.max(0, Math.min(5, takeupAge - 65));
   return Math.round(base * (1 + diff * 0.072));
@@ -1328,7 +1276,6 @@ function renderRetirement() {
   var rd = getRetInputs();
   var hasData = rd.mattAge && rd.mattRetireAge;
 
-  // ── No-data prompt ────────────────────────────────────────────────────────
   var summaryBar = document.getElementById('ret-summary-bar');
   if (!hasData) {
     if (summaryBar) summaryBar.innerHTML = '<div class="card" style="text-align:center;padding:32px 24px">'
@@ -1346,18 +1293,15 @@ function renderRetirement() {
   var infR  = (rd.inflationRate || 2.5);
   var now   = new Date().getFullYear();
 
-  // ── Matt projections ──────────────────────────────────────────────────────
   var mattYearsToRetire = Math.max(0, (rd.mattRetireAge||60) - (rd.mattAge||35));
   var mattRetireYear    = now + mattYearsToRetire;
   var mattPensionMode   = rd.mattPensionMode || 'db';
-  // Use career projected final salary if available, else fall back to retirement input salary
   var mattM = (state.members||[]).find(function(m){ return !m.hasTips && (m.incomeType==='salary'||m.hasPension); }) || (state.members||[])[0];
   var mattCareerFinalSalary = mattM ? getCareerFinalSalary(mattM.id) : 0;
   var mattEffectiveSalary   = mattCareerFinalSalary > 0 ? mattCareerFinalSalary : (rd.mattSalary||0);
   var mattPensionIncome = mattPensionMode === 'db'
     ? Math.round((rd.mattPensionPct||2)/100 * (rd.mattPensionYears||0) * mattEffectiveSalary)
     : 0;
-  // DC: monthly = salary × (emp% + match%) / 12, stored as mattRrspMonthly at save time
   var mattEmpMonthly   = mattPensionMode === 'dc' ? Math.round(mattEffectiveSalary * (rd.mattEmpPct||0)   / 100 / 12) : 0;
   var mattMatchMonthly = mattPensionMode === 'dc' ? Math.round(mattEffectiveSalary * (rd.mattMatchPct||0) / 100 / 12) : 0;
   var mattRrspFV  = projectFV(rd.mattRrsp||0, rd.mattRrspMonthly||0, gr, mattYearsToRetire);
@@ -1368,7 +1312,6 @@ function renderRetirement() {
   var mattTfsaMonthlyDraw = mattTfsaFV > 0 ? Math.round(mattTfsaFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
   var mattTotalMonthly = Math.round(mattPensionIncome/12) + mattCppMo + mattOasMo + mattRrspMonthlyDraw + mattTfsaMonthlyDraw;
 
-  // ── Holly projections ─────────────────────────────────────────────────────
   var hollyYearsToRetire = Math.max(0, (rd.hollyRetireAge||60) - (rd.hollyAge||33));
   var hollyRetireYear    = now + hollyYearsToRetire;
   var hollyPensionMode   = rd.hollyPensionMode || 'none';
@@ -1390,7 +1333,6 @@ function renderRetirement() {
 
   var householdMonthly = mattTotalMonthly + hollyTotalMonthly;
 
-  // ── Summary bar ───────────────────────────────────────────────────────────
   if (summaryBar) {
     summaryBar.innerHTML = '<div class="card" style="padding:14px 18px">'
       + '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">'
@@ -1401,7 +1343,6 @@ function renderRetirement() {
       + '</div></div>';
   }
 
-  // ── Matt card ─────────────────────────────────────────────────────────────
   var mattCard = document.getElementById('ret-matt-card');
   if (mattCard) {
     var mattPensionRow = mattPensionMode === 'db'
@@ -1441,7 +1382,6 @@ function renderRetirement() {
       + '</div></div></div>';
   }
 
-  // ── Holly card ────────────────────────────────────────────────────────────
   var hollyCard = document.getElementById('ret-holly-card');
   if (hollyCard) {
     var hollyPensionRow = hollyPensionMode === 'db'
@@ -1482,10 +1422,8 @@ function renderRetirement() {
       + '</div></div></div>';
   }
 
-  // ── Combined income card ──────────────────────────────────────────────────
   var incCard = document.getElementById('ret-income-card');
   if (incCard) {
-    // Use career-projected effective salaries for a more accurate replacement ratio
     var currentIncome = (mattEffectiveSalary||rd.mattSalary||0) + (hollyEffectiveSalary||rd.hollyIncome||0);
     var replacementPct = currentIncome > 0 ? Math.round(householdMonthly / (currentIncome/12) * 100) : 0;
     var replColor = replacementPct >= 80 ? 'var(--green)' : replacementPct >= 60 ? 'var(--yellow)' : 'var(--red)';
@@ -1509,7 +1447,6 @@ function renderRetirement() {
       + '</div></div>';
   }
 
-  // ── Portfolio growth chart ─────────────────────────────────────────────────
   var chartCard = document.getElementById('ret-chart-card');
   if (chartCard) {
     var maxYears = Math.max(mattYearsToRetire, hollyYearsToRetire, 1);
@@ -1549,7 +1486,6 @@ function renderRetirement() {
     }, 100);
   }
 
-  // ── Ontario retirement tips ────────────────────────────────────────────────
   var tipsCard = document.getElementById('ret-tips-card');
   if (tipsCard) {
     tipsCard.innerHTML = '<div class="card">'
@@ -1570,8 +1506,6 @@ function _retRow(label, val) {
     + '<span style="color:var(--muted)">' + label + '</span>'
     + '<span style="font-weight:700;color:var(--text)">' + val + '</span></div>';
 }
-
-// PET CARE TRACKER
 
 function getPetAlerts() {
   var alerts = [];
@@ -1602,7 +1536,6 @@ function renderPetsPage() {
   }
   var today = new Date(); today.setHours(0,0,0,0);
 
-  // Pet spend from transactions
   var petYtd = getPetSpend(new Date().getFullYear());
   var petMonth = (state.transactions||[]).filter(function(t){
     var d=new Date(t.date); var n=new Date();
@@ -1619,7 +1552,6 @@ function renderPetsPage() {
       : '<div style="font-size:12px;color:var(--muted);padding:0 0 8px">Categorize pet transactions as <strong>Pets</strong> to see monthly spend here.</div>';
   }
 
-  // Alert bar
   var alerts = getPetAlerts();
   document.getElementById('pets-alert-bar').innerHTML = alerts.map(function(a) {
     var urgency = a.days < 0 ? 'var(--red)' : a.days <= 7 ? 'var(--yellow)' : 'var(--accent)';
@@ -1627,24 +1559,19 @@ function renderPetsPage() {
     return '<div class="alert" style="border-left:4px solid '+urgency+';background:color-mix(in srgb,'+urgency+' 8%,var(--card));margin-bottom:6px">'+a.emoji+' <strong>'+a.pet+'</strong> — '+(a.type==='vaccine'?'💉 Vaccine':'💊 Medication')+': '+a.name+' <span style="color:'+urgency+';font-weight:700">'+label+'</span></div>';
   }).join('');
 
-  // Per-pet cards
   document.getElementById('pets-page-cards').innerHTML = pets.map(function(pet) {
-    // Age
     var ageStr = '';
     if (pet.dob) {
       var dob = new Date(pet.dob+'T00:00:00');
       var months = (today.getFullYear()-dob.getFullYear())*12 + (today.getMonth()-dob.getMonth());
       ageStr = months >= 24 ? Math.floor(months/12)+' yrs' : months+' mo';
     }
-    // Annual vet cost
     var annualVet = (pet.vetVisits||[]).filter(function(v){
       return v.date && new Date(v.date+'T00:00:00').getFullYear() === today.getFullYear();
     }).reduce(function(s,v){return s+(v.cost||0);},0);
-    // Vet visits table
     var vetRows = (pet.vetVisits||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(v) {
       return '<tr><td>'+v.date+'</td><td>'+v.reason+'</td><td>'+fmt(v.cost||0)+'</td><td style="color:var(--muted);font-size:11px">'+( v.notes||'')+'</td><td><button class="btn btn-danger btn-sm" onclick="deletePetVetVisit(\''+pet.id+'\',\''+v.id+'\')">🗑️</button></td></tr>';
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No vet visits logged yet.</td></tr>';
-    // Vaccinations
     var vaccRows = (pet.vaccinations||[]).map(function(v) {
       var nd = v.nextDate ? new Date(v.nextDate+'T00:00:00') : null;
       var days = nd ? Math.ceil((nd-today)/86400000) : null;
@@ -1652,7 +1579,6 @@ function renderPetsPage() {
       var statusTxt = days===null?'—':days<0?'Overdue '+Math.abs(days)+'d':days===0?'Today!':days+'d';
       return '<tr><td style="font-weight:600">'+v.name+'</td><td>'+(v.lastDate||'—')+'</td><td>'+(v.nextDate||'—')+'</td><td style="color:'+statusColor+';font-weight:700">'+statusTxt+'</td><td><button class="btn btn-danger btn-sm" onclick="deletePetVacc(\''+pet.id+'\',\''+v.id+'\')">🗑️</button></td></tr>';
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No vaccinations logged.</td></tr>';
-    // Medications
     var medRows = (pet.medications||[]).map(function(m) {
       var nd = m.nextDue ? new Date(m.nextDue+'T00:00:00') : null;
       var days = nd ? Math.ceil((nd-today)/86400000) : null;
@@ -1676,20 +1602,16 @@ function renderPetsPage() {
         '<button class="btn btn-ghost btn-sm" onclick="openPetVaccModal(\''+pet.id+'\')">💉 Add Vaccine</button>'+
         '<button class="btn btn-primary btn-sm" onclick="openPetMedModal(\''+pet.id+'\')">💊 Add Med</button>'+
       '</div></div>'+
-      // Vet visits
       '<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:800;color:var(--muted);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px">🏥 Vet Visits</div>'+
       '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Reason</th><th>Cost</th><th>Notes</th><th></th></tr></thead><tbody>'+vetRows+'</tbody></table></div></div>'+
-      // Vaccinations
       '<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:800;color:var(--muted);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px">💉 Vaccinations</div>'+
       '<div class="table-wrap"><table><thead><tr><th>Vaccine</th><th>Last Given</th><th>Next Due</th><th>Status</th><th></th></tr></thead><tbody>'+vaccRows+'</tbody></table></div></div>'+
-      // Medications
       '<div><div style="font-size:12px;font-weight:800;color:var(--muted);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px">💊 Medications & Treatments</div>'+
       '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Dose</th><th>Frequency</th><th>Next Due</th><th>Status</th><th></th></tr></thead><tbody>'+medRows+'</tbody></table></div></div>'+
       '</div>';
   }).join('');
 }
 
-// --- Pet modal openers ---
 function openPetVetModal(petId) {
   _petModalTarget = petId || (state.pets&&state.pets[0]&&state.pets[0].id) || null;
   _populatePetSelect('pvet-pet-select', _petModalTarget);
@@ -1733,7 +1655,6 @@ function _populatePetSelect(selId, selectedId) {
   }).join('');
 }
 
-// --- Savers ---
 function savePetVetVisit() {
   var petId = document.getElementById('pvet-pet-select').value;
   var pet = (state.pets||[]).find(function(p){return p.id===petId;});
@@ -1773,7 +1694,6 @@ function savePetProfile() {
   saveState(); closeModal('pet-profile-modal'); renderPetsPage(); hhToast('Profile updated!','🐾');
 }
 
-// --- Deleters ---
 function deletePetVetVisit(petId, visitId) {
   hhConfirm('Remove this vet visit?','🗑️','Remove').then(function(ok){
     if (!ok) return;
@@ -1796,7 +1716,6 @@ function deletePetMed(petId, medId) {
   });
 }
 
-// TIPS
 function populateTipsGoalDropdown(){
   var sel=document.getElementById('tips-goal-id');if(!sel)return;
   var prev=sel.value;
@@ -1822,8 +1741,6 @@ function calcTips(){
   } else if(prev){prev.style.display='none';}
 }
 function updateTipTotal(){calcTips();}
-// Ensure Cash-Claimed and Cash-Unclaimed exist as real accounts in state.accounts
-// using their type string as the id so existing tip transactions match without migration
 function ensureCashAccounts() {
   if (!state.accounts) state.accounts = [];
   var tipsMember = getTipsMember();
@@ -1857,32 +1774,26 @@ function saveTips(){
   if(editId){
     var idx=state.tips.findIndex(function(x){return x.id===editId;});
     state.tips[idx]=t;
-    // remove old auto-generated tip transactions
     state.transactions=state.transactions.filter(function(tx){return tx.tipsId!==editId;});
   } else {
     state.tips.push(t);
   }
 
-  // Create income transactions for tips so account balances update
   var dp=tipDate.split('-');
   var fmtDate=dp[1]+'/'+dp[2]+'/'+dp[0];
 
   if(claimed>0){
-    // Claimed tips → deposited to Cash-Claimed (shows as income)
     state.transactions.push({id:uid(),date:fmtDate,description:'Tips — Claimed (Deposit)',amount:claimed,
       category:'income',person:(getTipsMember()||{name:'Joint'}).name,account:'Cash-Claimed',source:'tips',tipsId:t.id});
   }
   if(unclaimed>0){
-    // Unclaimed tips → Cash-Unclaimed
     state.transactions.push({id:uid(),date:fmtDate,description:'Tips — Unclaimed Cash',amount:unclaimed,
       category:'income',person:(getTipsMember()||{name:'Joint'}).name,account:'Cash-Unclaimed',source:'tips',tipsId:t.id});
   }
 
-  // Create a goal contribution transaction if goal was set
   if(goalAmt>0&&goalId){
     state.transactions.push({id:uid(),date:fmtDate,description:'Tips → goal',amount:goalAmt,
       category:'goal:'+goalId,person:(getTipsMember()||{name:'Joint'}).name,account:goalAcct,source:'tips',tipsId:t.id});
-    // Deduct the goal contribution from the source account
     state.transactions.push({id:uid(),date:fmtDate,description:'Tips → goal (transfer out)',amount:-goalAmt,
       category:'transfer',person:(getTipsMember()||{name:'Joint'}).name,account:goalAcct==='Cash-Claimed'?'Cash-Claimed':'Cash-Unclaimed',source:'tips',tipsId:t.id});
   }
@@ -1892,4 +1803,6 @@ function saveTips(){
   if(document.getElementById('page-budget').classList.contains('active'))renderBudget();
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
   if(document.getElementById('page-goals').classList.contains('active'))renderGoals();
+  if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
+  if(document.getElementById('page-budget').classList.contains('active'))renderBudget();
 }

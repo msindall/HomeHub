@@ -3,8 +3,6 @@ function renderCalendar() {
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('cal-month-title').textContent = `${monthNames[m]} ${y}`;
 
-  // Status
-  // Dynamic member calendar status cards
   var members = state.members || [];
   var statusCardsEl = document.getElementById('cal-member-status-cards');
   if (statusCardsEl) {
@@ -19,7 +17,6 @@ function renderCalendar() {
       return '<div class="stat"><div class="stat-label">' + m.name + '\'s Calendar</div><div id="cal-status-' + m.id + '" style="font-size:13px;font-weight:600">' + statusHtml + '</div></div>';
     }).join('');
   }
-  // Dynamic gcal buttons
   var buttonsEl = document.getElementById('gcal-member-buttons');
   if (buttonsEl) {
     buttonsEl.innerHTML = members.map(function(m) {
@@ -37,21 +34,17 @@ function renderCalendar() {
     }).join('&nbsp;&nbsp;');
   }
 
-  // Build calendar grid
   const firstDay = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m+1, 0).getDate();
   const daysInPrev = new Date(y, m, 0).getDate();
   const todayD = new Date().toISOString().split('T')[0];
 
   let cells = [];
-  // Prev month filler
   for (let i = firstDay-1; i >= 0; i--) cells.push({day: daysInPrev-i, thisMonth:false, dateStr:''});
-  // This month
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     cells.push({day:d, thisMonth:true, dateStr});
   }
-  // Next month filler
   const remaining = 42 - cells.length;
   for (let d = 1; d <= remaining; d++) cells.push({day:d, thisMonth:false, dateStr:''});
 
@@ -68,7 +61,6 @@ function renderCalendar() {
     </div>`;
   }).join('');
 
-  // Upcoming events
   const todayDate = new Date(); todayDate.setHours(0,0,0,0);
   const upcoming = state.calEvents
     .filter(e=>new Date(e.date)>=todayDate)
@@ -80,7 +72,6 @@ function renderCalendar() {
         const rowCls='event-row-member';
         const icon='<span style="color:'+memberColor+'">●</span>';
         const dateLabel=new Date(e.date+'T12:00:00').toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
-        // Heal legacy events where person was stored as a member ID instead of name
         var displayPerson = e.person;
         if (displayPerson && !(state.members||[]).find(function(m){ return m.name === displayPerson; })) {
           var resolved = getMemberById(displayPerson);
@@ -145,8 +136,6 @@ function deleteEvent(id) {
   });
 }
 
-// ── CALENDAR IMPORT (file upload or paste — no network needed) ──────────────
-
 function switchCalTab(person, tab) {
   var isNew = person === 'member';
   var linkPanel  = document.getElementById(isNew ? 'gcal-panel-link'  : 'gcal-' + person + '-panel-link');
@@ -174,7 +163,6 @@ function switchCalTab(person, tab) {
   });
 }
 
-// Normalise webcal:// to https:// for fetch compatibility
 function normaliseCalUrl(url) {
   return (url || '').trim().replace(/^webcal:\/\//i, 'https://');
 }
@@ -189,7 +177,6 @@ function openGCalModal(memberId) {
   var existingUrl  = cfg.url  || '';
   var autoSync     = cfg.autoSync !== false;
   var calType      = cfg.calType || 'google';
-  // Pre-fill all panels
   var nameFileEl  = document.getElementById('gcal-name-file');   if (nameFileEl)  nameFileEl.value  = existingName;
   var namePasteEl = document.getElementById('gcal-name-paste'); if (namePasteEl) namePasteEl.value = existingName;
   var nameLinkEl  = document.getElementById('gcal-name-link');  if (nameLinkEl)  nameLinkEl.value  = existingName;
@@ -200,7 +187,6 @@ function openGCalModal(memberId) {
   var autoAppleEl = document.getElementById('gcal-apple-autosync'); if (autoAppleEl) autoAppleEl.checked = autoSync;
   var resultEl    = document.getElementById('gcal-link-result'); if (resultEl)   resultEl.innerHTML = '';
   var appleResEl  = document.getElementById('gcal-apple-result'); if (appleResEl) appleResEl.innerHTML = '';
-  // Open on the tab matching stored calType, default live link
   var startTab = calType === 'apple' ? 'apple' : 'link';
   switchCalTab('member', startTab);
   openModal('gcal-member-modal');
@@ -274,11 +260,9 @@ function importICalText(person, icalText, calName) {
   return { ok: true, count: imported.length };
 }
 
-// Legacy importICalFile/Paste stubs (now handled by importICalFileDynamic/importICalPasteDynamic)
 function importICalFile(person) { openGCalModal(person); }
 function importICalPaste(person) { openGCalModal(person); }
 
-// ── LIVE LINK: Save & sync from URL ──────────────────────────────────────────
 async function saveLiveCalLink() {
   var memberId = document.getElementById('gcal-modal-member-id').value;
   var urlEl    = document.getElementById('gcal-link-url');
@@ -298,7 +282,6 @@ async function saveLiveCalLink() {
   }
   var calName  = (nameEl ? nameEl.value.trim() : '') || (member ? member.name + "'s Calendar" : 'Calendar');
   var autoSync = autoEl ? autoEl.checked : true;
-  // Save config first
   if (!state.gcalConfig) state.gcalConfig = {};
   if (!state.gcalConfig[memberId]) state.gcalConfig[memberId] = {};
   state.gcalConfig[memberId].url      = url;
@@ -315,8 +298,6 @@ async function saveLiveCalLink() {
     resultEl.innerHTML = '<span style="color:var(--red)">❌ ' + res.msg + '</span>';
   }
 }
-
-// Fetch iCal from a URL via CORS proxy fallback chain
 
 async function saveAppleCalLink() {
   var memberId  = document.getElementById('gcal-modal-member-id').value;
@@ -376,11 +357,9 @@ async function icalFetchAndImport(memberId, url, calName) {
   return { ok: false, msg: 'Could not reach your calendar. Try the "Paste Text" tab as a backup. (' + (lastErr ? lastErr.message : 'network error') + ')' };
 }
 
-// Re-sync a saved live link (called from the 🔄 button)
 async function resyncGCal(memberId) {
   var cfg = state.gcalConfig && state.gcalConfig[memberId];
   if (!cfg || !cfg.url) {
-    // No saved URL — open the modal to set one up
     openGCalModal(memberId);
     return;
   }
@@ -398,7 +377,6 @@ async function resyncGCal(memberId) {
   }
 }
 
-// Auto-sync all members who have a saved URL and autoSync enabled
 async function autoSyncAllCalendars(silent) {
   if (!state.gcalConfig) return;
   var members = state.members || [];
@@ -413,7 +391,6 @@ async function autoSyncAllCalendars(silent) {
   renderCalendar();
 }
 
-// Robust iCal parser — expands RRULE recurring events, handles TZID, folded lines, EXDATE
 function parseICalToEvents(ical, person, calName) {
   var events = [];
 
@@ -422,7 +399,6 @@ function parseICalToEvents(ical, person, calName) {
     .replace(/\r/g, '\n')
     .replace(/\n[ \t]/g, '');  // unfold RFC 5545 continuation lines
 
-  // Import window: 6 months back through 18 months ahead
   var now = new Date();
   var windowStart = new Date(now); windowStart.setMonth(windowStart.getMonth() - 6);
   var windowEnd   = new Date(now); windowEnd.setMonth(windowEnd.getMonth() + 18);
@@ -489,7 +465,6 @@ function parseICalToEvents(ical, person, calName) {
         }
       }
 
-      // Advance cursor
       if (freq === 'DAILY') {
         cur.setDate(cur.getDate() + interval);
       } else if (freq === 'WEEKLY') {
@@ -528,7 +503,6 @@ function parseICalToEvents(ical, person, calName) {
       var loc      = decodeICal(getVal('LOCATION'));
       var notesStr = [desc, loc ? '\ud83d\udccd ' + loc : ''].filter(Boolean).join(' | ').slice(0, 250);
 
-      // Collect EXDATE exceptions
       var exdates = [];
       (block.match(/(?:^|\n)EXDATE(?:;[^:\n]*)?:([^\n]+)/gi) || []).forEach(function(ex) {
         ex.split(':').pop().trim().split(',').forEach(function(v){ exdates.push(v.replace(/Z$/,'').trim()); });
@@ -536,7 +510,6 @@ function parseICalToEvents(ical, person, calName) {
 
       var dtEndRaw = getVal('DTEND');
       var dtEnd = dtEndRaw ? parseICalDate(dtEndRaw) : null;
-      // Resolve member display name from ID (person arg may be an ID like "zpeayop…")
       var memberObj = getMemberById(person);
       var personName = memberObj ? memberObj.name : person;
       function pushEvent(dt) {
@@ -551,21 +524,31 @@ function parseICalToEvents(ical, person, calName) {
       } else if (dtStart >= windowStart && dtStart <= windowEnd) {
         pushEvent(dtStart);
       }
-    } catch(e) { /* skip malformed VEVENT */ }
+    } catch(e) {   }
   });
 
   return events;
 }
-// TRANSACTIONS
 let txnPage = 0;
 const PAGE_SIZE = 25;
 
 function renderTransactions() {
   txnPage = 0;
-  // Populate filters
   const catSel = document.getElementById('txn-cat');
   const prev = catSel.value;
-  catSel.innerHTML = '<option value="">All Categories</option>' + state.categories.map(c=>`<option value="${c.id}" ${c.id===prev?'selected':''}>${c.name}</option>`).join('');
+  var catOpts = '<option value="">All Categories</option>'
+    + state.categories.map(c=>'<option value="'+c.id+'"'+(c.id===prev?' selected':'')+'>'+c.name+'</option>').join('');
+  if ((state.goals||[]).length) {
+    catOpts += '<optgroup label="--- Goals ---">'
+      + state.goals.map(function(g){ var v='goal:'+g.id; return '<option value="'+v+'"'+(v===prev?' selected':'')+'>'+g.emoji+' '+g.name+'</option>'; }).join('')
+      + '</optgroup>';
+  }
+  if ((state.carFunds||[]).length) {
+    catOpts += '<optgroup label="--- Car Funds ---">'
+      + state.carFunds.map(function(c){ var v='car:'+c.id; return '<option value="'+v+'"'+(v===prev?' selected':'')+'>'+(c.emoji||'🚗')+' '+c.name+'</option>'; }).join('')
+      + '</optgroup>';
+  }
+  catSel.innerHTML = catOpts;
   const mSel = document.getElementById('txn-month');
   const pm = mSel.value;
   mSel.innerHTML = '<option value="">All Months</option>' + getMonths().map(mk=>{
@@ -616,7 +599,6 @@ function buildCatOptions(selectedCat) {
 }
 
 function acctBadge(acctId){
-  // Look up by id first (new system), fall back to legacy string keys
   var a = getAccountById(acctId);
   if (a) {
     var ic = ACCT_TYPE_ICONS[a.type] || '🏦';
@@ -625,7 +607,6 @@ function acctBadge(acctId){
     return '<span style="font-size:11px;font-weight:700;color:'+ownerColor+';background:'+ownerColor+'18;padding:1px 7px;border-radius:4px">'
       + ic + ' ' + a.nickname + '</span>';
   }
-  // Legacy fallback for old string-keyed transactions (shown in amber to signal unmigrated data)
   var legacyIcons = { 'Chequing':'🏦','Savings':'💰','Credit Card':'💳','TFSA':'📈','RRSP':'🏛️','FHSA':'🏠','Loan':'💸','Line of Credit':'💳' };
   if (!acctId) return '<span style="font-size:11px;color:var(--muted)">🏦 Chequing</span>';
   if (acctId === 'Cash-Claimed') return '<span style="font-size:11px;font-weight:700;color:var(--member2);background:var(--member2-light);padding:1px 6px;border-radius:4px">✅ Cash Claimed</span>';
@@ -666,27 +647,32 @@ function renderTxnTable() {
     var splitRowBadge=isSplit?'<span style="background:var(--purple);color:#fff;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:3px">Split</span>':'';
     var catSplitParentBadge=isCatSplitParent?'<span style="background:var(--yellow-light);color:var(--yellow);font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:3px">&#9889; Split</span>':'';
     var catSplitChildBadge=isCatSplitChild?'<span style="background:var(--surface);color:var(--muted);font-size:10px;padding:1px 5px;border-radius:4px;border:1px solid var(--border);margin-left:3px">↳ Split</span>':'';
+    var billBadge=t.billId?(function(){var bn=t.billName||((state.bills||[]).find(function(b){return b.id===t.billId;})||{}).name||'Bill';return'<span style="background:var(--green-light);color:var(--green);font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:3px" title="Linked to bill: '+bn+'">🔗 '+bn+'</span>';})():'';
+    var weddingBadge=t.category==='wedding-transfer'?'<span style="background:var(--yellow-light);color:var(--accent2);font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:3px">💍 Wedding Fund</span>':'';
     var rowStyle=isSplit?'style="background:var(--surface);opacity:0.85"'
       :isCatSplitParent?'style="background:rgba(201,125,90,0.06)"'
       :isCatSplitChild?'style="background:var(--surface);padding-left:12px"':'';
     var catSel=isCatSplitParent
       ?'<span style="color:var(--muted);font-size:12px">—</span>'
-      :'<select onchange="updateTxnCatSel(this)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:6px;font-size:12px;max-width:140px">'+buildCatOptions(t.category)+'</select>';
+      :t.category==='wedding-transfer'
+        ?'<span style="font-size:12px;color:var(--accent2);font-weight:700">💍 Wedding Fund</span>'
+        :'<select onchange="updateTxnCatSel(this)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:6px;font-size:12px;max-width:140px">'+buildCatOptions(t.category)+'</select>';
     var persSelect='<select onchange="updateTxnPersonSel(this)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:6px;font-size:12px">'
       +(state.members||[]).map(function(m){ return '<option value="'+m.name+'"'+(t.person===m.name?' selected':'')+'>'+m.name+'</option>'; }).join('')
       +'</select>';
     var tid=t.id;
-    // Hide split button for children; show re-split for parents
     var splitBtn = isCatSplitChild ? ''
       : '<button class="btn btn-sm" style="background:var(--yellow-light);color:var(--yellow);border:1px solid var(--yellow);font-size:11px" title="Split into multiple categories" data-tid="'+tid+'" onclick="txnSplitBtn(this.dataset.tid)">&#9889; Split</button>';
     var actions='<div style="display:flex;gap:3px;flex-wrap:wrap">'
       +splitBadge
       +'<button class="btn btn-ghost btn-sm" title="Edit" data-tid="'+tid+'" onclick="txnEditBtn(this.dataset.tid)">&#9998;</button>'
       +splitBtn
+      +(t.category==='transfer'?'<button class="btn btn-sm" style="background:var(--yellow-light);color:var(--accent2);border:1px solid var(--accent2);font-size:11px" title="Tag as wedding fund contribution" data-tid="'+tid+'" onclick="tagAsWeddingTransfer(this.dataset.tid)">💍 Tag</button>':'')
+      +(t.category==='wedding-transfer'?'<button class="btn btn-sm" style="background:var(--surface);color:var(--muted);border:1px solid var(--border);font-size:11px" title="Remove wedding fund tag" data-tid="'+tid+'" onclick="untagWeddingTransfer(this.dataset.tid)">✕ Untag</button>':'')
       +'<button class="btn btn-danger btn-sm" title="Delete" data-tid="'+tid+'" onclick="txnDelBtn(this.dataset.tid)">&#215;</button>'
     return '<tr data-txnid="'+t.id+'" '+rowStyle+'>'
       +'<td style="font-size:12px">'+t.date+'</td>'
-      +'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+t.description+'">'+t.description+splitRowBadge+catSplitParentBadge+catSplitChildBadge+'</td>'
+      +'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+t.description+'">'+t.description+splitRowBadge+catSplitParentBadge+catSplitChildBadge+billBadge+weddingBadge+'</td>'
       +'<td>'+catSel+goalBadge+'</td>'
       +'<td>'+persSelect+'</td>'
       +'<td>'+acctBadge(t.account||'Chequing')+'</td>'
@@ -703,7 +689,6 @@ function updateTxnCat(id,cat){
   const oldCat=t.category;
   t.category=cat;
   saveState();
-  // Ask user if they want to apply to all transactions with same description
   const sameDesc=state.transactions.filter(x=>x.id!==id&&x.description===t.description&&x.category===oldCat);
   if(sameDesc.length>0){
     hhConfirm(
@@ -723,6 +708,26 @@ function updateTxnCat(id,cat){
 }
 function updateTxnPerson(id,person){const t=state.transactions.find(t=>t.id===id);if(t){t.person=person;saveState();}}
 function deleteTxn(id){hhConfirm('Delete this transaction?','🗑️','Delete').then(function(ok){if(!ok)return;state.transactions=state.transactions.filter(t=>t.id!==id);saveState();renderTxnTable();});}
+function tagAsWeddingTransfer(id){
+  var t=state.transactions.find(function(x){return x.id===id;});
+  if(!t)return;
+  t.category='wedding-transfer';
+  saveState();
+  renderTxnTable();
+  if(typeof renderWeddingFundContributions==='function')renderWeddingFundContributions();
+  if(typeof renderGoals==='function')renderGoals();
+  hhToast('💍 Tagged as Wedding Fund contribution');
+}
+function untagWeddingTransfer(id){
+  var t=state.transactions.find(function(x){return x.id===id;});
+  if(!t)return;
+  t.category='transfer';
+  saveState();
+  renderTxnTable();
+  if(typeof renderWeddingFundContributions==='function')renderWeddingFundContributions();
+  if(typeof renderGoals==='function')renderGoals();
+  hhToast('Tag removed');
+}
 function editTxn(id){
   const t=state.transactions.find(t=>t.id===id);if(!t)return;
   document.getElementById('edit-txn-id').value=id;document.getElementById('edit-desc').value=t.description;
@@ -750,27 +755,22 @@ function saveCashPurchase(){
   state.transactions.push(t);saveState();closeModal('cash-modal');renderTransactions();
 }
 
-// BUDGET
 function renderBudget() {
   const ms=document.getElementById('budget-month-select');
   const months=getMonths();
-  // Capture selection BEFORE rebuild; fall back to current month on first load
   const prevVal = ms.value || getCurrentMonthKey();
   ms.innerHTML=months.map(mk=>{const[y,m2]=mk.split('-');const label=new Date(y,m2-1,1).toLocaleString('default',{month:'long',year:'numeric'});return`<option value="${mk}">${label}</option>`;}).join('');
-  // Restore previous selection if it still exists, otherwise use current month
   const targetMonth = months.includes(prevVal) ? prevVal : getCurrentMonthKey();
   ms.value = months.includes(targetMonth) ? targetMonth : (months[0] || getCurrentMonthKey());
   const mk=ms.value;
-  const mt=state.transactions.filter(t=>getMonthKey(t.date)===mk&&t.amount<0&&t.category!=='transfer');
-  const txnIncome=state.transactions.filter(t=>getMonthKey(t.date)===mk&&t.amount>0&&t.category!=='transfer'&&t.source!=='tips').reduce((s,t)=>s+t.amount,0);
+  const mt=state.transactions.filter(t=>getMonthKey(t.date)===mk&&t.amount<0&&t.category!=='transfer'&&t.category!=='wedding-transfer');
+  const txnIncome=state.transactions.filter(t=>getMonthKey(t.date)===mk&&t.amount>0&&t.category!=='transfer'&&t.category!=='wedding-transfer'&&t.source!=='tips'&&t.source!=='split').reduce((s,t)=>s+t.amount,0);
   const income=txnIncome+getTipsForMonth(mk);
   const totalSpend=mt.reduce((s,t)=>s+Math.abs(t.amount),0);
   const totalBudget=Object.values(state.budgets).reduce((s,v)=>s+v,0);
-  // Stat colour helpers
   var netColor = totalBudget-totalSpend >= 0 ? 'clr-green' : 'clr-red';
   var savingsPct = income > 0 ? Math.round(((income - totalSpend) / income) * 100) : 0;
   var savingsIcon = savingsPct >= 20 ? '🟢' : savingsPct >= 0 ? '🟡' : '🔴';
-  // Bills committed monthly total
   var billsMonthly = 0;
   var billsCount = 0;
   if (isFeatureOn('bills')) {
@@ -811,8 +811,8 @@ function renderBudget() {
       +'<div class="stat-sub">income minus spending</div>'
     +'</div>'
     +billsStatHtml;
-  const catSpend={};mt.forEach(t=>{if(t.category!=='transfer'&&t.category!=='income')catSpend[t.category]=(catSpend[t.category]||0)+Math.abs(t.amount);});
-  document.getElementById('budget-bars').innerHTML=state.categories.filter(c=>c.id!=='income'&&c.id!=='transfer').map(c=>{
+  const catSpend={};mt.forEach(t=>{if(t.category!=='transfer'&&t.category!=='wedding-transfer'&&t.category!=='income')catSpend[t.category]=(catSpend[t.category]||0)+Math.abs(t.amount);});
+  var barRows = state.categories.filter(c=>c.id!=='income'&&c.id!=='transfer'&&c.id!=='wedding-transfer').map(c=>{
     const spent=catSpend[c.id]||0;const budget=state.budgets[c.id]||0;const pct=budget?Math.min(100,Math.round((spent/budget)*100)):0;const over=budget&&spent>budget;
     if(!spent&&!budget)return'';
     return ('<div class="budget-row'+(over?' over':'')+'">'
@@ -821,9 +821,23 @@ function renderBudget() {
       +'<div class="budget-bar-wrap">'+(budget?'<div class="budget-bar-track"><div class="budget-bar-fill" style="width:'+pct+'%;background:'+(over?'var(--red)':pct>70?'var(--yellow)':c.color)+'"></div></div>':'')+'</div>'
       +'<div class="budget-amounts'+(over?' over':'')+'">'+fmt(spent)+(budget?' / '+fmt(budget):' (no budget)')+'</div>'
       +'</div>');
-  }).join('')||'<div style="color:var(--muted)">No spending data.</div>';
+  }).filter(Boolean);
+  (state.goals||[]).forEach(function(g){
+    var spent=catSpend['goal:'+g.id]||0; if(!spent)return;
+    barRows.push('<div class="budget-row"><div class="budget-cat-dot" style="background:var(--yellow)"></div>'
+      +'<div class="budget-cat-name">'+g.emoji+' '+g.name+'</div>'
+      +'<div class="budget-bar-wrap"></div>'
+      +'<div class="budget-amounts">'+fmt(spent)+' saved</div></div>');
+  });
+  (state.carFunds||[]).forEach(function(c){
+    var spent=catSpend['car:'+c.id]||0; if(!spent)return;
+    barRows.push('<div class="budget-row"><div class="budget-cat-dot" style="background:var(--accent)"></div>'
+      +'<div class="budget-cat-name">'+(c.emoji||'🚗')+' '+c.name+'</div>'
+      +'<div class="budget-bar-wrap"></div>'
+      +'<div class="budget-amounts">'+fmt(spent)+' saved</div></div>');
+  });
+  document.getElementById('budget-bars').innerHTML=barRows.join('')||'<div style="color:var(--muted)">No spending data.</div>';
 
-  // Tips summary
   const tipsTotal=getTipsForMonth(mk);
   const tipsDeposit=getTipsDepositForMonth(mk);
   const tipsCash=tipsTotal-tipsDeposit;
@@ -839,12 +853,9 @@ function renderBudget() {
   renderAccountBalances();
 }
 
-// ACCOUNT BALANCE CARDS
 function getAccountOwner(a) {
-  // Returns the canonical owner string for an account — always matches a member name exactly
   if (!a) return 'Unknown';
   if (a.isJoint) return 'Joint';
-  // Trim + case-insensitive match against actual member names so typos/spaces don't orphan accounts
   var raw = (a.person || '').trim();
   var match = (state.members || []).find(function(m) {
     return m.name.trim().toLowerCase() === raw.toLowerCase();
@@ -866,7 +877,6 @@ function buildPersonGroups(accounts) {
     if (!groups[owner]) groups[owner] = [];  // handles unknown accounts gracefully
     groups[owner].push(a);
   });
-  // sort each group by account type
   Object.keys(groups).forEach(function(g) {
     groups[g].sort(function(a, b) {
       return ACCT_TYPE_ORDER.indexOf(a.type) - ACCT_TYPE_ORDER.indexOf(b.type);
@@ -899,17 +909,12 @@ function renderAccountBalances() {
       var cutoff = sb.date;
       var filtered = allTxns.filter(function(t){ return toISO(t.date||'') > cutoff; });
       var txnSum = filtered.reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
-      // For debt accounts: starting balance = amount OWED (positive).
-      // Charges (negative txns) increase debt; payments (positive txns) reduce it.
-      // So owed = startingBalance - txnSum
       balance   = isDebtAcct ? parseFloat(sb.amount) - txnSum : parseFloat(sb.amount) + txnSum;
       payments  = filtered.filter(function(t){ return t.amount>0; }).reduce(function(s,t){ return s+t.amount; }, 0);
       charges   = filtered.filter(function(t){ return t.amount<0; }).reduce(function(s,t){ return s+Math.abs(t.amount); }, 0);
       txnCount  = filtered.length;
     } else {
       var txnSum2 = allTxns.reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
-      // Without a starting balance, debt accounts: owed = -(sum of all txns)
-      // (charges are negative, so negative of negative = positive owed)
       balance   = isDebtAcct ? -txnSum2 : txnSum2;
       payments  = allTxns.filter(function(t){ return t.amount>0; }).reduce(function(s,t){ return s+t.amount; }, 0);
       charges   = allTxns.filter(function(t){ return t.amount<0; }).reduce(function(s,t){ return s+Math.abs(t.amount); }, 0);
@@ -918,7 +923,6 @@ function renderAccountBalances() {
     return { balance:balance, payments:payments, charges:charges, txnCount:txnCount, hasStartingBalance:hasStartingBalance, sb:sb, allTxns:allTxns, isDebtAcct:isDebtAcct };
   }
 
-  // Use the global getMemberColorSafe — identical logic, no need for a local copy
   var getMemberColor = getMemberColorSafe;
   function getMemberEmoji(name) {
     if (name === 'Joint') return '🤝';
@@ -947,7 +951,6 @@ function renderAccountBalances() {
     var isCollapsed = window._acctGroupCollapsed[safeOwner] !== false; // default: collapsed
 
     html += '<div style="margin-bottom:8px">';
-    // Clickable header row
     html += '<div onclick="toggleAcctGroup(\'' +safeOwner+ '\')" style="display:flex;align-items:center;gap:10px;padding:10px 16px;'
       + 'background:'+ownerColor+'18;border:2px solid '+ownerColor+'44;border-radius:'+(isCollapsed?'var(--radius-sm)':'var(--radius-sm) var(--radius-sm) 0 0')+';cursor:pointer;user-select:none" id="acct-hdr-'+safeOwner+'">';
     html += '<span style="font-size:18px">'+ownerEmoji+'</span>';
@@ -960,7 +963,6 @@ function renderAccountBalances() {
     html += '<span style="font-size:11px;color:var(--muted);min-width:16px;text-align:center;display:inline-block;transform:'+(isCollapsed?'rotate(0deg)':'rotate(180deg)')+';transition:transform 0.2s" id="acct-chev-'+safeOwner+'">&#9660;</span>';
     html += '</div>';
 
-    // Collapsible body
     html += '<div id="acct-body-'+safeOwner+'" style="display:'+(isCollapsed?'none':'block')+';border:2px solid '+ownerColor+'44;border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);padding:12px;background:var(--card)">';
     html += '<div style="display:flex;flex-wrap:wrap;gap:10px">';
     grp.forEach(function(a) {
@@ -969,7 +971,6 @@ function renderAccountBalances() {
       var isLoan = a.type === 'Loan' || a.type === 'Line of Credit';
       var balColor, balLabel;
       if (isDebt) {
-        // balance = amount currently OWED (positive = you owe money)
         balColor = d.balance > 0 ? 'var(--red)' : 'var(--green)';
         balLabel = d.balance > 0 ? (isLoan ? 'Balance Owing' : 'Balance Owing') : 'Paid Off';
       } else {
@@ -1020,11 +1021,9 @@ function renderAccountBalances() {
   container.innerHTML = html;
 }
 
-// Toggle a single account group open/closed
 function toggleAcctGroup(safeOwner) {
   if (!window._acctGroupCollapsed) window._acctGroupCollapsed = {};
   var isNowCollapsed = window._acctGroupCollapsed[safeOwner] !== false;
-  // clicking toggles: if currently collapsed → expand; if expanded → collapse
   window._acctGroupCollapsed[safeOwner] = !isNowCollapsed;
   var body  = document.getElementById('acct-body-' + safeOwner);
   var chev  = document.getElementById('acct-chev-' + safeOwner);
@@ -1036,11 +1035,9 @@ function toggleAcctGroup(safeOwner) {
   if (hdr)  hdr.style.borderRadius = willBeOpen ? 'var(--radius-sm) var(--radius-sm) 0 0' : 'var(--radius-sm)';
 }
 
-// Expand / collapse all account groups at once
 function budgetExpandAll() {
   if (!window._acctGroupCollapsed) window._acctGroupCollapsed = {};
   Object.keys(window._acctGroupCollapsed).forEach(function(k) { window._acctGroupCollapsed[k] = false; });
-  // Also expand any that haven't been touched yet (default-collapsed)
   document.querySelectorAll('[id^="acct-body-"]').forEach(function(el) {
     var safeOwner = el.id.replace('acct-body-', '');
     window._acctGroupCollapsed[safeOwner] = false;
@@ -1066,15 +1063,12 @@ function budgetCollapseAll() {
 }
 
 function formatDateShort(isoDate) {
-  // "YYYY-MM-DD" -> "Mar 1, 2026"
   if (!isoDate) return '';
   var parts = isoDate.split('-');
   if (parts.length < 3) return isoDate;
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return months[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
 }
-
-// ── ACCOUNT HELPERS ─────────────────────────────────────────────────────────
 
 var ACCT_TYPE_ORDER = ['Chequing','Savings','TFSA','RRSP','FHSA','Investment','Credit Card','Loan','Line of Credit','Cash-Claimed','Cash-Unclaimed'];
 var ACCT_TYPE_ICONS = {
@@ -1143,14 +1137,12 @@ function populateAccountDropdowns(selectedId) {
     var el = document.getElementById(id);
     if (el) el.innerHTML = buildAccountOptions(selectedId || '', true);
   });
-  // Filter bar
   var filterEl = document.getElementById('txn-account');
   if (filterEl) {
     var prev = filterEl.value;
     filterEl.innerHTML = '<option value="">All Accounts</option>' + buildAccountOptions('', false).replace(/<option value="" .*?<\/option>/, '');
     filterEl.value = prev;
   }
-  // Upload account select
   refreshUploadAccountSelect();
 }
 
@@ -1176,7 +1168,6 @@ function onUploadAccountChange() {
   if (val === '__new__') {
     newFields.style.display = '';
     personRow.style.display = 'none';
-    // populate owner dropdown
     var ownerSel = document.getElementById('new-acct-person');
     if (ownerSel) ownerSel.innerHTML = (state.members||[]).map(function(m){
       return '<option value="' + m.name + '">' + m.name + '</option>';
@@ -1185,7 +1176,6 @@ function onUploadAccountChange() {
     newFields.style.display = 'none';
     var acct = getAccountById(val);
     if (acct && acct.isJoint) {
-      // Joint account — show person dropdown to say who made the transactions
       personRow.style.display = '';
     } else {
       personRow.style.display = 'none';
@@ -1197,12 +1187,10 @@ function onUploadAccountChange() {
 }
 
 function getUploadAccountId() {
-  // Returns the account id to use for the current upload, creating a new one if needed
   var val = document.getElementById('upload-account-select').value;
   if (!val) { hhAlert('Please select or create an account first.', '🏦'); return null; }
   if (val !== '__new__') return val;
 
-  // Validate new account fields
   var nickname = (document.getElementById('new-acct-nickname').value || '').trim();
   var type     = document.getElementById('new-acct-type').value;
   var person   = document.getElementById('new-acct-person').value;
@@ -1254,7 +1242,6 @@ function renderAccountsList() {
   order2.forEach(function(owner) {
     var grp = groups[owner];
     if (!grp || !grp.length) return;
-    // grp already sorted by buildPersonGroups
     html += '<div style="margin-bottom:10px">';
     html += '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">' + owner + '</div>';
     grp.forEach(function(a) {
@@ -1316,15 +1303,12 @@ function deleteAccount(id) {
   });
 }
 
-// ── END ACCOUNT HELPERS ──────────────────────────────────────────────────────
-
 function sbUpdatePreview() {
   var key    = document.getElementById('sb-account-key').value;
   var date   = document.getElementById('sb-date').value;
   var amount = parseFloat(document.getElementById('sb-amount').value);
   var preview = document.getElementById('sb-preview');
   if (!date || isNaN(amount)) { preview.style.display = 'none'; return; }
-  // Calculate what the current balance would be
   var acct = getAccountById(key);
   var isDebt = acct ? !!ACCT_IS_DEBT[acct.type] : false;
   var txnsAfter = state.transactions.filter(function(t){
@@ -1346,7 +1330,6 @@ function sbUpdatePreview() {
 function openStartingBalanceModal(accountKey) {
   var sb = state.startingBalances[accountKey] || {};
   document.getElementById('sb-account-key').value = accountKey;
-  // Show nickname if account exists in state.accounts, else raw key
   var acct = getAccountById(accountKey);
   var label = acct ? acct.nickname : accountKey;
   document.getElementById('sb-account-label').textContent = label;
@@ -1357,7 +1340,6 @@ function openStartingBalanceModal(accountKey) {
     ? 'Enter the amount owing on that date (as a positive number).'
     : 'Enter your account balance on that date. Use a negative number if the account was overdrawn.';
   document.getElementById('sb-clear-btn').style.display = sb.date ? 'inline-flex' : 'none';
-  // Reset or show preview if values already set
   document.getElementById('sb-preview').style.display = 'none';
   if (sb.date && sb.amount != null) { setTimeout(sbUpdatePreview, 50); }
   openModal('starting-balance-modal');
@@ -1374,7 +1356,6 @@ function saveStartingBalance() {
   saveState();
   closeModal('starting-balance-modal');
   renderAccountBalances();
-  // Pulse the updated card to visually confirm the save
   setTimeout(function() {
     var btn = document.querySelector('[data-sbid="' + key + '"]');
     if (btn) {
@@ -1407,16 +1388,15 @@ function clearStartingBalance() {
 }
 
 function renderBudgetEditFields(){
-  document.getElementById('budget-edit-fields').innerHTML=state.categories.filter(c=>c.id!=='income'&&c.id!=='transfer').map(c=>`<div class="form-row"><label><span class="cat-dot" style="background:${c.color}"></span>${c.name}</label><input type="number" id="budg-${c.id}" value="${state.budgets[c.id]||0}"></div>`).join('');
+  document.getElementById('budget-edit-fields').innerHTML=state.categories.filter(c=>c.id!=='income'&&c.id!=='transfer'&&c.id!=='wedding-transfer').map(c=>`<div class="form-row"><label><span class="cat-dot" style="background:${c.color}"></span>${c.name}</label><input type="number" id="budg-${c.id}" value="${state.budgets[c.id]||0}"></div>`).join('');
 }
 function saveBudgets(){
-  state.categories.filter(c=>c.id!=='income'&&c.id!=='transfer').forEach(c=>{state.budgets[c.id]=parseFloat(document.getElementById('budg-'+c.id)?.value)||0;});
+  state.categories.filter(c=>c.id!=='income'&&c.id!=='transfer'&&c.id!=='wedding-transfer').forEach(c=>{state.budgets[c.id]=parseFloat(document.getElementById('budg-'+c.id)?.value)||0;});
   saveState();closeModal('budget-edit-modal');renderBudget();
 }
 
-// CATEGORIES
 function renderCategoriesList(){
-  document.getElementById('categories-list').innerHTML=state.categories.map(function(c){var btn=c.id!=='income'&&c.id!=='other'?'<button class="btn btn-danger btn-sm" onclick="deleteCategory('+JSON.stringify(c.id)+')">Del</button>':'';return'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span class="cat-dot" style="background:'+c.color+';width:14px;height:14px;flex-shrink:0"></span><span class="fill" style="font-size:13px">'+c.name+'</span>'+btn+'</div>';}).join('');
+  document.getElementById('categories-list').innerHTML=state.categories.map(function(c){var btn=c.id!=='income'&&c.id!=='other'?'<button class="btn btn-danger btn-sm" onclick="deleteCategory(\''+c.id+'\')">Del</button>':'';return'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span class="cat-dot" style="background:'+c.color+';width:14px;height:14px;flex-shrink:0"></span><span class="fill" style="font-size:13px">'+c.name+'</span>'+btn+'</div>';}).join('');
 }
 function addCategory(){
   const name=document.getElementById('new-cat-name').value.trim();if(!name)return hhAlert('Enter a name.', '✏️');
@@ -1429,16 +1409,22 @@ function deleteCategory(id){
     if(!ok)return;
     state.categories=state.categories.filter(c=>c.id!==id);
     state.transactions.forEach(t=>{if(t.category===id)t.category='other';});
+    state.catRules = (state.catRules||[]).filter(function(r){ return r.cat !== id; });
     delete state.budgets[id];saveState();renderCategoriesList();
   });
 }
 
-// GOALS
 function getGoalContributions(goalId) {
-  // Sum absolute value of all transactions categorized as this goal
-  return state.transactions
+  var direct = state.transactions
     .filter(t=>t.category==='goal:'+goalId)
     .reduce((s,t)=>s+Math.abs(t.amount),0);
+  // Also count wedding-transfer transactions when this goal is the linked wedding goal
+  var weddingLinked = ((state.wedding||{}).linkedGoalId === goalId)
+    ? (state.transactions||[])
+        .filter(function(t){return t.category==='wedding-transfer';})
+        .reduce(function(s,t){return s+Math.abs(t.amount);},0)
+    : 0;
+  return direct + weddingLinked;
 }
 
 function getCarFundContributions(carId) {
@@ -1449,7 +1435,7 @@ function getCarFundContributions(carId) {
 
 function getWeddingContributions() {
   return (state.transactions||[])
-    .filter(function(t){return t.category==='wedding';})
+    .filter(function(t){return t.category==='wedding' || t.category==='wedding-transfer';})
     .reduce(function(s,t){return s+Math.abs(t.amount);},0);
 }
 
@@ -1526,8 +1512,29 @@ function editGoal(id){
   document.getElementById('goal-edit-id').value=id;document.getElementById('goal-name').value=g.name;document.getElementById('goal-emoji').value=g.emoji;document.getElementById('goal-target').value=g.target;document.getElementById('goal-current').value=g.current;document.getElementById('goal-date').value=g.date||'';document.getElementById('goal-link').value=g.link||'';document.getElementById('goal-notes').value=g.notes||'';
   openModal('goal-modal');
 }
-function deleteGoal(id){hhConfirm('Remove this goal?','🗑️','Remove Goal').then(function(ok){if(!ok)return;state.goals=state.goals.filter(g=>g.id!==id);saveState();renderGoals();});}
-
-// WEDDING
-var WEDDING_CAT_ICONS = { Venue:'🏛️', Catering:'🍽️', Photography:'📷', Videography:'🎥', Flowers:'💐', Music:'🎵', Attire:'👗', 'Hair & Makeup':'💄', Cake:'🎂', Transport:'🚗', Invitations:'💌', Officiant:'⛪', Accommodation:'🏨', Other:'📦' };
-
+function deleteGoal(id) {
+  var g = state.goals.find(function(x){return x.id===id;});
+  if (!g) return;
+  var txnCount = state.transactions.filter(function(t){return t.category==='goal:'+id;}).length;
+  var msg = 'Remove goal <strong>'+g.emoji+'  '+g.name+'</strong>?'
+    + (txnCount ? '<br><br>⚠️ '+txnCount+' transaction'+(txnCount!==1?'s':'')+' tagged to this goal will be moved to <em>Other</em>.' : '');
+  hhConfirm(msg, '🗑️', 'Remove Goal').then(function(ok) {
+    if (!ok) return;
+    state.goals = state.goals.filter(function(x){return x.id!==id;});
+    state.transactions.forEach(function(t){ if(t.category==='goal:'+id) t.category='other'; });
+    if (state.goalSplits) {
+      Object.keys(state.goalSplits).forEach(function(txnId){
+        state.goalSplits[txnId] = (state.goalSplits[txnId]||[]).filter(function(s){return s.goalId!==id;});
+      });
+    }
+    state.transactions = state.transactions.filter(function(t){
+      return !(t.source==='split' && t.category==='goal:'+id);
+    });
+    if ((state.house||{}).linkedGoalId === id) state.house.linkedGoalId = '';
+    if ((state.wedding||{}).linkedGoalId === id) state.wedding.linkedGoalId = '';
+    saveState();
+    renderGoals();
+    if (document.getElementById('page-budget').classList.contains('active')) renderBudget();
+    if (document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+  });
+}

@@ -1416,6 +1416,8 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
   <div id="wedding-checklist-wrap" style="margin-bottom:16px"></div>
   <!-- Vendor grid -->
   <div id="wedding-vendors-grid"></div>
+  <!-- Fund contributions -->
+  <div id="wedding-fund-contributions" style="margin-top:16px"></div>
 </div>
 
 <!-- HOUSE DOWN PAYMENT PLANNER -->
@@ -1493,6 +1495,17 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
       <canvas id="nw-chart"></canvas>
     </div>
     <div id="nw-chart-empty" style="display:none;text-align:center;color:var(--muted);font-size:13px;padding:20px">Take your first snapshot to start tracking net worth over time.</div>
+  </div>
+  <!-- Forward projection -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin:0">🔮 Forward Projection</div>
+      <span style="font-size:11px;color:var(--muted)">Based on 6-month avg surplus · milestone lines show goals</span>
+    </div>
+    <div style="position:relative;height:240px">
+      <canvas id="nw-projection-chart"></canvas>
+    </div>
+    <div id="nw-projection-empty" style="display:none;text-align:center;color:var(--muted);font-size:13px;padding:20px">Add transactions to enable forward projection.</div>
   </div>
   <!-- Breakdown -->
   <div class="grid-2" style="margin-bottom:16px">
@@ -1824,6 +1837,7 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
 <div class="page" id="page-upload">
   <div class="section-header">
     <div class="section-title">Upload Statements</div>
+    <button class="btn btn-ghost btn-sm" onclick="generateMonthlyReport()">📄 Monthly Report</button>
   </div>
 
   <!-- How-to-export bank tips -->
@@ -1935,7 +1949,7 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
           <tbody id="preview-tbody"></tbody>
         </table>
       </div>
-      <div style="display:flex;gap:10px;margin-top:12px">
+            <div style="display:flex;gap:10px;margin-top:12px">
         <button class="btn btn-ghost" onclick="cancelPreview()">Cancel</button>
         <button class="btn btn-primary" onclick="confirmImport()">✓ Import These Transactions</button>
       </div>
@@ -1956,6 +1970,3 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
     <div id="statements-list"></div>
   </div>
 </div>
-
-
-

@@ -2,7 +2,7 @@
 
 Paste this entire document into a new Cowork session to execute Phase 3.
 
-**Prerequisite:** Phase 1 must be complete (working build pipeline). Phase 2 is optional before this.
+**Prerequisite:** Phase 1 (build pipeline) must be complete. ✅ Already done.
 
 ---
 
@@ -10,121 +10,103 @@ Paste this entire document into a new Cowork session to execute Phase 3.
 
 Home Hub is a single-file HTML household management app for Matt & Holly (Ontario, Canada). No npm, no server. Source files sit flat in `D:\Claude\Home Planner\`. Running `python build.py` produces `App_VX_Y.html`.
 
-**Working folder:** `D:\Claude\Home Planner\`
+**Working folder:** `D:\Claude\Home Planner\`  
+**Current version:** `App_V6_39.html` (check folder for the actual latest)
 
 ---
 
-## Context: bank statement importing
+## Current state of bank parsers
 
-The app already imports CSV bank statements. Two parsers exist in `07-upload.js`:
+Two parsers already exist in `07-upload.js`:
 
-- `parseBMOStatement()` — BMO chequing/savings
-- `parseCTMastercardStatement()` — Canadian Tire Mastercard
+- `parseBMOStatement()` — BMO chequing/savings ✅ done
+- `parseCTMastercardStatement()` — Canadian Tire Mastercard ✅ done
 
-A format detector `detectCSVFormat(lines)` reads the header row and returns a format string (`'bmo'`, `'ctmc'`, or `'unknown'`). The import flow is:
+`detectCSVFormat(lines)` reads the header row and returns a format string. The import flow is: detect → parse → `showImportPreview()` (user confirms) → duplicate check → merge into `state.transactions`. **Never auto-import — always go through the preview step.**
 
-1. User picks a CSV file
-2. `detectCSVFormat()` identifies the bank
-3. The appropriate parser runs
-4. `showImportPreview()` shows a preview table — user confirms before committing
-5. Duplicate detection runs (same date + amount + description)
-6. Accepted rows merge into `state.transactions`
-
-**All new parsers must follow this exact same pattern.** Never auto-import — always go through the preview step.
-
-Each transaction in `state.transactions` has this shape:
+Each transaction shape:
 ```javascript
 {
-  id: 'txn_' + Date.now() + '_' + Math.random().toString(36).slice(2),
-  date: 'YYYY-MM-DD',        // ISO 8601
+  id: uid(),
+  date: 'M/D/YYYY',           // app's internal format (not ISO)
   description: 'string',
-  amount: -50.00,            // negative = expense, positive = income/credit
-  category: 'other',         // default; user can change
-  account: 'string',         // e.g. 'RBC Chequing', 'Capital One MC'
-  tags: [],
-  notes: ''
+  amount: -50.00,              // negative = expense, positive = income/credit
+  category: 'other',
+  person: 'Joint',
+  account: 'string',
+  source: 'import'
 }
 ```
 
-Helper `toISO(dateStr)` already exists in `01-core.js` — use it to normalise all date formats (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, etc.).
+`toISO(dateStr)` exists in `07-upload.js` — use it for date normalisation. `parseCSVLine(line)` handles quoted CSV fields.
 
 ---
 
 ## Banks to add (confirmed by Matt)
 
-1. **RBC chequing / savings** (separate format from RBC Visa)
+1. **RBC chequing / savings**
 2. **RBC Visa**
 3. **Alterna Savings** (online credit union)
 4. **Capital One Mastercard** (Canadian)
-5. **Generic AI fallback** — when no parser matches, use Claude API to identify columns
+5. **Generic AI fallback** — when no parser matches, use Claude API
 
 ---
 
-## Phase 3 tasks
+## Task 1 — Research actual CSV formats
 
-### Task 1 — Research actual CSV formats
+Before writing any parser, verify the real CSV header rows. Known formats (verify with web search):
 
-Before writing any parser, fetch sample CSV header rows for each bank. Use web search or the following known formats:
-
-**RBC chequing/savings** — typical headers:
+**RBC chequing/savings:**
 `Account Type,Account Number,Transaction Date,Cheque Number,Description 1,Description 2,CAD$,USD$`
+Amount column (CAD$): negative = debit/expense, positive = credit.
 
-**RBC Visa** — typical headers:
+**RBC Visa:**
 `Transaction Date,Description 1,Description 2,Amount,Currency`
-(Amount: negative = charge to card, positive = payment/credit)
+Amount: positive = charge (must flip to negative), negative = payment (flip to positive).
 
-**Alterna Savings** — typical headers (online banking export):
+**Alterna Savings:**
 `Date,Description,Debit,Credit,Balance`
-(Debit and Credit are separate positive columns)
+Separate Debit/Credit columns. Credit > 0 means money in (positive). Debit > 0 means money out (negative).
 
-**Capital One Mastercard (Canada)** — typical headers:
+**Capital One Mastercard (Canada):**
 `Transaction Date,Posted Date,Card No.,Description,Category,Debit,Credit`
+Separate Debit/Credit columns. Same convention as Alterna.
 
-Verify these formats by web search before implementing. If you find a different actual format, use that.
+Verify these with a quick web search before implementing. If the real format differs, use the real one.
 
-### Task 2 — Add RBC chequing/savings parser
+---
+
+## Task 2 — Add RBC chequing/savings parser
 
 Add to `07-upload.js` (near the existing parsers, before `detectCSVFormat`):
 
 ```javascript
 function parseRBCStatement(lines) {
-  // RBC chequing / savings
-  // Headers: Account Type, Account Number, Transaction Date, Cheque Number, 
-  //          Description 1, Description 2, CAD$, USD$
   var txns = [];
-  var accountName = 'RBC Chequing';
-  // Extract account type from first data row if available
   for (var i = 1; i < lines.length; i++) {
     var cols = parseCSVLine(lines[i]);
     if (!cols || cols.length < 7) continue;
     var accountType = (cols[0] || '').trim();
-    if (accountType) accountName = 'RBC ' + accountType;
     var dateStr  = (cols[2] || '').trim();
     var desc1    = (cols[4] || '').trim();
     var desc2    = (cols[5] || '').trim();
-    var desc     = desc2 ? desc1 + ' ' + desc2 : desc1;
+    var desc     = (desc2 && desc2 !== desc1) ? desc1 + ' ' + desc2 : desc1;
     var cadAmt   = parseFloat((cols[6] || '0').replace(/[,$]/g, '')) || 0;
     if (!dateStr || isNaN(cadAmt)) continue;
-    txns.push({
-      id: 'txn_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
-      date: toISO(dateStr),
-      description: desc,
-      amount: cadAmt,   // RBC uses negative for debits already
-      category: 'other',
-      account: accountName,
-      tags: [], notes: ''
-    });
+    var accountName = 'RBC ' + (accountType || 'Chequing');
+    txns.push({ id:uid(), date:toISO(dateStr), description:desc, amount:cadAmt,
+      category:'other', person:'Joint', account:accountName, source:'import' });
   }
   return txns;
 }
 ```
 
-### Task 3 — Add RBC Visa parser
+---
+
+## Task 3 — Add RBC Visa parser
 
 ```javascript
 function parseRBCVisaStatement(lines) {
-  // RBC Visa credit card
-  // Headers: Transaction Date, Description 1, Description 2, Amount, Currency
   var txns = [];
   for (var i = 1; i < lines.length; i++) {
     var cols = parseCSVLine(lines[i]);
@@ -132,31 +114,23 @@ function parseRBCVisaStatement(lines) {
     var dateStr = (cols[0] || '').trim();
     var desc1   = (cols[1] || '').trim();
     var desc2   = (cols[2] || '').trim();
-    var desc    = desc2 ? desc1 + ' ' + desc2 : desc1;
+    var desc    = (desc2 && desc2 !== desc1) ? desc1 + ' ' + desc2 : desc1;
     var amt     = parseFloat((cols[3] || '0').replace(/[,$]/g, '')) || 0;
-    var curr    = (cols[4] || 'CAD').trim();
-    if (!dateStr || isNaN(amt)) continue;
-    // RBC Visa: positive amount = charge, negative = payment — flip sign for our convention
-    txns.push({
-      id: 'txn_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
-      date: toISO(dateStr),
-      description: desc,
-      amount: -amt,   // flip: charges become negative expenses
-      category: 'other',
-      account: 'RBC Visa' + (curr !== 'CAD' ? ' (' + curr + ')' : ''),
-      tags: [], notes: ''
-    });
+    if (!dateStr) continue;
+    // RBC Visa: positive = charge on card → flip to negative expense
+    txns.push({ id:uid(), date:toISO(dateStr), description:desc, amount:-amt,
+      category:'other', person:'Joint', account:'RBC Visa', source:'import' });
   }
   return txns;
 }
 ```
 
-### Task 4 — Add Alterna Savings parser
+---
+
+## Task 4 — Add Alterna Savings parser
 
 ```javascript
 function parseAlternaStatement(lines) {
-  // Alterna Savings — separate Debit / Credit columns
-  // Headers: Date, Description, Debit, Credit, Balance
   var txns = [];
   for (var i = 1; i < lines.length; i++) {
     var cols = parseCSVLine(lines[i]);
@@ -167,26 +141,19 @@ function parseAlternaStatement(lines) {
     var credit  = parseFloat((cols[3] || '0').replace(/[,$]/g, '')) || 0;
     if (!dateStr || (!debit && !credit)) continue;
     var amount = credit > 0 ? credit : -debit;
-    txns.push({
-      id: 'txn_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
-      date: toISO(dateStr),
-      description: desc,
-      amount: amount,
-      category: 'other',
-      account: 'Alterna Savings',
-      tags: [], notes: ''
-    });
+    txns.push({ id:uid(), date:toISO(dateStr), description:desc, amount:amount,
+      category:'other', person:'Joint', account:'Alterna Savings', source:'import' });
   }
   return txns;
 }
 ```
 
-### Task 5 — Add Capital One Mastercard parser
+---
+
+## Task 5 — Add Capital One Mastercard parser
 
 ```javascript
 function parseCapitalOneMCStatement(lines) {
-  // Capital One Mastercard Canada
-  // Headers: Transaction Date, Posted Date, Card No., Description, Category, Debit, Credit
   var txns = [];
   for (var i = 1; i < lines.length; i++) {
     var cols = parseCSVLine(lines[i]);
@@ -197,161 +164,131 @@ function parseCapitalOneMCStatement(lines) {
     var credit  = parseFloat((cols[6] || '0').replace(/[,$]/g, '')) || 0;
     if (!dateStr || (!debit && !credit)) continue;
     var amount = credit > 0 ? credit : -debit;
-    // Map Capital One's own category to our categories where possible
-    var capOneCat = (cols[4] || '').trim().toLowerCase();
+    // Use Capital One's own category as a starting hint
+    var capCat = (cols[4] || '').trim().toLowerCase();
     var category = 'other';
-    if (capOneCat.includes('dining') || capOneCat.includes('restaurant')) category = 'dining';
-    else if (capOneCat.includes('grocer')) category = 'groceries';
-    else if (capOneCat.includes('gas') || capOneCat.includes('fuel')) category = 'gas';
-    else if (capOneCat.includes('travel') || capOneCat.includes('hotel') || capOneCat.includes('airline')) category = 'travel';
-    else if (capOneCat.includes('entertainment')) category = 'entertainment';
-    else if (capOneCat.includes('health') || capOneCat.includes('pharmacy')) category = 'health';
-    txns.push({
-      id: 'txn_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
-      date: toISO(dateStr),
-      description: desc,
-      amount: amount,
-      category: category,
-      account: 'Capital One MC',
-      tags: [], notes: ''
-    });
+    if (/dining|restaurant/.test(capCat))  category = 'dining';
+    else if (/grocer/.test(capCat))         category = 'groceries';
+    else if (/gas|fuel/.test(capCat))       category = 'gas';
+    else if (/travel|hotel|airline/.test(capCat)) category = 'travel';
+    else if (/entertainment/.test(capCat))  category = 'entertainment';
+    else if (/health|pharma/.test(capCat))  category = 'health';
+    txns.push({ id:uid(), date:toISO(dateStr), description:desc, amount:amount,
+      category:category, person:'Joint', account:'Capital One MC', source:'import' });
   }
   return txns;
 }
 ```
 
-### Task 6 — Update detectCSVFormat() to recognise new banks
+---
 
-In `detectCSVFormat(lines)` in `07-upload.js`, add detection for the new formats. Detection works by inspecting the header row (`lines[0]`). Add these cases:
+## Task 6 — Update `detectCSVFormat()` and the parser dispatch
+
+In `detectCSVFormat(lines)` in `07-upload.js`, add to the header detection block:
 
 ```javascript
-var header = lines[0].toLowerCase();
-
-// Existing checks (keep as-is)
-if (header.includes('transaction date') && header.includes('cheque number') && header.includes('cad$')) return 'rbc';
-if (header.includes('transaction date') && header.includes('description 1') && header.includes('currency')) return 'rbc_visa';
-if (header.includes('date') && header.includes('debit') && header.includes('credit') && header.includes('balance') && !header.includes('card')) return 'alterna';
-if (header.includes('transaction date') && header.includes('card no') && header.includes('debit') && header.includes('credit')) return 'capital_one_mc';
+var h = (lines[0]||'').toLowerCase();
+// Add these before the existing checks so more-specific patterns are tested first:
+if (h.includes('transaction date') && h.includes('cheque number') && h.includes('cad$'))
+  return 'rbc';
+if (h.includes('transaction date') && h.includes('description 1') && h.includes('currency'))
+  return 'rbc_visa';
+if (h.includes('date') && h.includes('debit') && h.includes('credit') && h.includes('balance') && !h.includes('card'))
+  return 'alterna';
+if (h.includes('transaction date') && h.includes('card no') && h.includes('debit') && h.includes('credit'))
+  return 'capital_one_mc';
 ```
 
-Then in the main import handler, add the new cases to the format dispatch switch:
-
+In the main import handler switch/dispatch, add:
 ```javascript
-case 'rbc':          txns = parseRBCStatement(lines); break;
-case 'rbc_visa':     txns = parseRBCVisaStatement(lines); break;
-case 'alterna':      txns = parseAlternaStatement(lines); break;
+case 'rbc':            txns = parseRBCStatement(lines); break;
+case 'rbc_visa':       txns = parseRBCVisaStatement(lines); break;
+case 'alterna':        txns = parseAlternaStatement(lines); break;
 case 'capital_one_mc': txns = parseCapitalOneMCStatement(lines); break;
 ```
 
-Also update the "Detected format" display in `showImportPreview()` to show human-readable bank names for the new codes.
+Update the "Detected format" human-readable label map wherever it's displayed to include the new format names.
 
-### Task 7 — Generic AI fallback parser
+---
 
-When `detectCSVFormat()` returns `'unknown'`, offer an AI-assisted import path. This uses the existing `callClaude()` function in `01-core.js`.
+## Task 7 — Generic AI fallback parser
 
-Add a new function `parseWithAI(lines, filename)` in `07-upload.js`:
+When `detectCSVFormat()` returns `'unknown'`, offer an AI-assisted import path using the existing `callClaude()` function from `01-core.js`.
+
+Add `parseWithAI(lines, filename)` in `07-upload.js`:
 
 ```javascript
 async function parseWithAI(lines, filename) {
   var key = getApiKey();
-  if (!key) {
-    hhAlert('An Anthropic API key is needed for AI-assisted import. Add it in Settings.', '🔑');
-    return null;
-  }
-  // Send first 5 rows to Claude to identify column mapping
+  if (!key) { hhAlert('An Anthropic API key is needed for AI-assisted import. Add it in Settings.', '🔑'); return null; }
   var sample = lines.slice(0, 6).join('\n');
   var prompt = 'Here is the header and first 5 rows of a Canadian bank statement CSV:\n\n```\n' + sample + '\n```\n\n'
-    + 'Identify which column index (0-based) maps to each of: date, description, amount (signed, negative=expense), debit_amount, credit_amount.\n'
-    + 'If amount is split into debit/credit columns, say so.\n'
-    + 'Also identify the likely bank name from the columns.\n'
+    + 'Identify which column index (0-based) maps to: date, description, amount (signed), debit_amount, credit_amount.\n'
+    + 'If amount is split into debit/credit columns, say so. Identify the likely bank name.\n'
     + 'Respond with ONLY valid JSON: {"date":0,"description":1,"amount":3,"debit":null,"credit":null,"bank":"Bank Name","sign_convention":"negative_expense"}\n'
-    + 'sign_convention is either "negative_expense" (negative=expense, positive=income) or "positive_debit" (positive=charge, must flip).';
-
+    + 'sign_convention: "negative_expense" means negative=spend (keep as-is). "positive_debit" means positive=charge (flip sign).';
   hhToast('Asking AI to identify CSV format…', '🤖');
   try {
     var resp = await callClaude(prompt, 300);
-    var mapping = JSON.parse(resp.trim().replace(/^```json|```$/g,'').trim());
-    // Now parse all rows using mapping
+    var mapping = JSON.parse(resp.trim().replace(/^```json\n?|```$/g,'').trim());
     var txns = [];
     for (var i = 1; i < lines.length; i++) {
       var cols = parseCSVLine(lines[i]);
-      if (!cols || cols.length === 0) continue;
-      var dateStr = (cols[mapping.date] || '').trim();
-      var desc    = (cols[mapping.description] || '').trim();
+      if (!cols || !cols.length) continue;
+      var dateStr = (cols[mapping.date]||'').trim();
+      var desc    = (cols[mapping.description]||'').trim();
       var amt;
       if (mapping.amount !== null && mapping.amount !== undefined) {
-        amt = parseFloat((cols[mapping.amount] || '0').replace(/[,$]/g, '')) || 0;
+        amt = parseFloat((cols[mapping.amount]||'0').replace(/[,$]/g,''))||0;
         if (mapping.sign_convention === 'positive_debit') amt = -amt;
       } else {
-        var deb = parseFloat((cols[mapping.debit]  || '0').replace(/[,$]/g, '')) || 0;
-        var crd = parseFloat((cols[mapping.credit] || '0').replace(/[,$]/g, '')) || 0;
+        var deb = parseFloat((cols[mapping.debit]||'0').replace(/[,$]/g,''))||0;
+        var crd = parseFloat((cols[mapping.credit]||'0').replace(/[,$]/g,''))||0;
         amt = crd > 0 ? crd : -deb;
       }
       if (!dateStr) continue;
-      txns.push({
-        id: 'txn_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
-        date: toISO(dateStr),
-        description: desc,
-        amount: amt,
-        category: 'other',
-        account: mapping.bank || filename.replace(/\.csv$/i,''),
-        tags: [], notes: ''
-      });
+      txns.push({ id:uid(), date:toISO(dateStr), description:desc, amount:amt,
+        category:'other', person:'Joint', account:mapping.bank||filename.replace(/\.csv$/i,''), source:'import' });
     }
     return txns;
   } catch(e) {
-    hhAlert('AI could not parse this CSV: ' + e.message + '. Try exporting from your bank as a different format.', '⚠️');
+    hhAlert('AI could not parse this CSV: ' + e.message + '. Try a different export format from your bank.', '⚠️');
     return null;
   }
 }
 ```
 
-In the import flow, when `detectCSVFormat()` returns `'unknown'`, show a prompt:
-```
-"Bank format not recognised. Use AI to detect columns? (requires API key)"
-```
-If yes, call `parseWithAI(lines, filename)` and proceed to the normal preview step.
-
-### Task 8 — Cross-account duplicate detection improvement
-
-The existing duplicate detection checks: same date + amount + description within the same import batch. **Extend it** to also check against existing transactions in `state.transactions` across all accounts.
-
-In the duplicate-check logic (wherever `showImportPreview()` does its dupe scan), add a cross-account check:
-
+In the import flow, when format is `'unknown'`:
 ```javascript
-// Check against all existing transactions (cross-account)
-var existingKey = state.transactions.map(function(t) {
-  return t.date + '|' + t.amount + '|' + (t.description || '').toLowerCase().trim();
-});
-var crossAccountDupes = incoming.filter(function(t) {
-  var key = t.date + '|' + t.amount + '|' + (t.description || '').toLowerCase().trim();
-  return existingKey.indexOf(key) !== -1;
-});
+var useAI = await hhConfirm('Bank format not recognised. Use AI to detect columns? (requires API key in Settings)', '🤖', 'AI Import');
+if (useAI) {
+  txns = await parseWithAI(lines, file.name);
+  if (!txns) return; // AI failed, already showed error
+} else { return; }
 ```
-
-Flag these as "Already imported" in the preview table with a distinct colour (use CSS variable `--yellow` or `--muted`). Let the user still choose to import them (in case of legitimate duplicate transactions) but warn clearly.
-
-Also add a "transfer detection" notice: if two transactions on the same date have opposite amounts (e.g. +$500 in chequing and -$500 on Visa), flag them as "Possible transfer — check if this is a payment between your own accounts" and auto-suggest the `transfer` category.
 
 ---
 
-## Helper function check
+## Task 8 — Cross-account duplicate detection
 
-Make sure `parseCSVLine(line)` exists in `07-upload.js`. This function should handle quoted fields (fields containing commas wrapped in `"..."`). If it doesn't already exist, add a robust implementation:
+The existing duplicate check looks for same date+amount+description within the current import batch. Extend it to also warn about matches against already-imported transactions in `state.transactions`.
+
+In `showImportPreview()` or wherever the preview table is built, add:
 
 ```javascript
-function parseCSVLine(line) {
-  var result = [], cur = '', inQ = false;
-  for (var i = 0; i < line.length; i++) {
-    var c = line[i];
-    if (c === '"') { inQ = !inQ; }
-    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
-    else { cur += c; }
-  }
-  result.push(cur.trim());
-  return result;
-}
+var existingKeys = new Set(
+  (state.transactions||[]).map(function(t){
+    return toISO(t.date||'')+'|'+t.amount+'|'+(t.description||'').toLowerCase().trim();
+  })
+);
+// For each incoming txn, flag if it's already in state.transactions
+incoming.forEach(function(t){
+  var key = toISO(t.date||'')+'|'+t.amount+'|'+(t.description||'').toLowerCase().trim();
+  t._alreadyImported = existingKeys.has(key);
+});
 ```
+
+In the preview table, mark already-imported rows with a yellow "Already imported" badge. They're still selectable (in case of a legitimate duplicate) but warned clearly. Default them to unchecked in the preview.
 
 ---
 
@@ -359,29 +296,28 @@ function parseCSVLine(line) {
 
 - Never use `alert()`, `confirm()`, `prompt()` — use `hhAlert()`, `hhConfirm()`, `hhToast()`
 - Always go through `showImportPreview()` — never auto-import
-- Use `toISO(dateStr)` for all date normalisation
+- Use `toISO(dateStr)` for all date normalisation into YYYY-MM-DD (used internally for comparisons)
+- Transaction `date` stored as M/D/YYYY (app's internal format)
 - Transaction `amount`: negative = expense, positive = income/credit
 - `saveState()` after every state mutation
-- Ontario/Canada context only
+- Ontario/Canada only
 
 ---
 
-## Success criteria for Phase 3
+## Success criteria
 
 - [ ] `python build.py` produces a working file
-- [ ] Upload page correctly identifies RBC chequing CSV and shows format name "RBC Chequing/Savings"
-- [ ] Upload page correctly identifies RBC Visa CSV
-- [ ] Upload page correctly identifies Alterna Savings CSV
-- [ ] Upload page correctly identifies Capital One MC CSV
-- [ ] Each parser produces correctly signed amounts (expenses negative, credits positive)
-- [ ] Unknown CSVs prompt the AI fallback option (when API key is set)
-- [ ] AI fallback successfully parses at least one non-standard CSV in testing
-- [ ] Cross-account duplicate detection warns on dupes from previous imports
-- [ ] Transfer detection flags likely account-to-account payments
+- [ ] Uploading an RBC chequing CSV shows "RBC Chequing/Savings" in the detected format label
+- [ ] Uploading an RBC Visa CSV correctly flips positive amounts to negative
+- [ ] Uploading an Alterna Savings CSV correctly handles split debit/credit columns
+- [ ] Uploading a Capital One MC CSV uses Capital One's category hints as a starting point
+- [ ] Uploading an unknown CSV prompts the AI fallback option
+- [ ] AI fallback correctly parses a non-standard CSV in testing
+- [ ] Importing a CSV that duplicates existing transactions warns with "Already imported" badge
 - [ ] No JavaScript errors in browser console
 
 ---
 
-## After Phase 3 is complete
+## After Phase 3
 
-Phase 4 adds AI transaction auto-categorisation, bill detection from transaction patterns, savings rate tracking, FHSA optimiser, and a monthly PDF report. The Phase 4 plan document is `Phase_4_AI_Finance.md` in this folder.
+Move on to `Phase_4_AI_Finance.md` or `Phase_5_Quality_of_Life.md` — both are independent.
