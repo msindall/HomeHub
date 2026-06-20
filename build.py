@@ -10,7 +10,7 @@ Usage:
     python build.py --version=6.30 -> force specific version
 """
 
-import os, sys, re, datetime, base64
+import os, sys, re, datetime, base64, subprocess, tempfile
 
 ROOT    = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = ROOT
@@ -42,6 +42,63 @@ def next_version():
             if (mj, mi) > (maj, mn):
                 maj, mn = mj, mi
     return maj, mn + 1
+
+def _validate_build(out_path, js_combined):
+    """Abort the build if the output looks truncated or the JS won't parse.
+    This is the guard that stops corrupt builds (e.g. the old 4-byte
+    App_V6_32.html) from ever shipping."""
+    SIZE_FLOOR = 500 * 1024  # bytes; a healthy build is ~1.1 MB
+    size = os.path.getsize(out_path)
+    if size < SIZE_FLOOR:
+        os.remove(out_path)
+        raise SystemExit(
+            "BUILD FAILED: output only {:,} bytes (floor {:,}). "
+            "A source file was likely truncated. Deleted the bad build.".format(
+                size, SIZE_FLOOR))
+    # Syntax-check the combined JS via node --check, if node is available.
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".js", delete=False, encoding="utf-8")
+    try:
+        tmp.write(js_combined)
+        tmp.close()
+        try:
+            res = subprocess.run(["node", "--check", tmp.name],
+                                 capture_output=True, text=True)
+        except FileNotFoundError:
+            print("  Validation: node not found - skipped JS syntax check")
+            return
+        if res.returncode != 0:
+            os.remove(out_path)
+            raise SystemExit(
+                "BUILD FAILED: combined JS has a syntax error. "
+                "Deleted the bad build.\n" + (res.stderr or "").strip())
+        print("  Validation: PASS (size {:.1f} KB, JS syntax OK)".format(size/1024))
+    finally:
+        try: os.remove(tmp.name)
+        except OSError: pass
+
+def _prune_old_builds(keep=3):
+    """Keep the newest `keep` App_V*.html builds, delete older ones and any
+    zero/tiny-byte corpses."""
+    pattern = re.compile(r"App_V(\d+)_(\d+)\.html")
+    builds = []
+    for fname in os.listdir(OUT_DIR):
+        m = pattern.match(fname)
+        if m:
+            builds.append((int(m.group(1)), int(m.group(2)), fname))
+    builds.sort(reverse=True)  # newest first
+    removed = 0
+    for idx, (mj, mi, fname) in enumerate(builds):
+        path = os.path.join(OUT_DIR, fname)
+        too_old   = idx >= keep
+        too_small = os.path.getsize(path) < 1024  # corrupt/empty
+        if too_old or too_small:
+            try:
+                os.remove(path); removed += 1
+            except OSError:
+                pass
+    if removed:
+        print("  Pruned {} old/corrupt build(s), kept newest {}".format(removed, keep))
 
 def minify_js(src):
     """Conservative JS minifier - pure Python stdlib."""
@@ -211,6 +268,11 @@ def build(version_str=None, dev_mode=False):
     output = re.sub(r"(</head>)", pwa_tags + "\n\\1", output, count=1)
 
     write_file(out_path, output)
+
+    # --- Output validation (abort on a bad build before it can ship) ---
+    _validate_build(out_path, js_combined)
+    # --- Keep only the most recent builds, delete the rest ---
+    _prune_old_builds(keep=3)
 
     lines   = output.count("\n") + 1
     size_kb = len(output.encode("utf-8")) / 1024

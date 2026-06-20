@@ -716,9 +716,65 @@ function populateTaxYearSelect() {
   sel.innerHTML = html;
 }
 
+// ---- Generic household helpers (member-driven tax & retirement) ----
+function getHHMembers() { return (state.members || []); }
+
+function _hhEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+  });
+}
+
+// Form-row builder for dynamically generated modal fields.
+function _rf(label, inner) {
+  return '<div class="form-row" style="margin:0"><label>' + label + '</label>' + inner + '</div>';
+}
+// <option> builder with selected state.
+function _ro(val, label, sel) {
+  return '<option value="' + val + '"' + (val === sel ? ' selected' : '') + '>' + label + '</option>';
+}
+
+// Maps the two legacy hardcoded slots (matt = salaried/pension, holly = tips)
+// onto whichever current members best match, for one-time data migration.
+function _legacyMemberMap() {
+  var ms = state.members || [];
+  var salaried = ms.find(function(m){ return !m.hasTips && (m.incomeType === 'salary' || m.hasPension); }) || ms[0];
+  var tips     = ms.find(function(m){ return m.hasTips; }) || ms[1];
+  return { matt: salaried, holly: tips };
+}
+
 function getTaxInputs(year) {
-  var td = state.taxData || {};
-  return td[year] || {};
+  if (!state.taxData) state.taxData = {};
+  if (!state.taxData[year]) state.taxData[year] = {};
+  var y = state.taxData[year];
+  if (!y.members) {
+    y.members = {};
+    var map = _legacyMemberMap();
+    [['matt', map.matt], ['holly', map.holly]].forEach(function(pair){
+      var pre = pair[0], mem = pair[1];
+      if (!mem || y.members[mem.id]) return;
+      if (y[pre+'Employment'] || y[pre+'Cpp'] || y[pre+'TaxWithheld'] || y[pre+'RrspRoom'] || y[pre+'Instalments']) {
+        y.members[mem.id] = {
+          employment:  y[pre+'Employment']  || 0,
+          pensionAdj:  y[pre+'PensionAdj']  || 0,
+          rrspRoom:    y[pre+'RrspRoom']    || 0,
+          rrspContrib: y[pre+'RrspContrib'] || 0,
+          cpp:         y[pre+'Cpp']         || 0,
+          ei:          y[pre+'Ei']          || 0,
+          taxWithheld: y[pre+'TaxWithheld'] || 0,
+          instalments: y[pre+'Instalments'] || 0
+        };
+      }
+    });
+    saveState();
+  }
+  return y;
+}
+
+function getTaxMember(year, id) {
+  var y = getTaxInputs(year);
+  if (!y.members[id]) y.members[id] = {};
+  return y.members[id];
 }
 
 function saveTaxInputs(year, data) {
@@ -752,60 +808,58 @@ function getHollyTipsDeclaredForYear(year) {
 
 function openTaxInputModal() {
   var year = getTaxYear();
-  var td = getTaxInputs(year);
+  var y = getTaxInputs(year);
   document.getElementById('tax-input-year').textContent = year;
 
-  var members = state.members || [];
-  var mattM  = members.find(function(m){ return m.hasPension || m.incomeType === 'salary'; }) || members[0];
-  var hollyM = members.find(function(m){ return m.hasTips; }) || members[1];
-
-  var mattEstIncome  = mattM  ? Math.round((mattM.monthlyIncome  || 0) * 12) : 0;
-  var hollyEstIncome = hollyM ? Math.round((hollyM.monthlyIncome || 0) * 12) : 0;
-
-  var mattEmpVal = td.mattEmployment || 0;
-  var mattSeeded = false;
-  if (!mattEmpVal && mattEstIncome > 0) { mattEmpVal = mattEstIncome; mattSeeded = true; }
-  document.getElementById('tax-matt-employment').value  = mattEmpVal  || '';
-  var mattHint = document.getElementById('tax-matt-employment-hint');
-  if (mattHint) mattHint.style.display = mattSeeded ? '' : 'none';
-
-  document.getElementById('tax-matt-pension-adj').value = td.mattPensionAdj  || '';
-  document.getElementById('tax-matt-rrsp-room').value   = td.mattRrspRoom    || '';
-  document.getElementById('tax-matt-rrsp-contrib').value= td.mattRrspContrib || '';
-  document.getElementById('tax-matt-cpp').value         = td.mattCpp         || '';
-  document.getElementById('tax-matt-ei').value          = td.mattEi          || '';
-  document.getElementById('tax-matt-tax-withheld').value= td.mattTaxWithheld || '';
-
-  var hollyEmpVal = td.hollyEmployment || 0;
-  var hollySeeded = false;
-  if (!hollyEmpVal && hollyEstIncome > 0) { hollyEmpVal = hollyEstIncome; hollySeeded = true; }
-  document.getElementById('tax-holly-employment').value  = hollyEmpVal || '';
-  var hollyHint = document.getElementById('tax-holly-employment-hint');
-  if (hollyHint) hollyHint.style.display = hollySeeded ? '' : 'none';
-
-  document.getElementById('tax-holly-cpp').value         = td.hollyCpp         || '';
-  document.getElementById('tax-holly-ei').value          = td.hollyEi          || '';
-  document.getElementById('tax-holly-tax-withheld').value= td.hollyTaxWithheld || '';
-  document.getElementById('tax-holly-instalments').value = td.hollyInstalments || '';
+  var members = getHHMembers();
+  var cont = document.getElementById('tax-members-container');
+  if (cont) {
+    if (!members.length) {
+      cont.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Add household members in Setup first.</div>';
+    } else {
+      cont.innerHTML = members.map(function(m){
+        var d = y.members[m.id] || {};
+        var col = m.color || 'var(--accent)';
+        var P = 'tax-m-' + m.id + '-';
+        var estIncome = Math.round((m.monthlyIncome || 0) * 12);
+        var empVal = d.employment || 0, seeded = false;
+        if (!empVal && estIncome > 0) { empVal = estIncome; seeded = true; }
+        return ''
+        + '<div style="font-size:12px;font-weight:700;color:'+col+';text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">' + _hhEsc(m.name||'Member') + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
+        + _rf('Employment Income (T4 Box 14)', '<input type="number" id="'+P+'employment" value="'+(empVal||'')+'" min="0" step="100"><div id="'+P+'employment-hint" style="font-size:11px;color:var(--accent);margin-top:3px;display:'+(seeded?'':'none')+'">📋 Pre-filled from Setup profile — verify against your T4</div>')
+        + _rf('Pension Adjustment (T4 Box 52)', '<input type="number" id="'+P+'pension-adj" value="'+(d.pensionAdj||'')+'" min="0" step="100">')
+        + _rf('RRSP Room (from CRA My Account)', '<input type="number" id="'+P+'rrsp-room" value="'+(d.rrspRoom||'')+'" min="0" step="100">')
+        + _rf('RRSP Contributions Made', '<input type="number" id="'+P+'rrsp-contrib" value="'+(d.rrspContrib||'')+'" min="0" step="100">')
+        + _rf('CPP Contributions (T4 Box 16)', '<input type="number" id="'+P+'cpp" value="'+(d.cpp||'')+'" min="0" step="1">')
+        + _rf('EI Premiums (T4 Box 18)', '<input type="number" id="'+P+'ei" value="'+(d.ei||'')+'" min="0" step="1">')
+        + _rf('Income Tax Withheld (T4 Box 22)', '<input type="number" id="'+P+'tax-withheld" value="'+(d.taxWithheld||'')+'" min="0" step="100">')
+        + _rf('CRA Instalments Paid (total for year)', '<input type="number" id="'+P+'instalments" value="'+(d.instalments||'')+'" min="0" step="100"><div style="font-size:11px;color:var(--muted);margin-top:3px">Only if you pay quarterly instalments</div>')
+        + '</div>';
+      }).join('');
+    }
+  }
   openModal('tax-input-modal');
 }
 
 function saveTaxInputModal() {
   var year = getTaxYear();
-  saveTaxInputs(year, {
-    mattEmployment:   parseFloat(document.getElementById('tax-matt-employment').value)   || 0,
-    mattPensionAdj:   parseFloat(document.getElementById('tax-matt-pension-adj').value)  || 0,
-    mattRrspRoom:     parseFloat(document.getElementById('tax-matt-rrsp-room').value)    || 0,
-    mattRrspContrib:  parseFloat(document.getElementById('tax-matt-rrsp-contrib').value) || 0,
-    mattCpp:          parseFloat(document.getElementById('tax-matt-cpp').value)          || 0,
-    mattEi:           parseFloat(document.getElementById('tax-matt-ei').value)           || 0,
-    mattTaxWithheld:  parseFloat(document.getElementById('tax-matt-tax-withheld').value) || 0,
-    hollyEmployment:  parseFloat(document.getElementById('tax-holly-employment').value)  || 0,
-    hollyCpp:         parseFloat(document.getElementById('tax-holly-cpp').value)         || 0,
-    hollyEi:          parseFloat(document.getElementById('tax-holly-ei').value)          || 0,
-    hollyTaxWithheld: parseFloat(document.getElementById('tax-holly-tax-withheld').value)|| 0,
-    hollyInstalments: parseFloat(document.getElementById('tax-holly-instalments').value) || 0,
+  var y = getTaxInputs(year);
+  getHHMembers().forEach(function(m){
+    var P = 'tax-m-' + m.id + '-';
+    function v(s){ var e = document.getElementById(P + s); return e ? (parseFloat(e.value) || 0) : 0; }
+    y.members[m.id] = {
+      employment:  v('employment'),
+      pensionAdj:  v('pension-adj'),
+      rrspRoom:    v('rrsp-room'),
+      rrspContrib: v('rrsp-contrib'),
+      cpp:         v('cpp'),
+      ei:          v('ei'),
+      taxWithheld: v('tax-withheld'),
+      instalments: v('instalments')
+    };
   });
+  saveState();
   closeModal('tax-input-modal');
   renderTax();
   hhToast('Tax inputs saved for ' + year, 'success');
@@ -813,9 +867,8 @@ function saveTaxInputModal() {
 
 function exportTaxSummary() {
   var year = getTaxYear();
-  var td = getTaxInputs(year);
-  var hollyTips = getHollyTipsForYear(year);
-  var hollyTipsCash = getHollyTipsCashForYear(year);
+  var y = getTaxInputs(year);
+  var members = getHHMembers();
 
   var lines = [
     '========================================',
@@ -823,38 +876,45 @@ function exportTaxSummary() {
     'Tax Year: ' + year,
     'Generated: ' + new Date().toLocaleDateString('en-CA'),
     '========================================',
-    '',
-    '--- MATT ---',
-    'Employment Income:       ' + fmt(td.mattEmployment || 0),
-    'Pension Adjustment (T4 Box 52): ' + fmt(td.mattPensionAdj || 0),
-    'RRSP Contribution Room:  ' + fmt(td.mattRrspRoom || 0),
-    'RRSP Contributions Made: ' + fmt(td.mattRrspContrib || 0),
-    'RRSP Room Remaining:     ' + fmt(Math.max(0, (td.mattRrspRoom||0) - (td.mattRrspContrib||0))),
-    'CPP Contributions:       ' + fmt(td.mattCpp || 0),
-    'EI Premiums:             ' + fmt(td.mattEi || 0),
-    'Income Tax Withheld:     ' + fmt(td.mattTaxWithheld || 0),
-    '',
-    '--- HOLLY ---',
-    'Employment Income (T4):  ' + fmt(td.hollyEmployment || 0),
-    'Tips — Declared via T4:  ' + fmt(td.hollyEmployment ? (hollyTips - hollyTipsCash) : 0),
-    'Tips — Cash (unreported):' + fmt(hollyTipsCash),
-    'Total Tips (tracker):    ' + fmt(hollyTips),
-    'CPP Contributions:       ' + fmt(td.hollyCpp || 0),
-    'EI Premiums:             ' + fmt(td.hollyEi || 0),
-    'Income Tax Withheld:     ' + fmt(td.hollyTaxWithheld || 0),
-    'CRA Instalments Paid:    ' + fmt(td.hollyInstalments || 0),
-    '',
-    '--- RRSP ---',
-    'Contribution Room:       ' + fmt(td.mattRrspRoom || 0),
-    'Contributions Made:      ' + fmt(td.mattRrspContrib || 0),
-    'Room Remaining:          ' + fmt(Math.max(0,(td.mattRrspRoom||0)-(td.mattRrspContrib||0))),
+    ''
+  ];
+
+  var totalRoom = 0, totalContrib = 0;
+  members.forEach(function(m){
+    var d = y.members[m.id] || {};
+    totalRoom += (d.rrspRoom || 0);
+    totalContrib += (d.rrspContrib || 0);
+    lines.push('--- ' + (m.name || 'MEMBER').toUpperCase() + ' ---');
+    lines.push('Employment Income (T4):  ' + fmt(d.employment || 0));
+    if (m.hasTips) {
+      var tips = getHollyTipsForYear(year);
+      var tipsCash = getHollyTipsCashForYear(year);
+      lines.push('Tips — Declared via T4:  ' + fmt(Math.max(0, tips - tipsCash)));
+      lines.push('Tips — Cash (unreported):' + fmt(tipsCash));
+      lines.push('Total Tips (tracker):    ' + fmt(tips));
+    }
+    lines.push('Pension Adjustment:      ' + fmt(d.pensionAdj || 0));
+    lines.push('RRSP Contribution Room:  ' + fmt(d.rrspRoom || 0));
+    lines.push('RRSP Contributions Made: ' + fmt(d.rrspContrib || 0));
+    lines.push('CPP Contributions:       ' + fmt(d.cpp || 0));
+    lines.push('EI Premiums:             ' + fmt(d.ei || 0));
+    lines.push('Income Tax Withheld:     ' + fmt(d.taxWithheld || 0));
+    lines.push('CRA Instalments Paid:    ' + fmt(d.instalments || 0));
+    lines.push('');
+  });
+
+  lines = lines.concat([
+    '--- RRSP (HOUSEHOLD) ---',
+    'Contribution Room:       ' + fmt(totalRoom),
+    'Contributions Made:      ' + fmt(totalContrib),
+    'Room Remaining:          ' + fmt(Math.max(0, totalRoom - totalContrib)),
     'RRSP Deadline:           March 1, ' + (year + 1),
     '',
     '--- KEY DATES ---',
     'Tax Filing Deadline:     April 30, ' + (year + 1),
     'CRA Instalments:         Mar 15, Jun 15, Sep 15, Dec 15',
     '========================================',
-  ];
+  ]);
 
   var blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   var url = URL.createObjectURL(blob);
@@ -889,92 +949,26 @@ function renderTax() {
       : '';
   }
 
-  var mattCard = document.getElementById('tax-matt-card');
-  if (mattCard) {
-    var mattInc   = td.mattEmployment  || 0;
-    var mattPA    = td.mattPensionAdj  || 0;
-    var mattRrsp  = td.mattRrspContrib || 0;
-    var mattWith  = td.mattTaxWithheld || 0;
-    var mattCpp   = td.mattCpp  || 0;
-    var mattEi    = td.mattEi   || 0;
-    var mattTaxableInc = Math.max(0, mattInc - mattRrsp);
-    var mattEstTax = calcOntarioTax(mattTaxableInc);
-    var mattBalance = mattEstTax - mattWith;
-    var mattMarginal = Math.round(getMarginalRate(mattTaxableInc) * 100);
-    mattCard.innerHTML = '<div class="card" style="height:100%">'
-      + '<div class="card-title">👔 Matt — ' + year + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-      + _tstat(fmt(mattInc),      'Employment Income')
-      + _tstat(fmt(mattPA),       'Pension Adjustment')
-      + _tstat(fmt(mattRrsp),     'RRSP Deduction')
-      + _tstat(fmt(mattTaxableInc),'Est. Taxable Income')
-      + _tstat(fmt(mattCpp),      'CPP Contributions')
-      + _tstat(fmt(mattEi),       'EI Premiums')
-      + _tstat(fmt(mattWith),     'Tax Withheld')
-      + _tstat(mattMarginal + '%','Marginal Rate')
-      + '</div>'
-      + '<div style="padding:10px 12px;border-radius:8px;background:'
-      + (mattBalance > 0 ? 'color-mix(in srgb,var(--red) 10%,transparent)' : 'color-mix(in srgb,var(--green) 10%,transparent)') + '">'
-      + '<div style="font-size:13px;font-weight:700;color:var(--muted)">Estimated Balance</div>'
-      + '<div style="font-size:22px;font-weight:900;color:' + (mattBalance > 0 ? 'var(--red)' : 'var(--green)') + '">'
-      + (mattBalance > 0 ? 'Owe ' + fmt(mattBalance) : 'Refund ' + fmt(Math.abs(mattBalance))) + '</div>'
-      + '<div style="font-size:11px;color:var(--muted);margin-top:2px">Based on estimated tax — not a CRA calculation</div>'
-      + '</div>'
-      + (mattInc === 0 ? '<div style="font-size:12px;color:var(--muted);margin-top:10px;padding:8px;background:var(--bg);border-radius:8px">👆 Tap <strong>Edit Tax Inputs</strong> to enter your T4 details.</div>' : '')
-      + '</div>';
-  }
-
-  var hollyCard = document.getElementById('tax-holly-card');
-  if (hollyCard) {
-    var hollyInc    = td.hollyEmployment  || 0;
-    var hollyTips   = getHollyTipsForYear(year);
-    var hollyDeclared = getHollyTipsDeclaredForYear(year);
-    var hollyCash   = getHollyTipsCashForYear(year);
-    var hollyWith   = td.hollyTaxWithheld || 0;
-    var hollyInst   = td.hollyInstalments || 0;
-    var hollyCpp    = td.hollyCpp || 0;
-    var hollyEi     = td.hollyEi  || 0;
-    var hollyTotalInc = hollyInc + hollyTips;
-    var hollyEstTax = calcOntarioTax(hollyTotalInc);
-    var hollyTotalPaid = hollyWith + hollyInst;
-    var hollyBalance = hollyEstTax - hollyTotalPaid;
-    var hollyMarginal = Math.round(getMarginalRate(hollyTotalInc) * 100);
-    hollyCard.innerHTML = '<div class="card" style="height:100%">'
-      + '<div class="card-title">💅 Holly — ' + year + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-      + _tstat(fmt(hollyInc),     'Employment Income (T4)')
-      + _tstat(fmt(hollyTips),    'Tips (tracker YTD)')
-      + _tstat(fmt(hollyDeclared),'Tips Declared via T4')
-      + _tstat(fmt(hollyCash),    'Cash Tips (unreported)')
-      + _tstat(fmt(hollyCpp),     'CPP Contributions')
-      + _tstat(fmt(hollyEi),      'EI Premiums')
-      + _tstat(fmt(hollyWith),    'Tax Withheld')
-      + _tstat(fmt(hollyInst),    'Instalments Paid')
-      + _tstat(fmt(hollyTotalInc),'Est. Total Income')
-      + _tstat(hollyMarginal + '%','Marginal Rate')
-      + '</div>'
-      + '<div style="padding:10px 12px;border-radius:8px;background:'
-      + (hollyBalance > 0 ? 'color-mix(in srgb,var(--red) 10%,transparent)' : 'color-mix(in srgb,var(--green) 10%,transparent)') + '">'
-      + '<div style="font-size:13px;font-weight:700;color:var(--muted)">Estimated Balance</div>'
-      + '<div style="font-size:22px;font-weight:900;color:' + (hollyBalance > 0 ? 'var(--red)' : 'var(--green)') + '">'
-      + (hollyBalance > 0 ? 'Owe ' + fmt(hollyBalance) : 'Refund ' + fmt(Math.abs(hollyBalance))) + '</div>'
-      + '<div style="font-size:11px;color:var(--muted);margin-top:2px">Includes all tip income — not a CRA calculation</div>'
-      + '</div>'
-      + (hollyTips > 0 && hollyCash > 0
-        ? '<div style="font-size:12px;color:var(--yellow);margin-top:10px;padding:8px 10px;background:color-mix(in srgb,var(--yellow) 8%,transparent);border-radius:8px">'
-          + '⚠️ ' + fmt(hollyCash) + ' in cash tips tracked — confirm these are declared on your return.</div>'
-        : '')
-      + '</div>';
+  var taxGrid = document.getElementById('tax-members-grid');
+  if (taxGrid) {
+    var taxMembers = getHHMembers();
+    taxGrid.innerHTML = taxMembers.length
+      ? taxMembers.map(function(m){ return _taxCard(m, year, td); }).join('')
+      : '<div class="card"><div style="color:var(--muted);font-size:13px">Add household members in Setup to see tax cards.</div></div>';
   }
 
   var rrspCard = document.getElementById('tax-rrsp-card');
   if (rrspCard) {
-    var rrspRoom    = td.mattRrspRoom    || 0;
-    var rrspContrib = td.mattRrspContrib || 0;
-    var rrspPA      = td.mattPensionAdj  || 0;
+    var rrspRoom = 0, rrspContrib = 0, rrspPA = 0, topInc = 0, topContrib = 0;
+    getHHMembers().forEach(function(m){
+      var dm = td.members[m.id] || {};
+      rrspRoom    += (dm.rrspRoom    || 0);
+      rrspContrib += (dm.rrspContrib || 0);
+      rrspPA      += (dm.pensionAdj  || 0);
+      if ((dm.employment || 0) > topInc) { topInc = dm.employment || 0; topContrib = dm.rrspContrib || 0; }
+    });
     var rrspRemaining = Math.max(0, rrspRoom - rrspContrib);
-    var mattInc2    = td.mattEmployment  || 0;
-    var margRate    = getMarginalRate(Math.max(0, mattInc2 - rrspContrib));
+    var margRate    = getMarginalRate(Math.max(0, topInc - topContrib));
     var savingsAt500  = Math.round(Math.min(500,  rrspRemaining) * margRate);
     var savingsAt1000 = Math.round(Math.min(1000, rrspRemaining) * margRate);
     var savingsAt5000 = Math.round(Math.min(5000, rrspRemaining) * margRate);
@@ -1002,7 +996,7 @@ function renderTax() {
           + '<div><div style="font-size:15px;font-weight:800;color:var(--green)">'+fmt(savingsAt1000)+'</div><div style="font-size:11px;color:var(--muted)">Save $1,000 more</div></div>'
           + '<div><div style="font-size:15px;font-weight:800;color:var(--green)">'+fmt(savingsAt5000)+'</div><div style="font-size:11px;color:var(--muted)">Save $5,000 more</div></div>'
           + '</div>'
-          + '<div style="font-size:11px;color:var(--muted);margin-top:6px">At Matt\'s estimated ' + Math.round(margRate*100) + '% marginal rate. Every dollar into RRSP reduces taxable income by one dollar.</div>'
+          + '<div style="font-size:11px;color:var(--muted);margin-top:6px">At the household top marginal rate of ' + Math.round(margRate*100) + '%. Every dollar into RRSP reduces taxable income by one dollar.</div>'
           + '</div>'
         : '<div style="color:var(--green);font-weight:700;font-size:13px">✅ RRSP fully contributed — great work!</div>')
       + '</div>';
@@ -1010,59 +1004,66 @@ function renderTax() {
 
   var tipsCard = document.getElementById('tax-tips-card');
   if (tipsCard) {
-    var tips      = state.tips || [];
-    var yearTips  = tips.filter(function(t){ return new Date(t.date).getFullYear() === year; });
-    if (yearTips.length) {
-      var byMonth = {};
-      yearTips.forEach(function(t) {
-        var mk = new Date(t.date).getMonth();
-        if (!byMonth[mk]) byMonth[mk] = { declared:0, cash:0 };
-        byMonth[mk].declared += (t.amount || 0);
-        byMonth[mk].cash     += (t.cashAmount || 0);
-      });
-      var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      var totalDeclared = yearTips.reduce(function(s,t){return s+(t.amount||0);},0);
-      var totalCash     = yearTips.reduce(function(s,t){return s+(t.cashAmount||0);},0);
-      var totalAll      = totalDeclared + totalCash;
-      var hollyInst2    = td.hollyInstalments || 0;
-      var hollyInc2     = td.hollyEmployment  || 0;
-      var estTaxOnTips  = Math.round(totalAll * getMarginalRate(hollyInc2 + totalAll));
-      var instalNeeded  = Math.max(0, estTaxOnTips - hollyInst2);
-
-      var monthRows = Object.keys(byMonth).sort(function(a,b){return a-b;}).map(function(m) {
-        var mo = byMonth[m];
-        return '<tr><td>' + monthNames[m] + '</td>'
-          + '<td style="text-align:right">' + fmt(mo.declared) + '</td>'
-          + '<td style="text-align:right">' + fmt(mo.cash) + '</td>'
-          + '<td style="text-align:right;font-weight:700">' + fmt(mo.declared+mo.cash) + '</td></tr>';
-      }).join('');
-
-      tipsCard.innerHTML = '<div class="card">'
-        + '<div class="card-title">💵 Holly\'s Tips — ' + year + ' Breakdown</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">'
-        + _tstat(fmt(totalAll),      'Total Tips')
-        + _tstat(fmt(totalDeclared), 'Via Payroll (T4)')
-        + _tstat(fmt(totalCash),     'Cash Tips')
-        + _tstat(fmt(hollyInst2),    'Instalments Paid')
-        + _tstat(fmt(estTaxOnTips),  'Est. Tax on Tips')
-        + _tstat(fmt(instalNeeded),  instalNeeded > 0 ? 'Additional Tax Owing' : 'Instalments Sufficient', instalNeeded > 0 ? 'var(--red)' : 'var(--green)')
-        + '</div>'
-        + '<div class="table-wrap"><table>'
-        + '<thead><tr><th>Month</th><th style="text-align:right">Declared</th><th style="text-align:right">Cash</th><th style="text-align:right">Total</th></tr></thead>'
-        + '<tbody>' + monthRows + '</tbody>'
-        + '<tfoot><tr style="font-weight:700;border-top:2px solid var(--border)">'
-        + '<td>Total</td><td style="text-align:right">' + fmt(totalDeclared) + '</td>'
-        + '<td style="text-align:right">' + fmt(totalCash) + '</td>'
-        + '<td style="text-align:right">' + fmt(totalAll) + '</td></tr></tfoot>'
-        + '</table></div>'
-        + (totalCash > 0
-          ? '<div style="margin-top:10px;font-size:12px;padding:8px 12px;background:color-mix(in srgb,var(--yellow) 8%,transparent);border-radius:8px;color:var(--text)">'
-            + '⚠️ <strong>Cash tips are taxable income.</strong> Ensure all ' + fmt(totalCash) + ' is declared on Holly\'s T1. CRA expects tip income to be reported.</div>'
-          : '')
-        + '</div>';
+    var tipsMember = getHHMembers().find(function(m){ return m.hasTips; });
+    if (!tipsMember) {
+      tipsCard.innerHTML = '';
     } else {
-      tipsCard.innerHTML = '<div class="card"><div class="card-title">💵 Holly\'s Tips — ' + year + '</div>'
-        + '<div style="color:var(--muted);font-size:13px">No tips recorded for ' + year + '. Log tips in the Tips section to see the breakdown here.</div></div>';
+      var tipsName = _hhEsc(tipsMember.name || 'Member');
+      var tips      = state.tips || [];
+      var yearTips  = tips.filter(function(t){ return new Date(t.date).getFullYear() === year; });
+      if (yearTips.length) {
+        var byMonth = {};
+        yearTips.forEach(function(t) {
+          var mk = new Date(t.date).getMonth();
+          if (!byMonth[mk]) byMonth[mk] = { declared:0, cash:0 };
+          byMonth[mk].declared += (t.amount || 0);
+          byMonth[mk].cash     += (t.cashAmount || 0);
+        });
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var totalDeclared = yearTips.reduce(function(s,t){return s+(t.amount||0);},0);
+        var totalCash     = yearTips.reduce(function(s,t){return s+(t.cashAmount||0);},0);
+        var totalAll      = totalDeclared + totalCash;
+        var tmRec         = td.members[tipsMember.id] || {};
+        var tmInst        = tmRec.instalments || 0;
+        var tmInc         = tmRec.employment  || 0;
+        var estTaxOnTips  = Math.round(totalAll * getMarginalRate(tmInc + totalAll));
+        var instalNeeded  = Math.max(0, estTaxOnTips - tmInst);
+
+        var monthRows = Object.keys(byMonth).sort(function(a,b){return a-b;}).map(function(m) {
+          var mo = byMonth[m];
+          return '<tr><td>' + monthNames[m] + '</td>'
+            + '<td style="text-align:right">' + fmt(mo.declared) + '</td>'
+            + '<td style="text-align:right">' + fmt(mo.cash) + '</td>'
+            + '<td style="text-align:right;font-weight:700">' + fmt(mo.declared+mo.cash) + '</td></tr>';
+        }).join('');
+
+        tipsCard.innerHTML = '<div class="card">'
+          + '<div class="card-title">💵 ' + tipsName + '’s Tips — ' + year + ' Breakdown</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">'
+          + _tstat(fmt(totalAll),      'Total Tips')
+          + _tstat(fmt(totalDeclared), 'Via Payroll (T4)')
+          + _tstat(fmt(totalCash),     'Cash Tips')
+          + _tstat(fmt(tmInst),        'Instalments Paid')
+          + _tstat(fmt(estTaxOnTips),  'Est. Tax on Tips')
+          + _tstat(fmt(instalNeeded),  instalNeeded > 0 ? 'Additional Tax Owing' : 'Instalments Sufficient', instalNeeded > 0 ? 'var(--red)' : 'var(--green)')
+          + '</div>'
+          + '<div class="table-wrap"><table>'
+          + '<thead><tr><th>Month</th><th style="text-align:right">Declared</th><th style="text-align:right">Cash</th><th style="text-align:right">Total</th></tr></thead>'
+          + '<tbody>' + monthRows + '</tbody>'
+          + '<tfoot><tr style="font-weight:700;border-top:2px solid var(--border)">'
+          + '<td>Total</td><td style="text-align:right">' + fmt(totalDeclared) + '</td>'
+          + '<td style="text-align:right">' + fmt(totalCash) + '</td>'
+          + '<td style="text-align:right">' + fmt(totalAll) + '</td></tr></tfoot>'
+          + '</table></div>'
+          + (totalCash > 0
+            ? '<div style="margin-top:10px;font-size:12px;padding:8px 12px;background:color-mix(in srgb,var(--yellow) 8%,transparent);border-radius:8px;color:var(--text)">'
+              + '⚠️ <strong>Cash tips are taxable income.</strong> Ensure all ' + fmt(totalCash) + ' is declared on ' + tipsName + '’s T1. CRA expects tip income to be reported.</div>'
+            : '')
+          + '</div>';
+      } else {
+        tipsCard.innerHTML = '<div class="card"><div class="card-title">💵 ' + tipsName + '’s Tips — ' + year + '</div>'
+          + '<div style="color:var(--muted);font-size:13px">No tips recorded for ' + year + '. Log tips in the Tips section to see the breakdown here.</div></div>';
+      }
     }
   }
 
@@ -1072,12 +1073,12 @@ function renderTax() {
       + '<div class="card-title">📅 Key CRA Dates — ' + year + '/' + (year+1) + '</div>'
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">'
       + _deadline('March 1, ' + (year+1),      'RRSP Contribution Deadline', 'Last day to contribute to ' + year + ' RRSP')
-      + _deadline('March 15, ' + (year+1),     'Q1 Instalment Due',          'Holly: Q1 CRA instalment payment')
+      + _deadline('March 15, ' + (year+1),     'Q1 Instalment Due',          'Q1 CRA instalment payment (if required)')
       + _deadline('April 30, ' + (year+1),     'Tax Filing Deadline',        'File T1 return for ' + year + ' (or face interest & penalties)')
-      + _deadline('June 15, ' + (year+1),      'Q2 Instalment Due',          'Holly: Q2 CRA instalment payment')
+      + _deadline('June 15, ' + (year+1),      'Q2 Instalment Due',          'Q2 CRA instalment payment (if required)')
       + _deadline('June 15, ' + (year+1),      'Self-Employed Filing',       'Extended deadline if self-employed (tax still due Apr 30)')
-      + _deadline('September 15, ' + (year+1), 'Q3 Instalment Due',          'Holly: Q3 CRA instalment payment')
-      + _deadline('December 15, ' + (year+1),  'Q4 Instalment Due',          'Holly: Q4 CRA instalment payment')
+      + _deadline('September 15, ' + (year+1), 'Q3 Instalment Due',          'Q3 CRA instalment payment (if required)')
+      + _deadline('December 15, ' + (year+1),  'Q4 Instalment Due',          'Q4 CRA instalment payment (if required)')
       + '</div></div>';
   }
 }
@@ -1095,8 +1096,117 @@ function _tstat(val, label, valColor) {
     + '<div style="font-size:11px;color:var(--muted)">' + label + '</div></div>';
 }
 
+// Builds one tax card for a household member. Members flagged hasTips get the
+// tips-aware layout; everyone else gets the salaried/pension layout.
+function _taxCard(m, year, y) {
+  var d = y.members[m.id] || {};
+  var col = m.color || 'var(--accent)';
+  var name = _hhEsc(m.name || 'Member');
+  var inc = d.employment || 0, cpp = d.cpp || 0, ei = d.ei || 0, withh = d.taxWithheld || 0;
+  var statsHtml, taxableInc, estTax, balance, marginal, footnote, extra = '';
+
+  if (m.hasTips) {
+    var tips = getHollyTipsForYear(year);
+    var declared = getHollyTipsDeclaredForYear(year);
+    var cash = getHollyTipsCashForYear(year);
+    var inst = d.instalments || 0;
+    taxableInc = inc + tips;
+    estTax = calcOntarioTax(taxableInc);
+    balance = estTax - (withh + inst);
+    marginal = Math.round(getMarginalRate(taxableInc) * 100);
+    statsHtml = _tstat(fmt(inc),'Employment Income (T4)')
+      + _tstat(fmt(tips),'Tips (tracker YTD)')
+      + _tstat(fmt(declared),'Tips Declared via T4')
+      + _tstat(fmt(cash),'Cash Tips (unreported)')
+      + _tstat(fmt(cpp),'CPP Contributions')
+      + _tstat(fmt(ei),'EI Premiums')
+      + _tstat(fmt(withh),'Tax Withheld')
+      + _tstat(fmt(inst),'Instalments Paid')
+      + _tstat(fmt(taxableInc),'Est. Total Income')
+      + _tstat(marginal + '%','Marginal Rate');
+    footnote = 'Includes all tip income — not a CRA calculation';
+    if (tips > 0 && cash > 0) {
+      extra = '<div style="font-size:12px;color:var(--yellow);margin-top:10px;padding:8px 10px;background:color-mix(in srgb,var(--yellow) 8%,transparent);border-radius:8px">'
+        + '⚠️ ' + fmt(cash) + ' in cash tips tracked — confirm these are declared on the return.</div>';
+    }
+  } else {
+    var pa = d.pensionAdj || 0, rrsp = d.rrspContrib || 0;
+    taxableInc = Math.max(0, inc - rrsp);
+    estTax = calcOntarioTax(taxableInc);
+    balance = estTax - withh;
+    marginal = Math.round(getMarginalRate(taxableInc) * 100);
+    statsHtml = _tstat(fmt(inc),'Employment Income')
+      + _tstat(fmt(pa),'Pension Adjustment')
+      + _tstat(fmt(rrsp),'RRSP Deduction')
+      + _tstat(fmt(taxableInc),'Est. Taxable Income')
+      + _tstat(fmt(cpp),'CPP Contributions')
+      + _tstat(fmt(ei),'EI Premiums')
+      + _tstat(fmt(withh),'Tax Withheld')
+      + _tstat(marginal + '%','Marginal Rate');
+    footnote = 'Based on estimated tax — not a CRA calculation';
+    if (inc === 0) {
+      extra = '<div style="font-size:12px;color:var(--muted);margin-top:10px;padding:8px;background:var(--bg);border-radius:8px">👆 Tap <strong>Edit Tax Inputs</strong> to enter T4 details.</div>';
+    }
+  }
+
+  return '<div class="card" style="height:100%">'
+    + '<div class="card-title" style="color:' + col + '">' + name + ' — ' + year + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' + statsHtml + '</div>'
+    + '<div style="padding:10px 12px;border-radius:8px;background:'
+    + (balance > 0 ? 'color-mix(in srgb,var(--red) 10%,transparent)' : 'color-mix(in srgb,var(--green) 10%,transparent)') + '">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--muted)">Estimated Balance</div>'
+    + '<div style="font-size:22px;font-weight:900;color:' + (balance > 0 ? 'var(--red)' : 'var(--green)') + '">'
+    + (balance > 0 ? 'Owe ' + fmt(balance) : 'Refund ' + fmt(Math.abs(balance))) + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + footnote + '</div>'
+    + '</div>' + extra + '</div>';
+}
+
+var _RET_PALETTE = ['#4f8ef7','#ec4899','#22c55e','#f59e0b','#a78bfa','#06b6d4','#ef4444','#84cc16'];
+function _resolveColor(col, idx) {
+  if (col && col.charAt(0) === '#') return col;
+  return _RET_PALETTE[idx % _RET_PALETTE.length];
+}
+
 function getRetInputs() {
-  return state.retirementData || {};
+  if (!state.retirementData) state.retirementData = {};
+  var rd = state.retirementData;
+  if (!rd.members) {
+    rd.members = {};
+    var map = _legacyMemberMap();
+    [['matt', map.matt, 'db'], ['holly', map.holly, 'none']].forEach(function(t){
+      var pre = t[0], mem = t[1], defMode = t[2];
+      if (!mem || rd.members[mem.id]) return;
+      if (rd[pre+'Age'] || rd[pre+'RetireAge'] || rd[pre+'Salary'] || rd[pre+'Income'] || rd[pre+'Rrsp'] || rd[pre+'Tfsa']) {
+        rd.members[mem.id] = {
+          age:         rd[pre+'Age']         || 0,
+          retireAge:   rd[pre+'RetireAge']   || 60,
+          salary:      rd[pre+'Salary'] || rd[pre+'Income'] || 0,
+          pensionMode: rd[pre+'PensionMode'] || defMode,
+          pensionPct:  rd[pre+'PensionPct']  || 2,
+          pensionYears:rd[pre+'PensionYears']|| 0,
+          empPct:      rd[pre+'EmpPct']      || 0,
+          matchPct:    rd[pre+'MatchPct']    || 0,
+          dcMonthly:   rd[pre+'DcMonthly']   || 0,
+          extraRrsp:   rd[pre+'ExtraRrsp']   || 0,
+          rrsp:        rd[pre+'Rrsp']        || 0,
+          rrspAcct:    rd[pre+'RrspAcct']    || '',
+          tfsa:        rd[pre+'Tfsa']        || 0,
+          tfsaAcct:    rd[pre+'TfsaAcct']    || '',
+          tfsaMonthly: rd[pre+'TfsaMonthly'] || 0,
+          rrspMonthly: rd[pre+'RrspMonthly'] || 0,
+          cpp:         (pre === 'matt' ? rd.cppMatt : rd.cppHolly) || 0
+        };
+      }
+    });
+    saveState();
+  }
+  return rd;
+}
+
+function getRetMember(id) {
+  var rd = getRetInputs();
+  if (!rd.members[id]) rd.members[id] = {};
+  return rd.members[id];
 }
 
 function saveRetInputs(data) {
@@ -1109,71 +1219,76 @@ function openRetirementInputModal() {
   var accounts = state.accounts || [];
   var rrspAccts = accounts.filter(function(a){return a.type==='RRSP'||a.type==='FHSA';});
   var tfsaAccts = accounts.filter(function(a){return a.type==='TFSA';});
-  function buildAcctOpts(linkedId, accts) {
+  function acctOpts(linkedId, accts) {
     return '<option value="">Manual entry</option>' +
-      accts.map(function(a){return '<option value="'+a.id+'"'+(a.id===linkedId?' selected':'')+'>'+(a.nickname||a.type)+'</option>';}).join('');
+      accts.map(function(a){return '<option value="'+a.id+'"'+(a.id===linkedId?' selected':'')+'>'+_hhEsc(a.nickname||a.type)+'</option>';}).join('');
   }
-  ['ret-matt-rrsp-acct','ret-matt-tfsa-acct','ret-holly-rrsp-acct','ret-holly-tfsa-acct'].forEach(function(sid) {
-    var sel = document.getElementById(sid);
-    if (!sel) return;
-    var isRrsp = sid.includes('rrsp');
-    var linkedId = rd[sid.replace('ret-','').replace('-acct','').replace(/-([a-z])/g,function(_,c){return c.toUpperCase()})+'Acct'] || '';
-    sel.innerHTML = buildAcctOpts(linkedId, isRrsp ? rrspAccts : tfsaAccts);
-  });
+  var members = getHHMembers();
+  var cont = document.getElementById('ret-members-container');
+  if (cont) {
+    if (!members.length) {
+      cont.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Add household members in Setup first.</div>';
+    } else {
+      cont.innerHTML = members.map(function(m){
+        var d = rd.members[m.id] || {};
+        var col = m.color || 'var(--accent)';
+        var P = 'ret-m-' + m.id + '-';
+        var pm = d.pensionMode || 'none';
+        return ''
+        + '<div style="font-size:12px;font-weight:700;color:'+col+';text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">' + _hhEsc(m.name||'Member') + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+        + _rf('Current Age', '<input type="number" id="'+P+'age" value="'+(d.age||'')+'" min="18" max="80">')
+        + _rf('Target Retirement Age', '<input type="number" id="'+P+'retire-age" value="'+(d.retireAge||60)+'" min="50" max="75">')
+        + _rf('Current Annual Income ($)', '<input type="number" id="'+P+'salary" value="'+(d.salary||'')+'" min="0" step="1000" oninput="retUpdateDcPreview(\''+m.id+'\')">')
+        + _rf('Pension Type', '<select id="'+P+'pension-mode" style="width:100%" onchange="retUpdatePensionMode(\''+m.id+'\')">'
+          + _ro('none','❌ No pension',pm) + _ro('db','🏛️ Defined Benefit (guaranteed income)',pm) + _ro('dc','💼 Defined Contribution / Group RRSP (% of salary)',pm) + '</select>')
+        + '</div>'
+        + '<div id="'+P+'db-panel" style="display:'+(pm==='db'?'grid':'none')+';grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">'
+        + '<div style="grid-column:1/-1;font-size:11px;color:var(--muted);font-weight:700">🏛️ Defined Benefit — pension pays a % of salary × years of service</div>'
+        + _rf('Accrual Rate (% per year)', '<input type="number" id="'+P+'pension-pct" value="'+(d.pensionPct||2)+'" min="0" max="5" step="0.1"><div style="font-size:10px;color:var(--muted);margin-top:2px">Typically 1.5–2% per year of service</div>')
+        + _rf('Projected Service Years at Retirement', '<input type="number" id="'+P+'pension-years" value="'+(d.pensionYears||'')+'" min="0" max="45">')
+        + '</div>'
+        + '<div id="'+P+'dc-panel" style="display:'+(pm==='dc'?'grid':'none')+';grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">'
+        + '<div style="grid-column:1/-1;font-size:11px;color:var(--muted);font-weight:700">💼 Defined Contribution — you and your employer both contribute % of salary each paycheque</div>'
+        + _rf('Your Contribution (% of salary)', '<input type="number" id="'+P+'emp-pct" value="'+(d.empPct||'')+'" min="0" max="20" step="0.5" oninput="retUpdateDcPreview(\''+m.id+'\')">')
+        + _rf('Employer Match (% of salary)', '<input type="number" id="'+P+'match-pct" value="'+(d.matchPct||'')+'" min="0" max="20" step="0.5" oninput="retUpdateDcPreview(\''+m.id+'\')">')
+        + '<div id="'+P+'dc-preview" style="grid-column:1/-1;font-size:12px;color:var(--green);font-weight:700;padding:6px 8px;background:color-mix(in srgb,var(--green) 8%,var(--card));border-radius:6px"></div>'
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
+        + _rf('Current RRSP Balance ($)', '<div style="display:flex;gap:6px;align-items:center"><input type="number" id="'+P+'rrsp" value="'+(d.rrsp||'')+'" min="0" step="500" style="flex:1"><select id="'+P+'rrsp-acct" style="flex:1;font-size:12px" title="Link to account for live balance">'+acctOpts(d.rrspAcct||'',rrspAccts)+'</select></div>')
+        + _rf('Extra Monthly RRSP ($)', '<input type="number" id="'+P+'rrsp-monthly" value="'+(d.extraRrsp||'')+'" min="0" step="50"><div style="font-size:10px;color:var(--muted);margin-top:2px">On top of any pension contributions</div>')
+        + _rf('Current TFSA Balance ($)', '<div style="display:flex;gap:6px;align-items:center"><input type="number" id="'+P+'tfsa" value="'+(d.tfsa||'')+'" min="0" step="500" style="flex:1"><select id="'+P+'tfsa-acct" style="flex:1;font-size:12px" title="Link to account for live balance">'+acctOpts(d.tfsaAcct||'',tfsaAccts)+'</select></div>')
+        + _rf('Monthly TFSA Contribution ($)', '<input type="number" id="'+P+'tfsa-monthly" value="'+(d.tfsaMonthly||'')+'" min="0" step="50">')
+        + _rf('Est. CPP at 65 ($/mo)', '<input type="number" id="'+P+'cpp" value="'+(d.cpp||'')+'" min="0" step="50"><div style="font-size:10px;color:var(--muted);margin-top:2px">Check My Service Canada Account</div>')
+        + '</div>';
+      }).join('');
+    }
+  }
 
-  document.getElementById('ret-matt-age').value           = rd.mattAge          || '';
-  document.getElementById('ret-matt-retire-age').value    = rd.mattRetireAge    || 60;
-  document.getElementById('ret-matt-salary').value        = rd.mattSalary       || '';
-  document.getElementById('ret-matt-pension-mode').value  = rd.mattPensionMode  || 'db';
-  document.getElementById('ret-matt-pension-pct').value   = rd.mattPensionPct   || 2;
-  document.getElementById('ret-matt-pension-years').value = rd.mattPensionYears || '';
-  document.getElementById('ret-matt-emp-pct').value       = rd.mattEmpPct       || '';
-  document.getElementById('ret-matt-match-pct').value     = rd.mattMatchPct     || '';
-  document.getElementById('ret-matt-rrsp').value          = rd.mattRrsp         || '';
-  document.getElementById('ret-matt-rrsp-monthly').value  = rd.mattExtraRrsp    || '';
-  document.getElementById('ret-matt-tfsa').value          = rd.mattTfsa         || '';
-  document.getElementById('ret-matt-tfsa-monthly').value  = rd.mattTfsaMonthly  || '';
-  document.getElementById('ret-cpp-matt').value           = rd.cppMatt          || 900;
+  document.getElementById('ret-growth-rate').value    = rd.growthRate    || 5;
+  document.getElementById('ret-inflation-rate').value = rd.inflationRate || 2.5;
 
-  document.getElementById('ret-holly-age').value           = rd.hollyAge          || '';
-  document.getElementById('ret-holly-retire-age').value    = rd.hollyRetireAge    || 60;
-  document.getElementById('ret-holly-income').value        = rd.hollyIncome       || '';
-  document.getElementById('ret-holly-pension-mode').value  = rd.hollyPensionMode  || 'none';
-  document.getElementById('ret-holly-pension-pct').value   = rd.hollyPensionPct   || 2;
-  document.getElementById('ret-holly-pension-years').value = rd.hollyPensionYears || '';
-  document.getElementById('ret-holly-emp-pct').value       = rd.hollyEmpPct       || '';
-  document.getElementById('ret-holly-match-pct').value     = rd.hollyMatchPct     || '';
-  document.getElementById('ret-holly-rrsp').value          = rd.hollyRrsp         || '';
-  document.getElementById('ret-holly-rrsp-monthly').value  = rd.hollyExtraRrsp    || '';
-  document.getElementById('ret-holly-tfsa').value          = rd.hollyTfsa         || '';
-  document.getElementById('ret-holly-tfsa-monthly').value  = rd.hollyTfsaMonthly  || '';
-  document.getElementById('ret-cpp-holly').value           = rd.cppHolly          || 600;
-
-  document.getElementById('ret-growth-rate').value        = rd.growthRate       || 5;
-  document.getElementById('ret-inflation-rate').value     = rd.inflationRate    || 2.5;
-
-  retUpdatePensionMode('matt');
-  retUpdatePensionMode('holly');
+  members.forEach(function(m){ retUpdateDcPreview(m.id); });
   openModal('ret-input-modal');
 }
 
-function retUpdatePensionMode(who) {
-  var modeEl = document.getElementById('ret-' + who + '-pension-mode');
+function retUpdatePensionMode(id) {
+  var modeEl = document.getElementById('ret-m-' + id + '-pension-mode');
   if (!modeEl) return;
   var mode = modeEl.value;
-  var dbPanel = document.getElementById('ret-' + who + '-db-panel');
-  var dcPanel = document.getElementById('ret-' + who + '-dc-panel');
-  if (dbPanel) dbPanel.style.display = (mode === 'db')   ? '' : 'none';
-  if (dcPanel) dcPanel.style.display = (mode === 'dc')   ? '' : 'none';
-  retUpdateDcPreview(who);
+  var dbPanel = document.getElementById('ret-m-' + id + '-db-panel');
+  var dcPanel = document.getElementById('ret-m-' + id + '-dc-panel');
+  if (dbPanel) dbPanel.style.display = (mode === 'db') ? 'grid' : 'none';
+  if (dcPanel) dcPanel.style.display = (mode === 'dc') ? 'grid' : 'none';
+  retUpdateDcPreview(id);
 }
 
-function retUpdateDcPreview(who) {
-  var preview = document.getElementById('ret-' + who + '-dc-preview');
+function retUpdateDcPreview(id) {
+  var preview = document.getElementById('ret-m-' + id + '-dc-preview');
   if (!preview) return;
-  var salary  = parseFloat((document.getElementById('ret-' + who + (who==='matt'?'-salary':'-income')) || {}).value) || 0;
-  var empPct  = parseFloat((document.getElementById('ret-' + who + '-emp-pct')   || {}).value) || 0;
-  var matchPct= parseFloat((document.getElementById('ret-' + who + '-match-pct') || {}).value) || 0;
+  var salary  = parseFloat((document.getElementById('ret-m-' + id + '-salary')   || {}).value) || 0;
+  var empPct  = parseFloat((document.getElementById('ret-m-' + id + '-emp-pct')   || {}).value) || 0;
+  var matchPct= parseFloat((document.getElementById('ret-m-' + id + '-match-pct') || {}).value) || 0;
   var total   = empPct + matchPct;
   var monthly = salary > 0 ? Math.round(salary * total / 100 / 12) : 0;
   preview.textContent = salary > 0
@@ -1182,70 +1297,46 @@ function retUpdateDcPreview(who) {
 }
 
 function saveRetirementModal() {
+  var rd = getRetInputs();
   function linkedBal(selId, manualId) {
     var sel = document.getElementById(selId);
     var acctId = sel ? sel.value : '';
     if (acctId) { var bal = getAccountBalance(acctId); if (bal !== null) return bal; }
-    return parseFloat(document.getElementById(manualId).value)||0;
+    return parseFloat((document.getElementById(manualId)||{}).value) || 0;
   }
-  var mattRrspAcct  = (document.getElementById('ret-matt-rrsp-acct') ||{}).value || '';
-  var mattTfsaAcct  = (document.getElementById('ret-matt-tfsa-acct') ||{}).value || '';
-  var hollyRrspAcct = (document.getElementById('ret-holly-rrsp-acct')||{}).value || '';
-  var hollyTfsaAcct = (document.getElementById('ret-holly-tfsa-acct')||{}).value || '';
-
-  var mattPensionMode  = document.getElementById('ret-matt-pension-mode')  ? document.getElementById('ret-matt-pension-mode').value  : 'db';
-  var hollyPensionMode = document.getElementById('ret-holly-pension-mode') ? document.getElementById('ret-holly-pension-mode').value : 'none';
-  var mattSalary  = parseFloat(document.getElementById('ret-matt-salary').value)  || 0;
-  var hollyIncome = parseFloat(document.getElementById('ret-holly-income').value) || 0;
-
-  var mattEmpPct    = parseFloat(document.getElementById('ret-matt-emp-pct').value)    || 0;
-  var mattMatchPct  = parseFloat(document.getElementById('ret-matt-match-pct').value)  || 0;
-  var mattDcMonthly = mattPensionMode === 'dc' ? Math.round(mattSalary * (mattEmpPct + mattMatchPct) / 100 / 12) : 0;
-  var mattExtraRrsp = parseFloat(document.getElementById('ret-matt-rrsp-monthly').value) || 0;
-  var mattRrspMonthly = mattPensionMode === 'dc' ? mattDcMonthly + mattExtraRrsp : mattExtraRrsp;
-
-  var hollyEmpPct    = parseFloat(document.getElementById('ret-holly-emp-pct').value)    || 0;
-  var hollyMatchPct  = parseFloat(document.getElementById('ret-holly-match-pct').value)  || 0;
-  var hollyDcMonthly = hollyPensionMode === 'dc' ? Math.round(hollyIncome * (hollyEmpPct + hollyMatchPct) / 100 / 12) : 0;
-  var hollyExtraRrsp = parseFloat(document.getElementById('ret-holly-rrsp-monthly').value) || 0;
-  var hollyRrspMonthly = hollyPensionMode === 'dc' ? hollyDcMonthly + hollyExtraRrsp : hollyExtraRrsp;
-
-  saveRetInputs({
-    mattRrspAcct:mattRrspAcct, mattTfsaAcct:mattTfsaAcct,
-    hollyRrspAcct:hollyRrspAcct, hollyTfsaAcct:hollyTfsaAcct,
-    mattAge:          parseInt(document.getElementById('ret-matt-age').value)          || 0,
-    mattRetireAge:    parseInt(document.getElementById('ret-matt-retire-age').value)   || 60,
-    mattSalary:       mattSalary,
-    mattPensionMode:  mattPensionMode,
-    mattPensionPct:   parseFloat(document.getElementById('ret-matt-pension-pct').value)|| 2,
-    mattPensionYears: parseInt(document.getElementById('ret-matt-pension-years').value)|| 0,
-    mattEmpPct:       mattEmpPct,
-    mattMatchPct:     mattMatchPct,
-    mattDcMonthly:    mattDcMonthly,
-    mattExtraRrsp:    mattExtraRrsp,
-    mattRrsp:         linkedBal('ret-matt-rrsp-acct','ret-matt-rrsp'),
-    mattTfsa:         linkedBal('ret-matt-tfsa-acct','ret-matt-tfsa'),
-    mattRrspMonthly:  mattRrspMonthly,
-    mattTfsaMonthly:  parseFloat(document.getElementById('ret-matt-tfsa-monthly').value)||0,
-    hollyAge:         parseInt(document.getElementById('ret-holly-age').value)         || 0,
-    hollyRetireAge:   parseInt(document.getElementById('ret-holly-retire-age').value)  || 60,
-    hollyIncome:      hollyIncome,
-    hollyPensionMode: hollyPensionMode,
-    hollyPensionPct:  parseFloat(document.getElementById('ret-holly-pension-pct').value)|| 2,
-    hollyPensionYears:parseInt(document.getElementById('ret-holly-pension-years').value)|| 0,
-    hollyEmpPct:      hollyEmpPct,
-    hollyMatchPct:    hollyMatchPct,
-    hollyDcMonthly:   hollyDcMonthly,
-    hollyExtraRrsp:   hollyExtraRrsp,
-    hollyRrsp:        linkedBal('ret-holly-rrsp-acct','ret-holly-rrsp'),
-    hollyTfsa:        linkedBal('ret-holly-tfsa-acct','ret-holly-tfsa'),
-    hollyRrspMonthly: hollyRrspMonthly,
-    hollyTfsaMonthly: parseFloat(document.getElementById('ret-holly-tfsa-monthly').value)||0,
-    growthRate:       parseFloat(document.getElementById('ret-growth-rate').value)     || 5,
-    inflationRate:    parseFloat(document.getElementById('ret-inflation-rate').value)  || 2.5,
-    cppMatt:          parseFloat(document.getElementById('ret-cpp-matt').value)        || 900,
-    cppHolly:         parseFloat(document.getElementById('ret-cpp-holly').value)       || 600,
+  getHHMembers().forEach(function(m){
+    var P = 'ret-m-' + m.id + '-';
+    function v(s){ var e = document.getElementById(P + s); return e ? e.value : ''; }
+    var pm = v('pension-mode') || 'none';
+    var salary = parseFloat(v('salary')) || 0;
+    var empPct = parseFloat(v('emp-pct')) || 0;
+    var matchPct = parseFloat(v('match-pct')) || 0;
+    var dcMonthly = pm === 'dc' ? Math.round(salary * (empPct + matchPct) / 100 / 12) : 0;
+    var extraRrsp = parseFloat(v('rrsp-monthly')) || 0;
+    var rrspMonthly = pm === 'dc' ? dcMonthly + extraRrsp : extraRrsp;
+    rd.members[m.id] = {
+      age:         parseInt(v('age')) || 0,
+      retireAge:   parseInt(v('retire-age')) || 60,
+      salary:      salary,
+      pensionMode: pm,
+      pensionPct:  parseFloat(v('pension-pct')) || 2,
+      pensionYears:parseInt(v('pension-years')) || 0,
+      empPct:      empPct,
+      matchPct:    matchPct,
+      dcMonthly:   dcMonthly,
+      extraRrsp:   extraRrsp,
+      rrsp:        linkedBal(P+'rrsp-acct', P+'rrsp'),
+      rrspAcct:    (document.getElementById(P+'rrsp-acct')||{}).value || '',
+      tfsa:        linkedBal(P+'tfsa-acct', P+'tfsa'),
+      tfsaAcct:    (document.getElementById(P+'tfsa-acct')||{}).value || '',
+      tfsaMonthly: parseFloat(v('tfsa-monthly')) || 0,
+      rrspMonthly: rrspMonthly,
+      cpp:         parseFloat(v('cpp')) || 0
+    };
   });
+  rd.growthRate    = parseFloat(document.getElementById('ret-growth-rate').value)    || 5;
+  rd.inflationRate = parseFloat(document.getElementById('ret-inflation-rate').value) || 2.5;
+  saveState();
   closeModal('ret-input-modal');
   renderRetirement();
   hhToast('Retirement inputs saved!', 'success');
@@ -1274,164 +1365,52 @@ function oasAtAge(takeupAge) {
 
 function renderRetirement() {
   var rd = getRetInputs();
-  var hasData = rd.mattAge && rd.mattRetireAge;
+  var members = getHHMembers();
+  var now = new Date().getFullYear();
+  var hasData = members.some(function(m){ var d = rd.members[m.id]||{}; return d.age && d.retireAge; });
 
   var summaryBar = document.getElementById('ret-summary-bar');
+  var grid = document.getElementById('ret-members-grid');
   if (!hasData) {
     if (summaryBar) summaryBar.innerHTML = '<div class="card" style="text-align:center;padding:32px 24px">'
       + '<div style="font-size:40px;margin-bottom:12px">📊</div>'
       + '<div style="font-size:16px;font-weight:700;margin-bottom:6px">Set up your retirement projection</div>'
-      + '<div style="font-size:13px;color:var(--muted);margin-bottom:18px">Enter your ages, income, pension details, and savings — and see your projected retirement income.</div>'
+      + '<div style="font-size:13px;color:var(--muted);margin-bottom:18px">Enter ages, income, pension details, and savings — and see your projected retirement income.</div>'
       + '<button class="btn btn-primary" onclick="openRetirementInputModal()">✏️ Enter Retirement Inputs</button></div>';
-    ['ret-matt-card','ret-holly-card','ret-income-card','ret-chart-card','ret-tips-card'].forEach(function(id){
-      var el = document.getElementById(id); if (el) el.innerHTML = '';
-    });
+    if (grid) grid.innerHTML = '';
+    ['ret-income-card','ret-chart-card','ret-tips-card'].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML=''; });
     return;
   }
 
-  var gr    = (rd.growthRate    || 5);
-  var infR  = (rd.inflationRate || 2.5);
-  var now   = new Date().getFullYear();
+  var gr   = rd.growthRate    || 5;
+  var infR = rd.inflationRate || 2.5;
 
-  var mattYearsToRetire = Math.max(0, (rd.mattRetireAge||60) - (rd.mattAge||35));
-  var mattRetireYear    = now + mattYearsToRetire;
-  var mattPensionMode   = rd.mattPensionMode || 'db';
-  var mattM = (state.members||[]).find(function(m){ return !m.hasTips && (m.incomeType==='salary'||m.hasPension); }) || (state.members||[])[0];
-  var mattCareerFinalSalary = mattM ? getCareerFinalSalary(mattM.id) : 0;
-  var mattEffectiveSalary   = mattCareerFinalSalary > 0 ? mattCareerFinalSalary : (rd.mattSalary||0);
-  var mattPensionIncome = mattPensionMode === 'db'
-    ? Math.round((rd.mattPensionPct||2)/100 * (rd.mattPensionYears||0) * mattEffectiveSalary)
-    : 0;
-  var mattEmpMonthly   = mattPensionMode === 'dc' ? Math.round(mattEffectiveSalary * (rd.mattEmpPct||0)   / 100 / 12) : 0;
-  var mattMatchMonthly = mattPensionMode === 'dc' ? Math.round(mattEffectiveSalary * (rd.mattMatchPct||0) / 100 / 12) : 0;
-  var mattRrspFV  = projectFV(rd.mattRrsp||0, rd.mattRrspMonthly||0, gr, mattYearsToRetire);
-  var mattTfsaFV  = projectFV(rd.mattTfsa||0, rd.mattTfsaMonthly||0, gr, mattYearsToRetire);
-  var mattCppMo   = estimateCPP(rd.cppMatt||900, Math.min(70, Math.max(60, rd.mattRetireAge||65)));
-  var mattOasMo   = oasAtAge(Math.min(70, Math.max(65, rd.mattRetireAge||65)));
-  var mattRrspMonthlyDraw = mattRrspFV > 0 ? Math.round(mattRrspFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
-  var mattTfsaMonthlyDraw = mattTfsaFV > 0 ? Math.round(mattTfsaFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
-  var mattTotalMonthly = Math.round(mattPensionIncome/12) + mattCppMo + mattOasMo + mattRrspMonthlyDraw + mattTfsaMonthlyDraw;
+  var calcs = members.map(function(m, i){ return _retCalcMember(m, rd, gr, i); });
+  var active = calcs.filter(function(c){ return (c.d.age && c.d.retireAge); });
 
-  var hollyYearsToRetire = Math.max(0, (rd.hollyRetireAge||60) - (rd.hollyAge||33));
-  var hollyRetireYear    = now + hollyYearsToRetire;
-  var hollyPensionMode   = rd.hollyPensionMode || 'none';
-  var hollyM = (state.members||[]).find(function(m){ return m.hasTips; }) || (state.members||[])[1];
-  var hollyCareerFinalSalary = hollyM ? getCareerFinalSalary(hollyM.id) : 0;
-  var hollyEffectiveSalary   = hollyCareerFinalSalary > 0 ? hollyCareerFinalSalary : (rd.hollyIncome||0);
-  var hollyPensionIncome = hollyPensionMode === 'db'
-    ? Math.round((rd.hollyPensionPct||2)/100 * (rd.hollyPensionYears||0) * hollyEffectiveSalary)
-    : 0;
-  var hollyEmpMonthly   = hollyPensionMode === 'dc' ? Math.round(hollyEffectiveSalary * (rd.hollyEmpPct||0)   / 100 / 12) : 0;
-  var hollyMatchMonthly = hollyPensionMode === 'dc' ? Math.round(hollyEffectiveSalary * (rd.hollyMatchPct||0) / 100 / 12) : 0;
-  var hollyRrspFV  = projectFV(rd.hollyRrsp||0, rd.hollyRrspMonthly||0, gr, hollyYearsToRetire);
-  var hollyTfsaFV  = projectFV(rd.hollyTfsa||0, rd.hollyTfsaMonthly||0, gr, hollyYearsToRetire);
-  var hollyCppMo   = estimateCPP(rd.cppHolly||600, Math.min(70, Math.max(60, rd.hollyRetireAge||65)));
-  var hollyOasMo   = oasAtAge(Math.min(70, Math.max(65, rd.hollyRetireAge||65)));
-  var hollyRrspMonthlyDraw = hollyRrspFV > 0 ? Math.round(hollyRrspFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
-  var hollyTfsaMonthlyDraw = hollyTfsaFV > 0 ? Math.round(hollyTfsaFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
-  var hollyTotalMonthly = Math.round(hollyPensionIncome/12) + hollyCppMo + hollyOasMo + hollyRrspMonthlyDraw + hollyTfsaMonthlyDraw;
-
-  var householdMonthly = mattTotalMonthly + hollyTotalMonthly;
+  var householdMonthly  = active.reduce(function(s,c){ return s + c.totalMonthly; }, 0);
+  var portfolioAtRetire = active.reduce(function(s,c){ return s + c.rrspFV + c.tfsaFV; }, 0);
 
   if (summaryBar) {
     summaryBar.innerHTML = '<div class="card" style="padding:14px 18px">'
       + '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">'
       + '<div><div style="font-size:22px;font-weight:900;color:var(--green)">' + fmt(householdMonthly) + '/mo</div><div style="font-size:11px;color:var(--muted)">Projected Household Retirement Income</div></div>'
-      + '<div><div style="font-size:22px;font-weight:900;color:var(--accent)">' + fmt(mattRrspFV + mattTfsaFV + hollyRrspFV + hollyTfsaFV) + '</div><div style="font-size:11px;color:var(--muted)">Projected Portfolio at Retirement</div></div>'
-      + '<div><div style="font-size:18px;font-weight:800;color:var(--text)">' + mattRetireYear + '</div><div style="font-size:11px;color:var(--muted)">Matt retires (age ' + (rd.mattRetireAge||60) + ')</div></div>'
-      + '<div><div style="font-size:18px;font-weight:800;color:var(--text)">' + hollyRetireYear + '</div><div style="font-size:11px;color:var(--muted)">Holly retires (age ' + (rd.hollyRetireAge||60) + ')</div></div>'
+      + '<div><div style="font-size:22px;font-weight:900;color:var(--accent)">' + fmt(portfolioAtRetire) + '</div><div style="font-size:11px;color:var(--muted)">Projected Portfolio at Retirement</div></div>'
+      + active.map(function(c){ return '<div><div style="font-size:18px;font-weight:800;color:var(--text)">' + c.retireYear + '</div><div style="font-size:11px;color:var(--muted)">' + _hhEsc(c.m.name||'Member') + ' retires (age ' + c.retireAge + ')</div></div>'; }).join('')
       + '</div></div>';
   }
 
-  var mattCard = document.getElementById('ret-matt-card');
-  if (mattCard) {
-    var mattPensionRow = mattPensionMode === 'db'
-      ? _tstat((rd.mattPensionYears||0) + ' yrs @ ' + (rd.mattPensionPct||2) + '%', 'DB Pension Formula')
-        + _tstat(fmt(mattPensionIncome) + '/yr', 'Projected Pension Income', 'var(--accent)')
-      : _tstat((rd.mattEmpPct||0) + '% + ' + (rd.mattMatchPct||0) + '% match', 'DC Pension Contributions')
-        + _tstat(fmt(rd.mattRrspMonthly||0) + '/mo', 'Total Pension → RRSP/mo', 'var(--accent)');
-    var mattCareerNote = (mattCareerFinalSalary > 0 && mattCareerFinalSalary !== (rd.mattSalary||0))
-      ? '<div style="font-size:11px;color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:6px;padding:5px 8px;margin-bottom:8px">💼 Pension formula uses projected final salary of <strong>' + fmt(mattCareerFinalSalary) + '</strong> from Career Planner — higher than current salary of ' + fmt(rd.mattSalary||0) + '</div>'
-      : '';
-    mattCard.innerHTML = '<div class="card" style="height:100%">'
-      + '<div class="card-title">👔 Matt — Retirement at ' + (rd.mattRetireAge||60) + ' (' + mattRetireYear + ')</div>'
-      + mattCareerNote
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-      + _tstat((rd.mattAge||'?') + ' yrs',    'Current Age')
-      + _tstat(mattYearsToRetire + ' yrs',    'Years to Retire')
-      + _tstat(fmt(mattEffectiveSalary||0),   mattCareerFinalSalary > 0 ? 'Final Salary (Career Projected)' : 'Current Salary')
-      + mattPensionRow
-      + _tstat(fmt(mattRrspFV),                'RRSP at Retirement', 'var(--green)')
-      + _tstat(fmt(mattTfsaFV),                'TFSA at Retirement', 'var(--green)')
-      + _tstat(fmt(mattCppMo) + '/mo',         'CPP Est. at ' + (rd.mattRetireAge||65))
-      + '</div>'
-      + '<div style="background:color-mix(in srgb,var(--green) 10%,transparent);border-radius:8px;padding:10px 12px">'
-      + '<div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px">Monthly Retirement Income Breakdown</div>'
-      + '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'
-      + (mattPensionMode === 'db' ? _retRow('🏛️ Pension', fmt(Math.round(mattPensionIncome/12)) + '/mo') : '')
-      + (mattPensionMode === 'dc'
-          ? _retRow('💼 Your contributions (' + (rd.mattEmpPct||0) + '%)', fmt(mattEmpMonthly) + '/mo')
-            + _retRow('🤝 Employer match (' + (rd.mattMatchPct||0) + '%)', fmt(mattMatchMonthly) + '/mo')
-          : '')
-      + _retRow('🏦 CPP',            fmt(mattCppMo) + '/mo')
-      + _retRow('🇨🇦 OAS',           fmt(mattOasMo) + '/mo')
-      + _retRow('📈 RRSP drawdown',  fmt(mattRrspMonthlyDraw) + '/mo')
-      + _retRow('💰 TFSA drawdown',  fmt(mattTfsaMonthlyDraw) + '/mo')
-      + '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:900">'
-      + '<span>Total</span><span style="color:var(--green);font-size:16px">' + fmt(mattTotalMonthly) + '/mo</span></div>'
-      + '</div></div></div>';
-  }
-
-  var hollyCard = document.getElementById('ret-holly-card');
-  if (hollyCard) {
-    var hollyPensionRow = hollyPensionMode === 'db'
-      ? _tstat((rd.hollyPensionYears||0) + ' yrs @ ' + (rd.hollyPensionPct||2) + '%', 'DB Pension Formula')
-        + _tstat(fmt(hollyPensionIncome) + '/yr', 'Projected Pension Income', 'var(--accent)')
-      : hollyPensionMode === 'dc'
-        ? _tstat((rd.hollyEmpPct||0) + '% + ' + (rd.hollyMatchPct||0) + '% match', 'DC Pension Contributions')
-          + _tstat(fmt(rd.hollyRrspMonthly||0) + '/mo', 'Total Pension → RRSP/mo', 'var(--accent)')
-        : '';
-    hollyCard.innerHTML = '<div class="card" style="height:100%">'
-      + '<div class="card-title">💅 Holly — Retirement at ' + (rd.hollyRetireAge||60) + ' (' + hollyRetireYear + ')</div>'
-      + (hollyCareerFinalSalary > 0 && hollyCareerFinalSalary !== (rd.hollyIncome||0)
-          ? '<div style="font-size:11px;color:var(--member2);background:color-mix(in srgb,var(--member2) 8%,transparent);border-radius:6px;padding:5px 8px;margin-bottom:8px">💼 Using projected income of <strong>' + fmt(hollyCareerFinalSalary) + '</strong> from Career Planner</div>'
-          : '')
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-      + _tstat((rd.hollyAge||'?') + ' yrs',   'Current Age')
-      + _tstat(hollyYearsToRetire + ' yrs',   'Years to Retire')
-      + _tstat(fmt(hollyEffectiveSalary||0),  hollyCareerFinalSalary > 0 ? 'Final Income (Career Projected)' : 'Current Income')
-      + hollyPensionRow
-      + _tstat(fmt(hollyRrspFV),               'RRSP at Retirement', 'var(--green)')
-      + _tstat(fmt(hollyTfsaFV),               'TFSA at Retirement', 'var(--green)')
-      + _tstat(fmt(hollyCppMo) + '/mo',        'CPP Est. at ' + (rd.hollyRetireAge||65))
-      + '</div>'
-      + '<div style="background:color-mix(in srgb,var(--green) 10%,transparent);border-radius:8px;padding:10px 12px">'
-      + '<div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px">Monthly Retirement Income Breakdown</div>'
-      + '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'
-      + (hollyPensionMode === 'db' ? _retRow('🏛️ Pension', fmt(Math.round(hollyPensionIncome/12)) + '/mo') : '')
-      + (hollyPensionMode === 'dc'
-          ? _retRow('💼 Your contributions (' + (rd.hollyEmpPct||0) + '%)', fmt(hollyEmpMonthly) + '/mo')
-            + _retRow('🤝 Employer match (' + (rd.hollyMatchPct||0) + '%)', fmt(hollyMatchMonthly) + '/mo')
-          : '')
-      + _retRow('🏦 CPP',           fmt(hollyCppMo) + '/mo')
-      + _retRow('🇨🇦 OAS',          fmt(hollyOasMo) + '/mo')
-      + _retRow('📈 RRSP drawdown', fmt(hollyRrspMonthlyDraw) + '/mo')
-      + _retRow('💰 TFSA drawdown', fmt(hollyTfsaMonthlyDraw) + '/mo')
-      + '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:900">'
-      + '<span>Total</span><span style="color:var(--green);font-size:16px">' + fmt(hollyTotalMonthly) + '/mo</span></div>'
-      + '</div></div></div>';
-  }
+  if (grid) grid.innerHTML = active.map(_retCard).join('');
 
   var incCard = document.getElementById('ret-income-card');
   if (incCard) {
-    var currentIncome = (mattEffectiveSalary||rd.mattSalary||0) + (hollyEffectiveSalary||rd.hollyIncome||0);
+    var currentIncome = active.reduce(function(s,c){ return s + (c.effSalary||0); }, 0);
     var replacementPct = currentIncome > 0 ? Math.round(householdMonthly / (currentIncome/12) * 100) : 0;
     var replColor = replacementPct >= 80 ? 'var(--green)' : replacementPct >= 60 ? 'var(--yellow)' : 'var(--red)';
     incCard.innerHTML = '<div class="card">'
       + '<div class="card-title">🏠 Combined Household Retirement Income</div>'
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">'
-      + _tstat(fmt(mattTotalMonthly) + '/mo',   'Matt\'s Income')
-      + _tstat(fmt(hollyTotalMonthly) + '/mo',  'Holly\'s Income')
+      + active.map(function(c){ return _tstat(fmt(c.totalMonthly) + '/mo', _hhEsc(c.m.name||'Member') + '’s Income'); }).join('')
       + _tstat(fmt(householdMonthly) + '/mo',   'Combined Monthly', 'var(--green)')
       + _tstat(fmt(householdMonthly*12) + '/yr','Combined Annual', 'var(--green)')
       + _tstat(replacementPct + '%',            'Income Replacement', replColor)
@@ -1449,15 +1428,20 @@ function renderRetirement() {
 
   var chartCard = document.getElementById('ret-chart-card');
   if (chartCard) {
-    var maxYears = Math.max(mattYearsToRetire, hollyYearsToRetire, 1);
-    var labels = [], mattVals = [], hollyVals = [], combinedVals = [];
-    for (var y = 0; y <= maxYears; y += Math.max(1, Math.floor(maxYears/10))) {
-      labels.push(now + y);
-      var mv = projectFV(rd.mattRrsp||0, rd.mattRrspMonthly||0, gr, y) + projectFV(rd.mattTfsa||0, rd.mattTfsaMonthly||0, gr, y);
-      var hv = projectFV(rd.hollyRrsp||0, rd.hollyRrspMonthly||0, gr, y) + projectFV(rd.hollyTfsa||0, rd.hollyTfsaMonthly||0, gr, y);
-      mattVals.push(Math.round(mv));
-      hollyVals.push(Math.round(hv));
-      combinedVals.push(Math.round(mv + hv));
+    var maxYears = Math.max.apply(null, active.map(function(c){ return c.yearsToRetire; }).concat([1]));
+    var step = Math.max(1, Math.floor(maxYears/10));
+    var labels = [];
+    var memberSeries = active.map(function(){ return []; });
+    var combinedVals = [];
+    for (var yy = 0; yy <= maxYears; yy += step) {
+      labels.push(now + yy);
+      var combined = 0;
+      active.forEach(function(c, idx){
+        var v = projectFV(c.d.rrsp||0, c.d.rrspMonthly||0, gr, yy) + projectFV(c.d.tfsa||0, c.d.tfsaMonthly||0, gr, yy);
+        memberSeries[idx].push(Math.round(v));
+        combined += v;
+      });
+      combinedVals.push(Math.round(combined));
     }
     chartCard.innerHTML = '<div class="card">'
       + '<div class="card-title">📈 Portfolio Growth Projection (RRSP + TFSA)</div>'
@@ -1467,16 +1451,14 @@ function renderRetirement() {
       var ctx = document.getElementById('ret-growth-chart');
       if (!ctx) return;
       if (ctx._retChart) ctx._retChart.destroy();
+      var datasets = active.map(function(c, idx){
+        var col = _resolveColor(c.m.color, idx);
+        return { label: c.m.name || ('Member ' + (idx+1)), data: memberSeries[idx], borderColor: col, backgroundColor: col + '14', tension: 0.3, fill: false };
+      });
+      datasets.push({ label: 'Combined', data: combinedVals, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.3, fill: true });
       ctx._retChart = new Chart(ctx, {
         type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Matt', data: mattVals,     borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.08)', tension: 0.3, fill: false },
-            { label: 'Holly', data: hollyVals,   borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.08)', tension: 0.3, fill: false },
-            { label: 'Combined', data: combinedVals, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.3, fill: true },
-          ]
-        },
+        data: { labels: labels, datasets: datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: function(c){ return c.dataset.label+': $'+c.raw.toLocaleString(); } } } },
@@ -1491,14 +1473,82 @@ function renderRetirement() {
     tipsCard.innerHTML = '<div class="card">'
       + '<div class="card-title">💡 Ontario Retirement Planning Tips</div>'
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">'
-      + _deadline('RRSP vs TFSA', 'RRSP is best while income is high (Matt now) — deduction reduces taxable income. TFSA is better once retired — withdrawals are tax-free and don\'t affect OAS/GIS clawbacks.')
+      + _deadline('RRSP vs TFSA', 'RRSP is best while working income is high — the deduction reduces taxable income. TFSA is better once retired — withdrawals are tax-free and don’t affect OAS/GIS clawbacks.')
       + _deadline('CPP Timing', 'Taking CPP early (60) means 36% less. Waiting to 70 means 42% more than at 65. If healthy, deferring pays off after ~12 years.')
       + _deadline('OAS Clawback', 'OAS is clawed back at 15 cents per dollar above ~$90,997 (2024). Keep registered income streams planned to stay below the threshold.')
-      + _deadline('DB Pension Value', 'Matt\'s defined benefit pension is gold — it\'s a guaranteed, inflation-indexed income stream. Factor in the bridge benefit (if any) that stops at 65 when CPP starts.')
+      + _deadline('DB Pension Value', 'A defined benefit pension is gold — a guaranteed, often inflation-indexed income stream. Factor in any bridge benefit that stops at 65 when CPP starts.')
       + _deadline('Pension Splitting', 'In retirement, eligible pension income (including RRIF) can be split with a spouse for tax purposes — potentially moving income to a lower bracket.')
-      + _deadline('Ontario OAS Supplement', 'Low-income retirees may qualify for the Guaranteed Income Supplement (GIS). Holly\'s income from tips should be factored into eligibility calculations.')
+      + _deadline('Guaranteed Income Supplement', 'Low-income retirees may qualify for the GIS. Variable income such as tips should be factored into eligibility calculations.')
       + '</div></div>';
   }
+}
+
+// Computes all retirement projection figures for one household member.
+function _retCalcMember(m, rd, gr, idx) {
+  var d = rd.members[m.id] || {};
+  var now = new Date().getFullYear();
+  var age = d.age || 0;
+  var retireAge = d.retireAge || 60;
+  var yearsToRetire = Math.max(0, retireAge - (age || 35));
+  var retireYear = now + yearsToRetire;
+  var pm = d.pensionMode || 'none';
+  var careerFinal = (typeof getCareerFinalSalary === 'function') ? getCareerFinalSalary(m.id) : 0;
+  var effSalary = careerFinal > 0 ? careerFinal : (d.salary || 0);
+  var pensionIncome = pm === 'db' ? Math.round((d.pensionPct||2)/100 * (d.pensionYears||0) * effSalary) : 0;
+  var empMonthly   = pm === 'dc' ? Math.round(effSalary * (d.empPct||0)   / 100 / 12) : 0;
+  var matchMonthly = pm === 'dc' ? Math.round(effSalary * (d.matchPct||0) / 100 / 12) : 0;
+  var rrspFV = projectFV(d.rrsp||0, d.rrspMonthly||0, gr, yearsToRetire);
+  var tfsaFV = projectFV(d.tfsa||0, d.tfsaMonthly||0, gr, yearsToRetire);
+  var cppMo = estimateCPP(d.cpp||0, Math.min(70, Math.max(60, retireAge||65)));
+  var oasMo = oasAtAge(Math.min(70, Math.max(65, retireAge||65)));
+  var rrspDraw = rrspFV > 0 ? Math.round(rrspFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
+  var tfsaDraw = tfsaFV > 0 ? Math.round(tfsaFV * (gr/100/12) / (1 - Math.pow(1+gr/100/12,-300))) : 0;
+  var totalMonthly = Math.round(pensionIncome/12) + cppMo + oasMo + rrspDraw + tfsaDraw;
+  return { m:m, d:d, idx:idx, age:age, retireAge:retireAge, yearsToRetire:yearsToRetire, retireYear:retireYear,
+    pm:pm, careerFinal:careerFinal, effSalary:effSalary, pensionIncome:pensionIncome, empMonthly:empMonthly,
+    matchMonthly:matchMonthly, rrspFV:rrspFV, tfsaFV:tfsaFV, cppMo:cppMo, oasMo:oasMo, rrspDraw:rrspDraw, tfsaDraw:tfsaDraw, totalMonthly:totalMonthly };
+}
+
+// Builds one retirement card from a member calc object.
+function _retCard(c) {
+  var m = c.m, d = c.d, col = m.color || 'var(--accent)', name = _hhEsc(m.name || 'Member');
+  var pensionRow = c.pm === 'db'
+    ? _tstat((d.pensionYears||0) + ' yrs @ ' + (d.pensionPct||2) + '%', 'DB Pension Formula')
+      + _tstat(fmt(c.pensionIncome) + '/yr', 'Projected Pension Income', 'var(--accent)')
+    : c.pm === 'dc'
+      ? _tstat((d.empPct||0) + '% + ' + (d.matchPct||0) + '% match', 'DC Pension Contributions')
+        + _tstat(fmt(d.rrspMonthly||0) + '/mo', 'Total Pension → RRSP/mo', 'var(--accent)')
+      : '';
+  var careerNote = (c.careerFinal > 0 && c.careerFinal !== (d.salary||0))
+    ? '<div style="font-size:11px;color:' + col + ';background:color-mix(in srgb,' + col + ' 8%,transparent);border-radius:6px;padding:5px 8px;margin-bottom:8px">💼 Using projected final income of <strong>' + fmt(c.careerFinal) + '</strong> from Career Planner</div>'
+    : '';
+  return '<div class="card" style="height:100%">'
+    + '<div class="card-title" style="color:' + col + '">' + name + ' — Retirement at ' + c.retireAge + ' (' + c.retireYear + ')</div>'
+    + careerNote
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+    + _tstat((c.age||'?') + ' yrs', 'Current Age')
+    + _tstat(c.yearsToRetire + ' yrs', 'Years to Retire')
+    + _tstat(fmt(c.effSalary||0), c.careerFinal > 0 ? 'Final Income (Career Projected)' : 'Current Income')
+    + pensionRow
+    + _tstat(fmt(c.rrspFV), 'RRSP at Retirement', 'var(--green)')
+    + _tstat(fmt(c.tfsaFV), 'TFSA at Retirement', 'var(--green)')
+    + _tstat(fmt(c.cppMo) + '/mo', 'CPP Est. at ' + c.retireAge)
+    + '</div>'
+    + '<div style="background:color-mix(in srgb,var(--green) 10%,transparent);border-radius:8px;padding:10px 12px">'
+    + '<div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px">Monthly Retirement Income Breakdown</div>'
+    + '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'
+    + (c.pm === 'db' ? _retRow('🏛️ Pension', fmt(Math.round(c.pensionIncome/12)) + '/mo') : '')
+    + (c.pm === 'dc'
+        ? _retRow('💼 Your contributions (' + (d.empPct||0) + '%)', fmt(c.empMonthly) + '/mo')
+          + _retRow('🤝 Employer match (' + (d.matchPct||0) + '%)', fmt(c.matchMonthly) + '/mo')
+        : '')
+    + _retRow('🏦 CPP',            fmt(c.cppMo) + '/mo')
+    + _retRow('🇨🇦 OAS',           fmt(c.oasMo) + '/mo')
+    + _retRow('📈 RRSP drawdown',  fmt(c.rrspDraw) + '/mo')
+    + _retRow('💰 TFSA drawdown',  fmt(c.tfsaDraw) + '/mo')
+    + '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:900">'
+    + '<span>Total</span><span style="color:var(--green);font-size:16px">' + fmt(c.totalMonthly) + '/mo</span></div>'
+    + '</div></div></div>';
 }
 
 function _retRow(label, val) {

@@ -1980,8 +1980,8 @@ var FEATURE_DEFS = [
   { id:'networth', label:'📈 Net Worth Timeline',          desc:'Month-over-month net worth chart, asset & liability breakdown' },
   { id:'carfunds',     label:'🚗 Car Fund Tracker',            desc:'Save toward one or more vehicle goals with projected purchase dates' },
   { id:'maintenance',  label:'🔧 Household Maintenance',       desc:'Track recurring home tasks, get overdue alerts, never miss a furnace filter again' },
-  { id:'tax',          label:'🧾 Tax Prep Helper',             desc:'CRA summary, RRSP planner, Holly\'s tips breakdown, key deadlines — all in one place' },
-  { id:'retirement',   label:'📊 Retirement Projector',        desc:'Project Matt\'s pension + RRSP/TFSA, CPP/OAS estimates, and retirement income timeline' },
+  { id:'tax',          label:'🧾 Tax Prep Helper',             desc:'CRA summary, RRSP planner, tips breakdown, key deadlines — all in one place' },
+  { id:'retirement',   label:'📊 Retirement Projector',        desc:'Project each member\'s pension + RRSP/TFSA, CPP/OAS estimates, and retirement income timeline' },
   { id:'career',       label:'💼 Career Planner',              desc:'Track roles, plan promotions, log training — salary milestones feed the Forecast & Retirement projectors' },
 ];
 
