@@ -57,6 +57,34 @@ After each `edit_block` call: run `node --check <file>` and confirm line count i
 
 ---
 
+## ⚠️ Run Everything Natively on Windows — READ FIRST
+
+**All file, git, build, and shell operations in this project MUST run natively on Windows.** Do not use the Linux sandbox for anything that touches this folder.
+
+**Why:** The Linux sandbox sees this folder as a network mount. It cannot reliably write to the Windows `.git` directory — attempts fail with `Operation not permitted` and **corrupt the git index** (`fatal: index file corrupt`). It also normalises line endings differently, producing spurious diffs. Reads are usually fine; writes are not.
+
+**Rules:**
+- **Git:** Always run `git` through `mcp__Desktop_Commander__start_process` with `cmd /c "cd /d D:\Claude\Home Planner && git ..."`. Never run `git` from the Linux/bash sandbox.
+- **Build & deploy:** Run `python build.py` and `python deploy_github.py` via Desktop Commander on Windows, not bash.
+- **File edits:** Use `mcp__Desktop_Commander__edit_block` (surgical find-and-replace). This is the only safe edit path — it never truncates.
+- **File reads / inspection:** The built-in `Read` tool and Desktop Commander reads are fine. Avoid bash writes.
+
+**If the git index gets corrupted** (from a prior sandbox attempt), repair it natively before committing:
+```
+cmd /c "cd /d D:\Claude\Home Planner && del /f .git\index.lock 2>nul & del /f .git\index 2>nul & git reset"
+```
+This rebuilds the index from HEAD without losing working-tree changes. Then `git add` / `commit` / `push` as normal.
+
+**Deploy / commit flow (native Windows):**
+```
+cmd /c "cd /d D:\Claude\Home Planner && python build.py"
+cmd /c "cd /d D:\Claude\Home Planner && python deploy_github.py"   (updates index.html redirect to latest App_VX_Y.html)
+cmd /c "cd /d D:\Claude\Home Planner && git add -A && git add -f App_VX_Y.html && git commit -m "Deploy Home Hub vX.Y" && git push"
+```
+Note: `App_V*.html` is gitignored, so the build file must be force-added with `git add -f`.
+
+---
+
 ## State & Storage
 
 - Single global `state` object. Persisted as JSON under the key `mh_v5` in localStorage.
