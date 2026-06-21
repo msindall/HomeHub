@@ -227,7 +227,7 @@ async function callClaudeVision(base64, pageNum, totalPages) {
       method: 'POST',
       headers: (function(){ var h={'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-calls':'true'}; var k=getApiKey(); if(k) h['x-api-key']=k; return h; })(),
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4000,
         messages: [{
           role: 'user',
@@ -661,7 +661,7 @@ function populateCatSelect(id, includeGoals) {
   sel.innerHTML=opts;
 }
 function clearGoalForm() {
-  ['goal-name','goal-emoji','goal-target','goal-current','goal-date','goal-link','goal-notes'].forEach(id=>{document.getElementById(id).value='';});
+  ['goal-name','goal-emoji','goal-target','goal-current','goal-date','goal-link','goal-notes','goal-account'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('goal-edit-id').value='';
 }
 function clearTipsForm() { document.getElementById('tips-edit-id').value=''; }

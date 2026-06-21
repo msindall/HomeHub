@@ -1180,7 +1180,7 @@ async function scanFlyerPageWithVision(base64, storeName, pageNum, totalPages) {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1500,
         messages: [{
           role: 'user',
@@ -1455,7 +1455,7 @@ async function callClaude(prompt, maxTokens) {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens || 2000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -1536,6 +1536,36 @@ function findBestPrice(name,cat){
   if(!matches.length)return null;
   matches.sort(function(a,b){return b.score!==a.score?b.score-a.score:(a.item.priceNum||999)-(b.item.priceNum||999);});
   return matches[0].item;
+}
+
+// Import a meal_plan_*.json produced by the meal-plan Cowork skill (runs in
+// Claude — no API key). Accepts either {mealPlan:{...}} or a bare {Monday:{...}}.
+function importMealPlanFile(input){
+  var f=input.files&&input.files[0]; if(!f)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      var plan=(data&&data.mealPlan)?data.mealPlan:data;
+      if(!plan||typeof plan!=='object'||Array.isArray(plan)) throw new Error('No mealPlan object found in this file.');
+      var days=Object.keys(plan);
+      if(!days.length) throw new Error('The meal plan is empty.');
+      state.mealPlan=plan;
+      state.mealPlanDayOrder=days;
+      if(data&&data.mealPlanDates) state.mealPlanDates=data.mealPlanDates;
+      state.cookedMeals={};
+      state.lockedMeals=state.lockedMeals||{};
+      try{ generateShoppingListFromPlan(plan,buildSaleCatalogue()); }catch(err){}
+      saveState();
+      switchGroceryTab('meals',document.getElementById('tab-meals'));
+      renderMealPlanGrid();
+      hhToast('Meal plan imported!','🍽️');
+    }catch(err){
+      hhAlert('Could not import this file: '+err.message+'<br><br>Make sure it’s the <strong>meal_plan_*.json</strong> produced by the meal-plan skill.','⚠️');
+    }
+    input.value='';
+  };
+  reader.readAsText(f);
 }
 
 async function generateMealPlan(){
@@ -1771,7 +1801,7 @@ function clearMealPlan(){
     document.getElementById('meal-plan-grid').innerHTML='';
     var emp=document.getElementById('meal-plan-empty');
     emp.style.display='block';
-    emp.innerHTML='Click <strong>&#x2728; Generate Meal Plan</strong> to create your week of meals! &#x1F37D;&#xFE0F;';
+    emp.innerHTML='Run the <strong>meal-plan skill</strong> in Claude, then click <strong>&#x1F4E5; Import Meal Plan</strong> to load it. &#x1F37D;&#xFE0F;';
     var hintEl=document.getElementById('meal-plan-cal-hint'); if(hintEl)hintEl.textContent='';
   });
 }

@@ -1,0 +1,339 @@
+{
+  "mealPlan": {
+    "Sunday": {
+      "mattBreakfast": "Scrambled eggs & toast",
+      "hollyBreakfast": "Greek yogurt with granola bar crumble",
+      "mattLunch": "Turkey deli sandwich & mini cucumbers",
+      "hollyLunch": "Cheese & crackers with grapes",
+      "dinner": "Beef tacos with all the fixings",
+      "estimatedCost": "~$10",
+      "dinnerTag": "special",
+      "recipe": {
+        "prepTime": "10 min",
+        "cookTime": "15 min",
+        "servings": "2",
+        "ingredients": [
+          "Medium ground beef (pantry)",
+          "Old El Paso taco seasoning (pantry)",
+          "Taco shells",
+          "Shredded cheese",
+          "Iceberg lettuce",
+          "Tomatoes on the vine (pantry)",
+          "Sour cream (pantry)"
+        ],
+        "steps": [
+          "Brown the ground beef, drain",
+          "Stir in taco seasoning + splash of water, simmer 5 min",
+          "Warm taco shells in the oven",
+          "Set out lettuce, diced tomato, cheese and sour cream and build"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "taco shells",
+          "qty": "1 box",
+          "store": "Food Basics",
+          "price": 2.99
+        },
+        {
+          "item": "shredded cheese",
+          "qty": "400 g",
+          "store": "Food Basics",
+          "price": 4.98
+        },
+        {
+          "item": "iceberg lettuce",
+          "qty": "1 head",
+          "store": "No Frills",
+          "price": 1.99
+        },
+        {
+          "item": "bagels",
+          "qty": "6 pack",
+          "store": "No Frills",
+          "price": 2.25
+        },
+        {
+          "item": "sandwich bread",
+          "qty": "1 loaf",
+          "store": "No Frills",
+          "price": 3.0
+        },
+        {
+          "item": "eggs",
+          "qty": "12",
+          "store": "No Frills",
+          "price": 6.0
+        },
+        {
+          "item": "red seedless grapes",
+          "qty": "1 bag",
+          "store": "No Frills",
+          "price": 3.99
+        }
+      ]
+    },
+    "Monday": {
+      "mattBreakfast": "Bagel with cream cheese",
+      "hollyBreakfast": "Scrambled eggs",
+      "mattLunch": "Tuna salad on toast",
+      "hollyLunch": "Taco-leftover rice bowl (air-fried)",
+      "dinner": "Buffalo chicken rice bowls",
+      "estimatedCost": "~$8",
+      "dinnerTag": "quick",
+      "recipe": {
+        "prepTime": "10 min",
+        "cookTime": "20 min",
+        "servings": "2",
+        "ingredients": [
+          "Chicken breasts (pantry)",
+          "Buffalo sauce (pantry)",
+          "White rice (pantry)",
+          "Celery",
+          "Ranch dressing",
+          "Black Diamond cheese (pantry)"
+        ],
+        "steps": [
+          "Cook rice",
+          "Bake or pan-cook diced chicken until done",
+          "Toss chicken in buffalo sauce",
+          "Serve over rice with celery sticks and a drizzle of ranch"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "celery",
+          "qty": "1 bunch",
+          "store": "Food Basics",
+          "price": 2.99
+        },
+        {
+          "item": "ranch dressing",
+          "qty": "1 bottle",
+          "store": "Food Basics",
+          "price": 4.49
+        }
+      ]
+    },
+    "Tuesday": {
+      "mattBreakfast": "Yogurt & granola bar",
+      "hollyBreakfast": "Bagel with cream cheese",
+      "mattLunch": "Ham & cheese sandwich",
+      "hollyLunch": "Garden salad with grapes",
+      "dinner": "Pork sausages with peppers & roasted potatoes",
+      "estimatedCost": "~$11",
+      "dinnerTag": "normal",
+      "recipe": {
+        "prepTime": "10 min",
+        "cookTime": "30 min",
+        "servings": "2",
+        "ingredients": [
+          "Fresh pork sausages",
+          "Sweet peppers",
+          "Russet potatoes",
+          "Onion (pantry)",
+          "Garlic (pantry)"
+        ],
+        "steps": [
+          "Cut potatoes and peppers, toss with oil, salt",
+          "Roast at 425F for 25-30 min",
+          "Pan-cook or oven-cook sausages until browned through",
+          "Plate together"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "fresh pork sausages",
+          "qty": "family pack",
+          "store": "Food Basics",
+          "price": 4.49
+        },
+        {
+          "item": "sweet peppers",
+          "qty": "pkg of 4",
+          "store": "Food Basics",
+          "price": 3.99
+        },
+        {
+          "item": "russet potatoes",
+          "qty": "10 lb bag",
+          "store": "No Frills",
+          "price": 3.99
+        }
+      ]
+    },
+    "Wednesday": {
+      "mattBreakfast": "Scrambled eggs & toast",
+      "hollyBreakfast": "Greek yogurt with grapes",
+      "mattLunch": "Sausage & potato leftovers (air-fried)",
+      "hollyLunch": "Turkey deli wrap",
+      "dinner": "Cheeseburgers with fries",
+      "estimatedCost": "~$12",
+      "dinnerTag": "quick",
+      "recipe": {
+        "prepTime": "5 min",
+        "cookTime": "20 min",
+        "servings": "2",
+        "ingredients": [
+          "Quarter-pound beef burgers",
+          "Burger buns",
+          "Black Diamond cheese (pantry)",
+          "Iceberg lettuce",
+          "Tomatoes on the vine (pantry)",
+          "McCain fries (pantry)",
+          "Ketchup (pantry)"
+        ],
+        "steps": [
+          "Bake fries per package",
+          "Pan-cook or grill the burgers, add cheese to melt",
+          "Toast buns",
+          "Build burgers with lettuce, tomato and condiments"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "beef burgers",
+          "qty": "box",
+          "store": "Food Basics",
+          "price": 4.88
+        },
+        {
+          "item": "burger buns",
+          "qty": "1 pack",
+          "store": "Food Basics",
+          "price": 2.99
+        }
+      ]
+    },
+    "Thursday": {
+      "mattBreakfast": "Bagel with cream cheese",
+      "hollyBreakfast": "Scrambled eggs & toast",
+      "mattLunch": "Cheese & crackers with cucumber",
+      "hollyLunch": "Garden salad",
+      "dinner": "Fish & chips with coleslaw",
+      "estimatedCost": "~$7",
+      "dinnerTag": "quick",
+      "recipe": {
+        "prepTime": "10 min",
+        "cookTime": "22 min",
+        "servings": "2",
+        "ingredients": [
+          "Battered fish fillets (pantry)",
+          "McCain fries (pantry)",
+          "Green cabbage",
+          "Apple cider vinegar (pantry)",
+          "Tartar sauce (pantry)"
+        ],
+        "steps": [
+          "Bake fish fillets and fries in the oven or air fryer",
+          "Shred cabbage and toss with a little vinegar, sugar and mayo for slaw",
+          "Serve with tartar sauce"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "green cabbage",
+          "qty": "1",
+          "store": "No Frills",
+          "price": 0.99
+        }
+      ]
+    },
+    "Friday": {
+      "mattBreakfast": "Yogurt & granola bar",
+      "hollyBreakfast": "Bagel with cream cheese",
+      "mattLunch": "Ham & cheese sandwich",
+      "hollyLunch": "Cheese & crackers with grapes",
+      "dinner": "Meatloaf with mashed potatoes",
+      "estimatedCost": "~$13",
+      "dinnerTag": "make-ahead",
+      "recipe": {
+        "prepTime": "15 min",
+        "cookTime": "55 min",
+        "servings": "2",
+        "ingredients": [
+          "Lean ground beef & pork",
+          "Breadcrumbs (pantry)",
+          "Egg (pantry)",
+          "Ketchup (pantry)",
+          "Onion (pantry)",
+          "Russet potatoes (from Tue bag)",
+          "Butter (pantry)",
+          "Milk"
+        ],
+        "steps": [
+          "Mix beef, breadcrumbs, egg, diced onion and ketchup; shape into a loaf",
+          "Bake at 375F about 50-55 min",
+          "Boil potatoes, mash with butter and milk",
+          "Slice meatloaf and serve"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "lean ground beef and pork",
+          "qty": "1 pack",
+          "store": "No Frills",
+          "price": 7.0
+        },
+        {
+          "item": "milk",
+          "qty": "2 L",
+          "store": "No Frills",
+          "price": 4.49
+        }
+      ]
+    },
+    "Saturday": {
+      "mattBreakfast": "Scrambled eggs & toast",
+      "hollyBreakfast": "Greek yogurt with granola",
+      "mattLunch": "Meatloaf sandwich (air-fried)",
+      "hollyLunch": "Garden salad with grapes",
+      "dinner": "BBQ chicken thighs with rice & veggies",
+      "estimatedCost": "~$12",
+      "dinnerTag": "normal",
+      "recipe": {
+        "prepTime": "10 min",
+        "cookTime": "35 min",
+        "servings": "2",
+        "ingredients": [
+          "Chicken thighs",
+          "Selection BBQ sauce (pantry)",
+          "White rice (pantry)",
+          "Sweet peppers (from Tue)",
+          "Garlic (pantry)"
+        ],
+        "steps": [
+          "Season chicken thighs, bake at 400F 30-35 min, brushing with BBQ sauce near the end",
+          "Cook rice",
+          "Saute peppers as a side"
+        ]
+      },
+      "toBuy": [
+        {
+          "item": "chicken thighs",
+          "qty": "family pack",
+          "store": "Food Basics",
+          "price": 8.99
+        }
+      ]
+    }
+  },
+  "mealPlanDayOrder": [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday"
+  ],
+  "mealPlanDates": {
+    "Sunday": "2026-06-21",
+    "Monday": "2026-06-22",
+    "Tuesday": "2026-06-23",
+    "Wednesday": "2026-06-24",
+    "Thursday": "2026-06-25",
+    "Friday": "2026-06-26",
+    "Saturday": "2026-06-27"
+  }
+}

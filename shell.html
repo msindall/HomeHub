@@ -823,8 +823,66 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
 </script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<!-- ══ V7 Sims-style Home landing screen (08-home.js) ══════════════ -->
+<div id="hh-home" class="hh-hidden">
+  <div id="hhScene">
+    <svg id="hhSvg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="hhSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--sky-top)"/><stop offset="0.55" stop-color="var(--sky-mid)"/><stop offset="1" stop-color="var(--sky-bot)"/>
+        </linearGradient>
+        <radialGradient id="hhSunGlow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="var(--sun-col)" stop-opacity="0.9"/><stop offset="0.4" stop-color="var(--sun-col)" stop-opacity="0.3"/><stop offset="1" stop-color="var(--sun-col)" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="1600" height="1000" fill="url(#hhSky)"/>
+      <g id="hhStars" opacity="0"></g>
+      <g id="hhSunWrap">
+        <circle id="hhSunHalo" cx="300" cy="220" r="150" fill="url(#hhSunGlow)"/>
+        <circle id="hhSun" cx="300" cy="220" r="44" fill="var(--sun-col)"/>
+        <g id="hhMoon" opacity="0"><circle cx="300" cy="220" r="38" fill="#fdf6e3"/><circle cx="315" cy="208" r="32" fill="var(--sky-top)"/></g>
+      </g>
+      <g id="hhClouds"></g>
+      <g id="hhLot" transform="translate(770,250)"></g>
+      <g id="hhWeatherFX"></g>
+    </svg>
+  </div>
+
+  <div id="hhBoot"><div class="pb"></div><div class="mk">Welcome Home</div><div class="sb">Home Hub · a lot to live on</div></div>
+
+  <header id="hhTop">
+    <div class="hh-brand">🏡&nbsp;Home&nbsp;Hub <small id="hhBrandSub">Matt &amp; Holly · Ontario</small></div>
+    <div class="hh-top-right">
+      <div class="hh-pill" id="hhWeatherPill"><span class="hh-em" id="hhWEmoji">☀️</span><span id="hhWText">21°</span><small id="hhWSub">Clear</small></div>
+      <div class="hh-pill">🌱 <span id="hhNw">—</span><small>net&nbsp;worth</small></div>
+      <div class="hh-pill">💵 <span id="hhSafe">—</span><small>safe&nbsp;to&nbsp;spend</small></div>
+      <div class="hh-pill">🕑 <span id="hhClock">2:00</span></div>
+      <button class="hh-classic" id="hhClassicBtn" title="Switch to classic view">✕ Classic view</button>
+    </div>
+  </header>
+
+  <div id="hhTray"></div>
+
+  <div id="hhNeeds">
+    <div class="hh-mood"><div class="hh-ring"><div class="hh-plumb" id="hhPlumbMood"></div></div><small id="hhMoodTxt">Happy</small></div>
+    <div class="hh-needcol" id="hhNeedcol"></div>
+  </div>
+
+  <aside id="hhPanel"><button class="hh-pclose" id="hhPClose">✕</button>
+    <div class="hh-phead" id="hhPHead"><div class="hh-peye" id="hhPEye">ROOM</div>
+      <div class="hh-ptitrow"><span class="hh-pemoji" id="hhPEmoji">🏡</span><span class="hh-ptitle" id="hhPTitle">—</span></div></div>
+    <div class="hh-pbody" id="hhPBody"></div>
+  </aside>
+
+  <div id="hhTip"><div class="tt" id="hhTipT"></div><div class="ts" id="hhTipS"></div></div>
+  <div id="hhToastBox"><div class="te" id="hhToastE">🌱</div><div class="tx2" id="hhToastX"></div><div class="td" id="hhToastD"></div></div>
+  <div class="hh-hintline" id="hhHint"></div>
+</div>
+<!-- ══ end V7 Home ════════════════════════════════════════════════ -->
 
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 
@@ -877,6 +935,7 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
     <button id="mobile-menu-btn" onclick="openMobileSidebar()" style="display:none;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);padding:4px 8px 4px 0">&#9776;</button>
     <span id="topbar-title">🏠 Home</span>
     <div style="margin-left:auto"></div>
+    <button class="topbar-btn" id="hh-home-btn" onclick="if(window.HHHome)HHHome.show()" title="Open the Home lot view">🏡 Home view</button>
     <button class="topbar-btn" onclick="openShareModal()" title="Share Home Hub with friends &amp; family" style="color:var(--accent);border-color:var(--accent)">🔗 Share</button>
   </div>
 
@@ -1715,7 +1774,9 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
         <button class="toggle-btn" id="tab-pantry" onclick="switchGroceryTab('pantry',this)">🥫 Pantry</button>
         <button class="toggle-btn" id="tab-recipes" onclick="switchGroceryTab('recipes',this)">📖 Recipes</button>
       </div>
-      <button class="btn btn-primary btn-sm" id="gen-meal-btn" onclick="generateMealPlan()">✨ Generate Meal Plan</button>
+      <input type="file" id="meal-plan-import-input" accept=".json,application/json" style="display:none" onchange="importMealPlanFile(this)">
+      <button class="btn btn-primary btn-sm" id="import-meal-btn" onclick="document.getElementById('meal-plan-import-input').click()" title="Load a meal_plan_*.json created by the meal-plan skill in Claude — no API key needed">&#x1F4E5; Import Meal Plan</button>
+      <button class="btn btn-ghost btn-sm" id="gen-meal-btn" onclick="generateMealPlan()" title="Generates in-browser using your saved Anthropic API key">&#x2728; Generate (uses API key)</button>
     </div>
   </div>
 
@@ -1761,7 +1822,7 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
       <div id="meal-plan-cal-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;min-height:16px"></div>
       <div id="meal-plan-loading" style="display:none;text-align:center;padding:30px"><div class="spinner"></div><div style="margin-top:10px;color:var(--muted)" id="meal-plan-loading-msg">Generating meal ideas with AI...</div></div>
       <div id="meal-plan-grid"></div>
-      <div id="meal-plan-empty" class="empty-state">Click <strong>&#x2728; Generate Meal Plan</strong> to create your week of meals using sale items! &#x1F37D;&#xFE0F;</div>
+      <div id="meal-plan-empty" class="empty-state">Run the <strong>meal-plan skill</strong> in Claude (no API key needed), then click <strong>&#x1F4E5; Import Meal Plan</strong> to load it. &#x1F37D;&#xFE0F;</div>
     </div>
   </div>
 

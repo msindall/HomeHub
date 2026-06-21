@@ -1457,15 +1457,59 @@ function getAccountBalance(acctId) {
   if (!acctId) return null;
   var a = getAccountById(acctId);
   if (!a) return null;
-  var txns = (state.transactions||[]).filter(function(t){return t.account===acctId;});
-  var balance = (a.startingBalance||0) + txns.reduce(function(s,t){return s+t.amount;},0);
+  // Mirror calcBalance() (the Accounts page) so linked goals, safe-to-spend and
+  // the home-lot needs all agree with the canonical balance.
+  var isDebt = !!ACCT_IS_DEBT[a.type];
+  var allTxns = (state.transactions||[]).filter(function(t){ return t.account===acctId && !t.isOpeningBalance; });
+  var sb = (state.startingBalances||{})[acctId] || null;
+  var hasSB = sb && sb.amount != null && sb.date;
+  var balance;
+  if (hasSB) {
+    var cutoff = sb.date;
+    var txnSum = allTxns.filter(function(t){ return toISO(t.date||'') > cutoff; })
+      .reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
+    balance = isDebt ? parseFloat(sb.amount) - txnSum : parseFloat(sb.amount) + txnSum;
+  } else {
+    var txnSum2 = allTxns.reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
+    balance = isDebt ? -txnSum2 : txnSum2;
+  }
   return Math.round(balance*100)/100;
 }
 
+// Shared goal-progress resolver. When a goal is linked to an account its saved
+// amount = that account's current balance; otherwise fall back to the manual
+// "current" figure plus transaction-tagged contributions. Used by renderGoals
+// and the V7 home lot's garden plants so both stay in sync.
+function goalSavedAmount(g) {
+  if (!g) return 0;
+  if (g.accountId) {
+    var bal = getAccountBalance(g.accountId);
+    return bal != null ? Math.max(0, bal) : 0;
+  }
+  return (g.current || 0) + getGoalContributions(g.id);
+}
+
+// (Re)populate the goal modal's account picker from state.accounts.
+function populateGoalAccountSelect() {
+  var sel = document.getElementById('goal-account');
+  if (!sel) return;
+  var keep = sel.value;
+  var opts = '<option value="">— None (track manually) —</option>';
+  (state.accounts || []).forEach(function(a) {
+    var label = a.nickname || a.name || a.type || 'Account';
+    var who = a.isJoint ? 'Joint' : (a.person || '');
+    opts += '<option value="' + a.id + '">' + label + (who ? ' — ' + who : '') + '</option>';
+  });
+  sel.innerHTML = opts;
+  sel.value = keep;
+}
+
 function renderGoals(){
+  populateGoalAccountSelect();
   document.getElementById('goals-container').innerHTML=state.goals.map(g=>{
     const contributed = getGoalContributions(g.id);
-    const totalSaved = g.current + contributed;
+    const linkedAcct = g.accountId ? getAccountById(g.accountId) : null;
+    const totalSaved = goalSavedAmount(g);
     const pct=Math.min(100,Math.round((totalSaved/g.target)*100));
     const remaining=g.target-totalSaved;
     const daysLeft=g.date?Math.ceil((new Date(g.date)-new Date())/86400000):null;
@@ -1476,9 +1520,11 @@ function renderGoals(){
     const notesSpan=g.notes?'<span style="margin-left:8px;font-size:11px;color:var(--muted)">'+g.notes+'</span>':'';
     const targetSpan=g.date?'<span>Target: '+g.date+(daysLeft>0?' &middot; $'+monthlyNeeded+'/mo needed':' Done!')+'</span>':'';
     const txnCount = state.transactions.filter(t=>t.category==='goal:'+g.id).length;
-    const contribLine = contributed>0
-      ? '<div style="font-size:11px;color:var(--green);margin-top:3px">+'+fmt(contributed)+' from '+txnCount+' transaction'+(txnCount!==1?'s':'')+' &middot; manual: '+fmt(g.current)+'</div>'
-      : '';
+    const contribLine = linkedAcct
+      ? '<div style="font-size:11px;color:var(--accent);margin-top:3px">&#128279; Tracking '+(linkedAcct.name||linkedAcct.type||'account')+' balance</div>'
+      : (contributed>0
+        ? '<div style="font-size:11px;color:var(--green);margin-top:3px">+'+fmt(contributed)+' from '+txnCount+' transaction'+(txnCount!==1?'s':'')+' &middot; manual: '+fmt(g.current)+'</div>'
+        : '');
     const isDone = pct >= 100;
     const barColor = isDone ? 'var(--green)' : pct > 75 ? 'var(--accent)' : pct > 40 ? 'var(--accent2)' : 'var(--muted)';
     return '<div class="goal-card">'
@@ -1503,13 +1549,14 @@ function renderGoals(){
 }
 function saveGoal(){
   const editId=document.getElementById('goal-edit-id').value;
-  const g={id:editId||uid(),name:document.getElementById('goal-name').value,emoji:document.getElementById('goal-emoji').value||'🎯',target:parseFloat(document.getElementById('goal-target').value)||0,current:parseFloat(document.getElementById('goal-current').value)||0,date:document.getElementById('goal-date').value,link:document.getElementById('goal-link').value,notes:document.getElementById('goal-notes').value};
+  const g={id:editId||uid(),name:document.getElementById('goal-name').value,emoji:document.getElementById('goal-emoji').value||'🎯',target:parseFloat(document.getElementById('goal-target').value)||0,current:parseFloat(document.getElementById('goal-current').value)||0,date:document.getElementById('goal-date').value,link:document.getElementById('goal-link').value,notes:document.getElementById('goal-notes').value,accountId:document.getElementById('goal-account').value||''};
   if(editId){const idx=state.goals.findIndex(x=>x.id===editId);state.goals[idx]=g;}else state.goals.push(g);
   saveState();closeModal('goal-modal');clearGoalForm();renderGoals();
 }
 function editGoal(id){
   const g=state.goals.find(x=>x.id===id);if(!g)return;
-  document.getElementById('goal-edit-id').value=id;document.getElementById('goal-name').value=g.name;document.getElementById('goal-emoji').value=g.emoji;document.getElementById('goal-target').value=g.target;document.getElementById('goal-current').value=g.current;document.getElementById('goal-date').value=g.date||'';document.getElementById('goal-link').value=g.link||'';document.getElementById('goal-notes').value=g.notes||'';
+  populateGoalAccountSelect();
+  document.getElementById('goal-edit-id').value=id;document.getElementById('goal-name').value=g.name;document.getElementById('goal-emoji').value=g.emoji;document.getElementById('goal-target').value=g.target;document.getElementById('goal-current').value=g.current;document.getElementById('goal-date').value=g.date||'';document.getElementById('goal-link').value=g.link||'';document.getElementById('goal-notes').value=g.notes||'';document.getElementById('goal-account').value=g.accountId||'';
   openModal('goal-modal');
 }
 function deleteGoal(id) {

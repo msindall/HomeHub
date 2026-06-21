@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AURA — Home Hub V7 · Option 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Bioluminescent palette */
+  --abyss:#03070d;
+  --abyss-2:#06121b;
+  --ink:#eaf6ff;
+  --ink-dim:#8fb6c9;
+  --cyan:#22f0e0;
+  --teal:#16c9b0;
+  --aqua:#3ad8ff;
+  --green:#7af6a8;
+  --chartreuse:#c8f56a;
+  --violet:#9b7bff;
+  --magenta:#ff6ad0;
+  --gold:#ffd27a;
+  --glass:rgba(10,28,38,.42);
+  --glass-line:rgba(80,230,220,.18);
+  --good:#5af0a8;
+  --warn:#ffb86b;
+  --bad:#ff7a9c;
+  --font-display:'Fraunces',serif;
+  --font-ui:'Space Grotesk',sans-serif;
+  --font-mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--abyss);color:var(--ink);font-family:var(--font-ui);}
+canvas{display:block}
+#bg{position:fixed;inset:0;z-index:0}
+.noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.04;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+#ui{position:fixed;inset:0;z-index:2;pointer-events:none}
+#ui > *{pointer-events:auto}
+
+/* ---------- BOOT ---------- */
+#boot{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(120% 120% at 50% 40%, #04141c 0%, #03070d 70%);transition:opacity 1.2s ease}
+#boot.gone{opacity:0;pointer-events:none}
+.boot-mark{font-family:var(--font-display);font-weight:400;letter-spacing:.42em;font-size:clamp(38px,8vw,92px);
+  background:linear-gradient(90deg,var(--cyan),var(--green),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 26px rgba(34,240,224,.45));opacity:0;transform:translateY(14px);animation:bootIn 1.6s .5s cubic-bezier(.2,.8,.2,1) forwards;text-indent:.42em}
+.boot-sub{margin-top:18px;font-size:13px;letter-spacing:.5em;text-transform:uppercase;color:var(--ink-dim);opacity:0;animation:bootIn 1.2s 1.3s forwards}
+.boot-bar{margin-top:34px;width:min(320px,60vw);height:2px;border-radius:2px;background:rgba(120,220,220,.14);overflow:hidden;opacity:0;animation:bootIn .6s 1.5s forwards}
+.boot-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));box-shadow:0 0 14px var(--cyan);animation:fill 2.1s 1.6s cubic-bezier(.5,0,.1,1) forwards}
+.boot-status{margin-top:14px;font-family:var(--font-mono);font-size:11px;color:var(--teal);opacity:0;animation:bootIn .6s 1.6s forwards;min-height:16px}
+@keyframes bootIn{to{opacity:1;transform:none}}
+@keyframes fill{to{width:100%}}
+
+/* ---------- TOP HUD ---------- */
+#hud{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;
+  padding:18px 26px;opacity:0;transform:translateY(-12px);transition:.8s cubic-bezier(.2,.8,.2,1)}
+#hud.show{opacity:1;transform:none}
+.brand{display:flex;align-items:center;gap:12px;font-family:var(--font-display);letter-spacing:.34em;font-size:18px;
+  color:var(--ink);text-indent:.34em}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,var(--green),var(--teal));
+  box-shadow:0 0 16px var(--cyan),0 0 30px rgba(34,240,224,.5);animation:pulse 3.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.35);opacity:1}}
+.brand small{font-family:var(--font-mono);letter-spacing:.18em;font-size:10px;color:var(--teal);text-indent:0;opacity:.8}
+.hud-right{display:flex;align-items:center;gap:22px;font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);letter-spacing:.08em}
+.hud-right b{color:var(--green);font-weight:400}
+.clock{color:var(--aqua)}
+
+/* ---------- ORBITAL NAV ---------- */
+#nav{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:12;display:flex;gap:14px;
+  padding:10px 12px;border-radius:60px;background:var(--glass);backdrop-filter:blur(18px);
+  border:1px solid var(--glass-line);box-shadow:0 12px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05);
+  opacity:0;transform:translate(-50%,24px);transition:.8s .2s cubic-bezier(.2,.8,.2,1)}
+#nav.show{opacity:1;transform:translate(-50%,0)}
+.nav-btn{position:relative;display:flex;align-items:center;gap:10px;padding:11px 20px;border-radius:50px;cursor:pointer;
+  font-size:13px;letter-spacing:.06em;color:var(--ink-dim);transition:.35s;border:1px solid transparent;white-space:nowrap}
+.nav-btn .gem{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor;opacity:.65;transition:.35s}
+.nav-btn:hover{color:var(--ink);background:rgba(60,200,200,.08)}
+.nav-btn.active{color:var(--abyss);background:linear-gradient(120deg,var(--cyan),var(--green));
+  box-shadow:0 0 26px rgba(34,240,224,.5);font-weight:500}
+.nav-btn.active .gem{background:var(--abyss);box-shadow:none;opacity:.9}
+.nav-btn small{font-family:var(--font-mono);font-size:9px;opacity:.6;letter-spacing:.1em}
+
+/* ---------- SIDE READOUT ---------- */
+.readout{position:fixed;z-index:11;opacity:0;transition:.7s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.readout.show{opacity:1}
+#netHero{left:34px;top:96px}
+#netHero .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--teal)}
+#netHero .big{font-family:var(--font-display);font-weight:400;font-size:clamp(34px,5vw,58px);line-height:1;margin-top:6px;
+  background:linear-gradient(90deg,#fff,var(--aqua));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 22px rgba(58,216,255,.3))}
+#netHero .delta{font-family:var(--font-mono);font-size:12px;color:var(--good);margin-top:8px;letter-spacing:.04em}
+#netHero .delta.down{color:var(--bad)}
+
+/* ---------- CONTEXT PANEL ---------- */
+#panel{position:fixed;right:30px;top:50%;transform:translate(40px,-50%);z-index:13;width:340px;max-height:74vh;overflow:auto;
+  padding:24px;border-radius:24px;background:var(--glass);backdrop-filter:blur(22px);
+  border:1px solid var(--glass-line);box-shadow:0 20px 70px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);
+  opacity:0;pointer-events:none;transition:.55s cubic-bezier(.2,.8,.2,1)}
+#panel.show{opacity:1;transform:translate(0,-50%);pointer-events:auto}
+#panel::-webkit-scrollbar{width:6px}#panel::-webkit-scrollbar-thumb{background:rgba(80,230,220,.3);border-radius:6px}
+.panel-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--teal)}
+.panel-title{font-family:var(--font-display);font-size:26px;font-weight:400;margin:6px 0 4px;color:var(--ink)}
+.panel-emoji{font-size:30px;filter:drop-shadow(0 0 12px rgba(122,246,168,.5))}
+.panel-body{margin-top:14px;font-size:13.5px;line-height:1.6;color:var(--ink-dim)}
+.panel-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;border:1px solid var(--glass-line);
+  background:rgba(0,0,0,.2);color:var(--ink-dim);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:.3s}
+.panel-close:hover{color:var(--ink);border-color:var(--cyan);box-shadow:0 0 14px rgba(34,240,224,.4)}
+.stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid rgba(120,200,200,.1)}
+.stat-row .k{font-size:12px;color:var(--ink-dim);letter-spacing:.04em}
+.stat-row .v{font-family:var(--font-mono);font-size:14px;color:var(--ink)}
+.stat-row .v.pos{color:var(--good)}.stat-row .v.neg{color:var(--bad)}
+.bar{margin-top:7px;height:7px;border-radius:6px;background:rgba(120,200,200,.12);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--cyan),var(--green));box-shadow:0 0 12px var(--cyan)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin:5px 6px 0 0;border-radius:30px;
+  font-size:11px;font-family:var(--font-mono);color:var(--aqua);background:rgba(58,216,255,.08);border:1px solid rgba(58,216,255,.2)}
+
+/* ---------- TIMELINE SCRUBBER ---------- */
+#scrub{position:fixed;left:50%;bottom:108px;transform:translateX(-50%);z-index:12;width:min(680px,86vw);
+  opacity:0;transition:.6s;pointer-events:none}
+#scrub.show{opacity:1;pointer-events:auto}
+.scrub-track{position:relative;height:46px;border-radius:30px;background:var(--glass);backdrop-filter:blur(16px);
+  border:1px solid var(--glass-line);display:flex;align-items:center;padding:0 18px;cursor:ew-resize;overflow:hidden}
+.scrub-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,rgba(34,240,224,.22),rgba(122,246,168,.08));border-right:1px solid var(--cyan)}
+.scrub-year{position:relative;font-family:var(--font-mono);font-size:13px;color:var(--aqua);letter-spacing:.1em;z-index:2}
+.scrub-hint{position:relative;margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);z-index:2;letter-spacing:.1em}
+.scrub-mile{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:2;width:8px;height:8px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 10px var(--gold);transition:.3s}
+.scrub-mile.hit{background:var(--green);box-shadow:0 0 16px var(--green);transform:translate(-50%,-50%) scale(1.5)}
+.scrub-cap{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);letter-spacing:.12em}
+
+/* milestone toast */
+#mile{position:fixed;left:50%;top:30%;transform:translate(-50%,-20px);z-index:14;padding:16px 26px;border-radius:18px;
+  background:var(--glass);backdrop-filter:blur(20px);border:1px solid rgba(122,246,168,.4);text-align:center;
+  box-shadow:0 0 50px rgba(122,246,168,.35);opacity:0;pointer-events:none;transition:.5s}
+#mile.show{opacity:1;transform:translate(-50%,0)}
+#mile .me{font-size:30px}
+#mile .mt{font-family:var(--font-display);font-size:20px;margin-top:4px}
+#mile .md{font-family:var(--font-mono);font-size:11px;color:var(--green);letter-spacing:.1em;margin-top:3px}
+
+/* hint / tooltip following cursor */
+#tip{position:fixed;z-index:20;padding:10px 14px;border-radius:12px;background:rgba(4,16,22,.82);backdrop-filter:blur(10px);
+  border:1px solid var(--glass-line);font-size:12px;color:var(--ink);pointer-events:none;opacity:0;transition:opacity .2s;max-width:220px}
+#tip .tt{font-family:var(--font-display);font-size:14px;margin-bottom:3px}
+#tip .ts{font-family:var(--font-mono);font-size:11px;color:var(--aqua)}
+
+/* mode caption (top center) */
+#cap{position:fixed;left:50%;top:74px;transform:translateX(-50%);z-index:11;text-align:center;opacity:0;transition:.6s}
+#cap.show{opacity:1}
+#cap .ct{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;color:var(--ink);text-transform:uppercase}
+#cap .cs{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);letter-spacing:.14em;margin-top:3px}
+
+.hintline{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:9;font-family:var(--font-mono);
+  font-size:11px;color:var(--ink-dim);letter-spacing:.16em;opacity:0;transition:.6s;pointer-events:none;text-align:center}
+.hintline.show{opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="noise"></div>
+
+<!-- BOOT -->
+<div id="boot">
+  <div class="boot-mark">AURA</div>
+  <div class="boot-sub">your home, alive</div>
+  <div class="boot-bar"><i></i></div>
+  <div class="boot-status" id="bootStatus">waking the living system…</div>
+</div>
+
+<!-- UI LAYER -->
+<div id="ui">
+  <header id="hud">
+    <div class="brand"><span class="dot"></span>AURA <small id="hsub">HOME&nbsp;HUB · V7 / OPTION&nbsp;2</small></div>
+    <div class="hud-right">
+      <span>HOUSEHOLD&nbsp;<b id="hh">Matt&nbsp;&amp;&nbsp;Holly</b></span>
+      <span>ONTARIO&nbsp;·&nbsp;CA</span>
+      <span class="clock" id="clock">--:--</span>
+    </div>
+  </header>
+
+  <div id="cap"><div class="ct" id="capT">Net-Worth Galaxy</div><div class="cs" id="capS">drag to orbit · scroll to zoom · click a world</div></div>
+
+  <div class="readout" id="netHero">
+    <div class="lbl">Household Net Worth</div>
+    <div class="big" id="netVal">$148,200</div>
+    <div class="delta" id="netDelta">▲ $4,180 this month · saving 28%</div>
+  </div>
+
+  <aside id="panel">
+    <button class="panel-close" id="panelClose">✕</button>
+    <div class="panel-eyebrow" id="pEye">ROOM</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+      <span class="panel-emoji" id="pEmoji">✦</span>
+      <h2 class="panel-title" id="pTitle">—</h2>
+    </div>
+    <div class="panel-body" id="pBody"></div>
+  </aside>
+
+  <!-- timeline scrubber -->
+  <div id="scrub">
+    <div class="scrub-track" id="scrubTrack">
+      <div class="scrub-fill" id="scrubFill"></div>
+      <span class="scrub-year" id="scrubYear">2026</span>
+      <span class="scrub-hint">◂ drag through your future ▸</span>
+    </div>
+    <div class="scrub-cap"><span>2026 · TODAY</span><span id="scrubMid"></span><span>2056 · AGE 61</span></div>
+  </div>
+
+  <div id="mile"><div class="me" id="mileE">🎉</div><div class="mt" id="mileT"></div><div class="md" id="mileD"></div></div>
+
+  <nav id="nav">
+    <div class="nav-btn active" data-mode="galaxy" style="color:var(--cyan)"><span class="gem"></span>Galaxy<small>NET&nbsp;WORTH</small></div>
+    <div class="nav-btn" data-mode="timeline" style="color:var(--violet)"><span class="gem"></span>Timeline<small>WARP</small></div>
+    <div class="nav-btn" data-mode="house" style="color:var(--green)"><span class="gem"></span>House<small>ROOMS</small></div>
+  </nav>
+
+  <div class="hintline" id="hint"></div>
+</div>
+
+<div id="tip"><div class="tt" id="tipT"></div><div class="ts" id="tipS"></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================ DATA ============================ */
+const NET_WORTH = 148200;
+const COL = { cyan:0x22f0e0, teal:0x16c9b0, aqua:0x3ad8ff, green:0x7af6a8, chart:0xc8f56a, violet:0x9b7bff, magenta:0xff6ad0, gold:0xffd27a };
+
+// Goals = planets. value=current saved, target=goal, r=orbit radius, size, color, year reached
+const GOALS = [
+  { id:'emergency', name:'Emergency Fund', emoji:'🛟', saved:20000, target:20000, color:COL.green,   r:9,  size:1.0, year:2026, blurb:'Fully funded — 3 months of expenses parked and glowing.' },
+  { id:'wedding',   name:'Wedding',         emoji:'💍', saved:19400, target:35000, color:COL.magenta, r:14, size:1.5, year:2027, blurb:'Holly\'s tips + Matt\'s salary feeding the fund. On pace for autumn 2027.' },
+  { id:'house',     name:'House Down Payment', emoji:'🏡', saved:52000, target:90000, color:COL.aqua,  r:20, size:2.2, year:2028, blurb:'20% down on a ~$450k Ontario home. FHSA + RRSP Home Buyers\' Plan in play.' },
+  { id:'cars',      name:'Car Fund',        emoji:'🚗', saved:12500, target:40000, color:COL.gold,    r:26, size:1.3, year:2029, blurb:'Two reliable vehicles, bought in cash. No financing.' },
+  { id:'retire',    name:'Retirement',      emoji:'🌅', saved:86000,  target:1200000, color:COL.violet, r:34, size:3.0, year:2056, blurb:'CPP + OAS + pension + RRSP/TFSA. Glide path to age 61.' },
+];
+
+// House rooms -> app modules
+const ROOMS = [
+  { id:'office',  name:'The Study',   emoji:'💼', eye:'FINANCE', pos:[-3.2,0.6,1.8],  color:COL.cyan,
+    body:`Live cash-flow, budgets, and account balances. <b>Safe-to-spend this week: $312.</b> 14 transactions auto-categorised since Monday. Canadian Tire MC due in 6 days.`,
+    stats:[['Chequing','$4,210'],['Savings','$61,940'],['Credit owing','-$890','neg'],['Budget left','$312','pos']] },
+  { id:'kitchen', name:'The Kitchen', emoji:'🍲', eye:'MEALS & GROCERIES', pos:[3.0,0.6,1.8], color:COL.green,
+    body:`AI meal plan built from your pantry + this week's Flipp flyers. <b>Projected grocery spend: $128</b> (down $22 vs avg). 3 items on sale you usually buy.`,
+    stats:[['Meals planned','7 / 7','pos'],['Pantry items','41'],['Flyer deals','12'],['Est. spend','$128']] },
+  { id:'bedroom', name:'The Bedroom', emoji:'💍', eye:'WEDDING PLAN', pos:[-3.2,0.6,-2.0], color:COL.magenta,
+    body:`483 days to go. <b>Budget $35,000 · committed $11,200.</b> Venue deposit paid. Next: photographer shortlist (3 saved) and the guest list (118 / 140).`,
+    stats:[['Saved','$19,400 / $35k'],['Committed','$11,200'],['Vendors booked','4'],['Guests','118 / 140']] },
+  { id:'garage',  name:'The Garage',  emoji:'🚗', eye:'CARS & MAINTENANCE', pos:[3.0,0.6,-2.0], color:COL.gold,
+    body:`Car fund at <b>$12,500 / $40,000</b>. Home maintenance: furnace filter due this month, gutters logged clean. Next service reminder in 1,900 km.`,
+    stats:[['Car fund','$12,500'],['Home upkeep tasks','2 due'],['Next service','1,900 km'],['Warranty','active','pos']] },
+  { id:'attic',   name:'The Loft',    emoji:'🌅', eye:'RETIREMENT', pos:[0,3.0,-0.2], color:COL.violet,
+    body:`Projection engine: CPP + OAS + pension + registered savings. <b>On track to retire at 61</b> with ~$58k/yr (today's dollars). OAS clawback avoided.`,
+    stats:[['Invested','$86,000'],['Retire age','61','pos'],['Est. income','$58k/yr'],['CPP est.','$1,180/mo']] },
+  { id:'living',  name:'Living Room', emoji:'🐾', eye:'HOME & PETS', pos:[0,0.6,2.6], color:COL.aqua,
+    body:`The heart of the home. Pet feed tracker: <b>AM ✓ · PM pending.</b> Weather: 21°C, clear. 2 reminders today. Holly works the dinner shift.`,
+    stats:[['Pets fed','AM ✓ / PM —'],['Reminders','2 today'],['Weather','21°C clear'],['Bills due','none','pos']] },
+];
+
+const MILESTONES = [
+  { year:2026, e:'🛟', t:'Emergency fund complete', d:'$20,000 — fully funded' },
+  { year:2027, e:'💍', t:'The Wedding', d:'$35,000 goal reached' },
+  { year:2028, e:'🏡', t:'Keys to the first house', d:'$90,000 down payment' },
+  { year:2029, e:'🚗', t:'Both cars paid in cash', d:'$40,000 car fund' },
+  { year:2034, e:'📈', t:'Net worth crosses $500k', d:'compounding takes over' },
+  { year:2042, e:'💎', t:'First $1,000,000', d:'millionaire household' },
+  { year:2056, e:'🌅', t:'Retirement at 61', d:'$58k/yr, work optional' },
+];
+
+/* ====================== THREE SETUP ====================== */
+const canvas = document.getElementById('bg');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x03070d, 0.012);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 600);
+camera.position.set(0, 8, 52);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.enablePan = false; controls.minDistance = 8; controls.maxDistance = 120;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
+
+// lights
+scene.add(new THREE.AmbientLight(0x223344, 0.7));
+const key = new THREE.PointLight(0x22f0e0, 1.2, 200); key.position.set(0,10,0); scene.add(key);
+
+// post-processing bloom
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.9, 0.7, 0.18);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ---------- ambient bioluminescent particle field (all modes) ---------- */
+function makeField(count, spread, sizeBase, colors){
+  const g = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3), col = new Float32Array(count*3), sz = new Float32Array(count);
+  const c = new THREE.Color();
+  for(let i=0;i<count;i++){
+    pos[i*3]   = (Math.random()-.5)*spread;
+    pos[i*3+1] = (Math.random()-.5)*spread*0.6;
+    pos[i*3+2] = (Math.random()-.5)*spread;
+    c.set(colors[(Math.random()*colors.length)|0]);
+    col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+    sz[i]=sizeBase*(0.4+Math.random());
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color', new THREE.BufferAttribute(col,3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(sz,1));
+  const m = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uTime:{value:0}, uPix:{value:Math.min(devicePixelRatio,2)} },
+    vertexShader:`
+      attribute float aSize; attribute vec3 color; varying vec3 vC; uniform float uTime; uniform float uPix;
+      void main(){ vC=color; vec3 p=position;
+        p.y += sin(uTime*0.5 + position.x*0.15)*0.6;
+        p.x += cos(uTime*0.4 + position.z*0.12)*0.5;
+        vec4 mv=modelViewMatrix*vec4(p,1.0);
+        gl_PointSize=aSize*uPix*(160.0/-mv.z);
+        gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`
+      varying vec3 vC; void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d);
+        if(r>0.5) discard; float a=smoothstep(0.5,0.0,r); a=pow(a,1.8);
+        gl_FragColor=vec4(vC,a); }`
+  });
+  return new THREE.Points(g,m);
+}
+const field = makeField(1400, 200, 2.4, [COL.cyan,COL.teal,COL.aqua,COL.green,COL.violet]);
+scene.add(field);
+
+/* ====================== WORLD GROUPS ====================== */
+const galaxyG = new THREE.Group();
+const timelineG = new THREE.Group();
+const houseG = new THREE.Group();
+scene.add(galaxyG, timelineG, houseG);
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-2,-2);
+const pickables = []; // {mesh, world, data, onPick}
+
+/* ---------- GALAXY ---------- */
+(function buildGalaxy(){
+  // central sun = net worth
+  const sun = new THREE.Mesh(new THREE.IcosahedronGeometry(4,4),
+    new THREE.MeshStandardMaterial({color:0x0a3b3b, emissive:0x22f0e0, emissiveIntensity:2.2, roughness:.3}));
+  galaxyG.add(sun);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(5.4,32,32),
+    new THREE.MeshBasicMaterial({color:0x22f0e0, transparent:true, opacity:0.06}));
+  galaxyG.add(halo);
+  galaxyG.userData.sun = sun;
+
+  GOALS.forEach((goal,i)=>{
+    const orbit = new THREE.Group(); orbit.rotation.x = (Math.random()-.5)*0.5; galaxyG.add(orbit);
+    // orbit ring
+    const ringGeo = new THREE.RingGeometry(goal.r-0.04, goal.r+0.04, 128);
+    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:goal.color, transparent:true, opacity:0.18, side:THREE.DoubleSide}));
+    ring.rotation.x = -Math.PI/2; orbit.add(ring);
+    // progress arc (how funded)
+    const pct = Math.min(goal.saved/goal.target,1);
+    const arc = new THREE.Mesh(new THREE.RingGeometry(goal.r-0.16, goal.r+0.16, 128, 1, 0, Math.PI*2*pct),
+      new THREE.MeshBasicMaterial({color:goal.color, transparent:true, opacity:0.85, side:THREE.DoubleSide}));
+    arc.rotation.x = -Math.PI/2; orbit.add(arc);
+    // planet
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(goal.size,32,32),
+      new THREE.MeshStandardMaterial({color:0x06181c, emissive:goal.color, emissiveIntensity:1.8, roughness:.4}));
+    const ang = Math.random()*Math.PI*2;
+    planet.position.set(Math.cos(ang)*goal.r, 0, Math.sin(ang)*goal.r);
+    planet.userData = { goal, orbit, ang, speed:0.12/Math.sqrt(goal.r), r:goal.r };
+    orbit.add(planet);
+    // moon glow shell
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(goal.size*1.5,16,16),
+      new THREE.MeshBasicMaterial({color:goal.color, transparent:true, opacity:0.12}));
+    planet.add(glow);
+    pickables.push({ mesh:planet, world:'galaxy', data:goal,
+      tip:[goal.emoji+' '+goal.name, '$'+goal.saved.toLocaleString()+' / $'+goal.target.toLocaleString()+'  ·  '+Math.round(pct*100)+'%'],
+      onPick:()=>openGoal(goal) });
+  });
+})();
+
+/* ---------- TIMELINE WARP (a tunnel of year-rings) ---------- */
+const TL = { rings:[], waypoints:[], length:30, spacing:14, z:0 };
+(function buildTimeline(){
+  for(let y=0;y<=TL.length;y++){
+    const isMile = MILESTONES.some(m=>m.year===2026+y);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(10, isMile?0.32:0.12, 12, 80),
+      new THREE.MeshStandardMaterial({color:0x06181c, emissive:isMile?COL.gold:COL.teal, emissiveIntensity:isMile?2.2:0.7, roughness:.4}));
+    ring.position.z = -y*TL.spacing;
+    ring.userData = { year:2026+y, isMile, baseEmissive:isMile?2.2:0.7 };
+    timelineG.add(ring);
+    TL.rings.push(ring);
+    // year tick particles around ring
+  }
+  // waypoint markers floating inside at milestone rings
+  MILESTONES.forEach(m=>{
+    const z = -(m.year-2026)*TL.spacing;
+    const wp = new THREE.Mesh(new THREE.OctahedronGeometry(1.1,0),
+      new THREE.MeshStandardMaterial({color:0x101a10, emissive:COL.green, emissiveIntensity:2.0, roughness:.3}));
+    wp.position.set(Math.sin(m.year)*4.5, Math.cos(m.year*1.3)*3.2, z);
+    wp.userData = { m };
+    timelineG.add(wp); TL.waypoints.push(wp);
+  });
+  timelineG.visible = false;
+})();
+
+/* ---------- HOUSE ---------- */
+(function buildHouse(){
+  const edgeMat = (c)=> new THREE.LineBasicMaterial({color:c, transparent:true, opacity:0.9});
+  const faceMat = (c,o=0.06)=> new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:o, side:THREE.DoubleSide});
+  // base structure (two-storey box + roof) rendered as glowing wireframe
+  function glowBox(w,h,d,x,y,z,c){
+    const geo = new THREE.BoxGeometry(w,h,d);
+    const mesh = new THREE.Mesh(geo, faceMat(c,0.05)); mesh.position.set(x,y,z);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat(c)); mesh.add(edges);
+    houseG.add(mesh); return mesh;
+  }
+  glowBox(11,6,8, 0,3,0, COL.aqua);          // main body
+  // roof (pyramid)
+  const roofGeo = new THREE.ConeGeometry(8.2,3.4,4);
+  const roof = new THREE.Mesh(roofGeo, faceMat(COL.violet,0.06)); roof.position.set(0,7.7,0); roof.rotation.y=Math.PI/4;
+  roof.add(new THREE.LineSegments(new THREE.EdgesGeometry(roofGeo), edgeMat(COL.violet)));
+  houseG.add(roof);
+  // ground glow disc
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(16,64), new THREE.MeshBasicMaterial({color:COL.teal, transparent:true, opacity:0.05}));
+  disc.rotation.x=-Math.PI/2; disc.position.y=0.02; houseG.add(disc);
+
+  // room nodes (clickable glowing orbs on the house)
+  ROOMS.forEach(room=>{
+    const node = new THREE.Mesh(new THREE.SphereGeometry(0.6,24,24),
+      new THREE.MeshStandardMaterial({color:0x06181c, emissive:room.color, emissiveIntensity:2.2, roughness:.3}));
+    node.position.set(room.pos[0], room.pos[1]+2.4, room.pos[2]);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,32), new THREE.MeshBasicMaterial({color:room.color, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+    ring.lookAt(camera.position); node.add(ring); node.userData.ring = ring;
+    houseG.add(node);
+    pickables.push({ mesh:node, world:'house', data:room,
+      tip:[room.emoji+' '+room.name, room.eye],
+      onPick:()=>openRoom(room) });
+  });
+  houseG.visible = false;
+})();
+
+/* ====================== MODE SWITCHING ====================== */
+let mode = 'galaxy';
+const camTargets = {
+  galaxy:   { pos:new THREE.Vector3(0,10,52),  look:new THREE.Vector3(0,0,0),  min:14, max:120, rotate:true },
+  timeline: { pos:new THREE.Vector3(0,0,18),   look:new THREE.Vector3(0,0,-30), min:6,  max:60,  rotate:false },
+  house:    { pos:new THREE.Vector3(16,11,20), look:new THREE.Vector3(0,4,0),  min:10, max:60,  rotate:true },
+};
+let camLerp = null; // {fromP,toP,fromL,toL,t}
+
+function setMode(m){
+  if(m===mode) return;
+  mode = m;
+  galaxyG.visible = (m==='galaxy');
+  timelineG.visible = (m==='timeline');
+  houseG.visible = (m==='house');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===m));
+  // camera tween
+  const t = camTargets[m];
+  camLerp = { fromP:camera.position.clone(), toP:t.pos.clone(), fromL:controls.target.clone(), toL:t.look.clone(), t:0 };
+  controls.autoRotate = t.rotate; controls.minDistance=t.min; controls.maxDistance=t.max;
+  // UI
+  const showGalaxy = m==='galaxy';
+  document.getElementById('netHero').classList.toggle('show', m!=='timeline');
+  document.getElementById('scrub').classList.toggle('show', m==='timeline');
+  closePanel();
+  const caps = {
+    galaxy:['Net-Worth Galaxy','drag to orbit · scroll to zoom · click a planet-goal'],
+    timeline:['Timeline Warp','drag the bar — travel your financial future'],
+    house:['The Living House','orbit the home · click a glowing room'],
+  };
+  setCap(caps[m][0], caps[m][1]);
+  const hints = { galaxy:'EACH PLANET IS A SAVINGS GOAL · BRIGHTER ARC = CLOSER TO FUNDED',
+    timeline:'WAYPOINTS ARE LIFE MILESTONES · WATCH NET WORTH CLIMB',
+    house:'SIX ROOMS · SIX MODULES OF YOUR HOME HUB' };
+  showHint(hints[m]);
+  if(m==='timeline'){ setScrub(scrubT); }
+}
+document.querySelectorAll('.nav-btn').forEach(b=> b.onclick=()=>setMode(b.dataset.mode));
+
+function setCap(t,s){ const c=document.getElementById('cap'); document.getElementById('capT').textContent=t; document.getElementById('capS').textContent=s; c.classList.add('show'); }
+let hintTimer;
+function showHint(t){ const h=document.getElementById('hint'); h.textContent=t; h.classList.add('show'); clearTimeout(hintTimer); hintTimer=setTimeout(()=>h.classList.remove('show'),5200); }
+
+/* ====================== PANEL ====================== */
+const panel = document.getElementById('panel');
+function openRoom(room){
+  document.getElementById('pEye').textContent = room.eye;
+  document.getElementById('pEmoji').textContent = room.emoji;
+  document.getElementById('pTitle').textContent = room.name;
+  let html = `<p>${room.body}</p><div style="margin-top:14px">`;
+  room.stats.forEach(s=>{ html += `<div class="stat-row"><span class="k">${s[0]}</span><span class="v ${s[2]||''}">${s[1]}</span></div>`; });
+  html += `</div><div style="margin-top:14px"><span class="chip">open module ▸</span><span class="chip">pin to dashboard</span></div>`;
+  document.getElementById('pBody').innerHTML = html;
+  panel.classList.add('show');
+}
+function openGoal(goal){
+  const pct = Math.min(goal.saved/goal.target,1);
+  document.getElementById('pEye').textContent = 'SAVINGS GOAL · '+goal.year;
+  document.getElementById('pEmoji').textContent = goal.emoji;
+  document.getElementById('pTitle').textContent = goal.name;
+  const remain = Math.max(goal.target-goal.saved,0);
+  let html = `<p>${goal.blurb}</p>
+    <div style="margin-top:16px">
+      <div class="stat-row"><span class="k">Saved</span><span class="v pos">$${goal.saved.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="k">Target</span><span class="v">$${goal.target.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="k">Remaining</span><span class="v ${remain?'':'pos'}">${remain?('$'+remain.toLocaleString()):'✓ funded'}</span></div>
+      <div class="stat-row"><span class="k">Target year</span><span class="v">${goal.year}</span></div>
+    </div>
+    <div style="margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--ink-dim)">${Math.round(pct*100)}% COMPLETE</div>
+    <div class="bar"><i style="width:${pct*100}%"></i></div>
+    <div style="margin-top:14px"><span class="chip">add to this goal</span><span class="chip">adjust target</span></div>`;
+  document.getElementById('pBody').innerHTML = html;
+  panel.classList.add('show');
+}
+function closePanel(){ panel.classList.remove('show'); }
+document.getElementById('panelClose').onclick = closePanel;
+
+/* ====================== TIMELINE SCRUB ====================== */
+let scrubT = 0; // 0..1
+const scrubTrack = document.getElementById('scrubTrack');
+// place milestone dots
+MILESTONES.forEach(m=>{
+  const d=document.createElement('div'); d.className='scrub-mile'; d.dataset.year=m.year;
+  d.style.left = ((m.year-2026)/30*100)+'%'; scrubTrack.appendChild(d);
+});
+function projWorth(t){
+  // 2026 -> 2056 growth curve (compounding-ish), value in dollars
+  const yrs = t*30;
+  return Math.round(NET_WORTH * Math.pow(1.118, yrs) + yrs*4200*12*0.0); // ~11.8%/yr blended
+}
+let lastMileShown = -1;
+function setScrub(t){
+  scrubT = Math.max(0,Math.min(1,t));
+  const year = Math.round(2026 + scrubT*30);
+  document.getElementById('scrubYear').textContent = year;
+  document.getElementById('scrubFill').style.width = (scrubT*100)+'%';
+  document.getElementById('scrubMid').textContent = year;
+  // net worth readout updates while scrubbing
+  const w = projWorth(scrubT);
+  document.getElementById('netVal').textContent = '$'+w.toLocaleString();
+  document.getElementById('netDelta').textContent = year<=2026 ? '▲ $4,180 this month · saving 28%' : `projected · ${year} · ${Math.round(Math.pow(1.118,scrubT*30)*10)/10}× today`;
+  // move camera through tunnel
+  TL.z = scrubT * TL.length * TL.spacing;
+  // milestone toasts + ring hits
+  document.querySelectorAll('.scrub-mile').forEach(d=> d.classList.toggle('hit', +d.dataset.year<=year));
+  let hit=-1;
+  MILESTONES.forEach((m,i)=>{ if(year>=m.year) hit=i; });
+  if(hit!==lastMileShown && hit>=0 && mode==='timeline'){ lastMileShown=hit; toastMile(MILESTONES[hit]); }
+  if(year<2027) lastMileShown=-1;
+}
+function toastMile(m){
+  const el=document.getElementById('mile');
+  document.getElementById('mileE').textContent=m.e;
+  document.getElementById('mileT').textContent=m.t;
+  document.getElementById('mileD').textContent=m.year+' · '+m.d;
+  el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2200);
+}
+// drag handling
+let dragging=false;
+function scrubFromEvent(e){
+  const rect=scrubTrack.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  setScrub(x/rect.width);
+}
+scrubTrack.addEventListener('pointerdown',e=>{dragging=true;scrubFromEvent(e);scrubTrack.setPointerCapture(e.pointerId);});
+scrubTrack.addEventListener('pointermove',e=>{if(dragging)scrubFromEvent(e);});
+addEventListener('pointerup',()=>dragging=false);
+// wheel to scrub when in timeline
+addEventListener('wheel',e=>{ if(mode==='timeline'){ setScrub(scrubT + (e.deltaY>0?0.02:-0.02)); } },{passive:true});
+
+/* ====================== PICKING ====================== */
+const tip=document.getElementById('tip');
+addEventListener('pointermove',e=>{
+  pointer.x=(e.clientX/innerWidth)*2-1; pointer.y=-(e.clientY/innerHeight)*2+1;
+  tip.style.left=(e.clientX+16)+'px'; tip.style.top=(e.clientY+16)+'px';
+});
+renderer.domElement.addEventListener('click',()=>{
+  raycaster.setFromCamera(pointer,camera);
+  const active = pickables.filter(p=>p.world===mode).map(p=>p.mesh);
+  const hits = raycaster.intersectObjects(active,true);
+  if(hits.length){
+    let obj=hits[0].object; while(obj && !pickables.find(p=>p.mesh===obj)) obj=obj.parent;
+    const p=pickables.find(x=>x.mesh===obj); if(p) p.onPick();
+  }
+});
+
+/* ====================== ANIMATE ====================== */
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta(), t=clock.elapsedTime;
+  field.material.uniforms.uTime.value=t;
+  field.rotation.y = t*0.01;
+
+  // camera tween
+  if(camLerp){
+    camLerp.t=Math.min(1,camLerp.t+dt*1.4);
+    const e=1-Math.pow(1-camLerp.t,3);
+    camera.position.lerpVectors(camLerp.fromP,camLerp.toP,e);
+    controls.target.lerpVectors(camLerp.fromL,camLerp.toL,e);
+    if(camLerp.t>=1) camLerp=null;
+  }
+
+  if(mode==='galaxy'){
+    galaxyG.children.forEach(o=>{ if(o.type==='Group') o.children.forEach(c=>{
+      if(c.userData.goal){ c.userData.ang += c.userData.speed*dt; c.position.set(Math.cos(c.userData.ang)*c.userData.r,0,Math.sin(c.userData.ang)*c.userData.r); }
+    });});
+    const sun=galaxyG.userData.sun; if(sun){ sun.rotation.y+=dt*0.2; sun.material.emissiveIntensity=2.0+Math.sin(t*1.5)*0.4; }
+  }
+  if(mode==='timeline'){
+    // move whole tunnel so we travel forward as scrubT increases
+    timelineG.position.z = TL.z;
+    TL.waypoints.forEach(w=>{ w.rotation.y+=dt*1.2; w.rotation.x+=dt*0.6; });
+    TL.rings.forEach(r=>{ const worldZ = r.position.z + TL.z; const near=Math.abs(worldZ+0)<7;
+      r.material.emissiveIntensity = r.userData.baseEmissive*(near?2.4:1); });
+  }
+  if(mode==='house'){
+    houseG.children.forEach(o=>{ if(o.userData.ring){ o.userData.ring.lookAt(camera.position); o.scale.setScalar(1+Math.sin(t*2+o.position.x)*0.06); } });
+  }
+
+  // hover tooltip + cursor
+  raycaster.setFromCamera(pointer,camera);
+  const active = pickables.filter(p=>p.world===mode).map(p=>p.mesh);
+  const hits = raycaster.intersectObjects(active,true);
+  if(hits.length){
+    let obj=hits[0].object; while(obj && !pickables.find(p=>p.mesh===obj)) obj=obj.parent;
+    const p=pickables.find(x=>x.mesh===obj);
+    if(p){ document.getElementById('tipT').textContent=p.tip[0]; document.getElementById('tipS').textContent=p.tip[1]; tip.style.opacity=1; document.body.style.cursor='pointer'; }
+  } else { tip.style.opacity=0; document.body.style.cursor='default'; }
+
+  controls.update();
+  composer.render();
+}
+
+/* ====================== BOOT / RESIZE / CLOCK ====================== */
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+});
+function tickClock(){ const d=new Date(); document.getElementById('clock').textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+setInterval(tickClock,1000); tickClock();
+
+// boot status messages
+const statuses=['waking the living system…','syncing bioluminescent field…','mapping your goals to orbits…','rendering the house…','aura online.'];
+let si=0; const bs=document.getElementById('bootStatus');
+const bsT=setInterval(()=>{ si++; if(si<statuses.length) bs.textContent=statuses[si]; },520);
+
+animate();
+setMode('galaxy'); mode='galaxy'; galaxyG.visible=true; // ensure initial
+
+setTimeout(()=>{
+  clearInterval(bsT);
+  document.getElementById('boot').classList.add('gone');
+  document.getElementById('hud').classList.add('show');
+  document.getElementById('nav').classList.add('show');
+  document.getElementById('netHero').classList.add('show');
+  setCap('Net-Worth Galaxy','drag to orbit · scroll to zoom · click a planet-goal');
+  showHint('EACH PLANET IS A SAVINGS GOAL · BRIGHTER ARC = CLOSER TO FUNDED');
+}, 3400);
+</script>
+</body>
+</html>

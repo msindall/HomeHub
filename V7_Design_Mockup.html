@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Hub — V7.0 (bright &amp; fun)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* --- V7.0 "Sunday Morning" — bright & cheerful --- */
+    --paper:#FFF8EF; --surface:#FFFDF8; --card:#FFFFFF; --line:#F1E5D6;
+    --ink:#3A2A1E; --ink2:#83705F; --muted:#B4A18C;
+    --coral:#FF7A53; --coral-soft:#FFE7DD;     /* primary accent */
+    --teal:#13B6A4; --teal-soft:#D7F4F0;
+    --sun:#FFB12E; --sun-soft:#FFF0D2;
+    --berry:#FF5C8A; --berry-soft:#FFE2EC;
+    --grape:#8B6FE0; --grape-soft:#ECE6FB;
+    --green:#15A86F; --green-soft:#DCF3E8;
+    --red:#F0506E; --red-soft:#FDE2E8;
+    --r:20px; --r-sm:13px; --r-xs:9px;
+    --shadow:0 1px 2px rgba(120,80,40,.05), 0 12px 32px rgba(255,140,90,.10);
+    --ease:cubic-bezier(.34,1.4,.64,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(900px 500px at 8% -8%, var(--teal-soft) 0%, transparent 55%),
+      radial-gradient(1000px 600px at 95% -12%, var(--sun-soft) 0%, transparent 50%),
+      radial-gradient(800px 500px at 60% 110%, var(--berry-soft) 0%, transparent 55%),
+      var(--paper);
+    -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1;min-height:100vh}
+  .num{font-variant-numeric:tabular-nums}.mono{font-family:'Spline Sans Mono',monospace}.serif{font-family:'Fraunces',serif}
+
+  /* ---------- Top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(255,253,248,.82);backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:22px;padding:0 30px;height:62px}
+  .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .brand-mark{width:33px;height:33px;border-radius:11px;background:linear-gradient(135deg,var(--coral),var(--sun));
+    display:grid;place-items:center;color:#fff;font-family:'Fraunces',serif;font-weight:700;font-size:18px;
+    box-shadow:0 4px 12px rgba(255,122,83,.4)}
+  .brand-name{font-family:'Fraunces',serif;font-weight:600;font-size:18px;letter-spacing:-.01em}
+  .nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:30px;padding:4px}
+  .nav a{padding:7px 16px;border-radius:24px;font-size:13.5px;font-weight:700;color:var(--ink2);text-decoration:none;
+    transition:.22s var(--ease);display:flex;align-items:center;gap:7px}
+  .nav a .i{font-size:14px}
+  .nav a:hover{color:var(--ink);transform:translateY(-1px)}
+  .nav a.active{background:linear-gradient(135deg,var(--coral),#ff9468);color:#fff;box-shadow:0 4px 12px rgba(255,122,83,.35)}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .search{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:24px;
+    padding:8px 14px;color:var(--muted);font-size:13px;font-weight:600;cursor:text;min-width:185px}
+  .search kbd{margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 6px;
+    font-size:11px;font-family:'Spline Sans Mono',monospace;color:var(--ink2)}
+  .add{background:var(--ink);color:#fff;border:none;padding:9px 16px;border-radius:24px;font-weight:700;font-size:13px;
+    cursor:pointer;font-family:inherit;display:flex;gap:7px;align-items:center;transition:.2s var(--ease)}
+  .add:hover{transform:translateY(-1px) scale(1.02)}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--berry),var(--grape));color:#fff;
+    display:grid;place-items:center;font-weight:800;font-size:11px}
+
+  .subnav{display:flex;align-items:center;gap:20px;padding:13px 30px 0;max-width:1280px;margin:0 auto}
+  .subnav a{font-size:13px;font-weight:700;color:var(--muted);text-decoration:none;padding-bottom:11px;
+    border-bottom:2.5px solid transparent;transition:.15s}
+  .subnav a:hover{color:var(--ink2)}
+  .subnav a.active{color:var(--coral);border-bottom-color:var(--coral)}
+  .subnav .scope{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--green);background:var(--green-soft);
+    border-radius:20px;padding:6px 13px;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+
+  /* ---------- Page ---------- */
+  .wrap{max-width:1280px;margin:0 auto;padding:22px 30px 60px}
+  .hello{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:14px}
+  .hello h1{font-family:'Fraunces',serif;font-weight:500;font-size:27px;letter-spacing:-.02em}
+  .hello h1 em{font-style:italic;color:var(--coral)}
+  .verdict{font-size:13.5px;color:var(--ink2);font-weight:600;margin-top:3px}
+  .verdict b{color:var(--green)}
+
+  /* weather chip in header */
+  .weather{display:flex;align-items:center;gap:14px;background:linear-gradient(120deg,#5BC0EB,#7AD7C6 55%,var(--sun));
+    color:#fff;border-radius:var(--r-sm);padding:12px 18px;box-shadow:0 8px 22px rgba(91,192,235,.3)}
+  .weather .ico{font-size:30px;line-height:1}
+  .weather .t{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1}
+  .weather .meta{font-size:12px;font-weight:700;opacity:.95}
+  .weather .meta .loc{display:flex;align-items:center;gap:4px}
+  .weather .hl{font-size:11.5px;font-weight:700;opacity:.92;margin-top:2px}
+
+  .grid{display:grid;grid-template-columns:1fr 350px;gap:18px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);font-weight:800}
+
+  .hero{padding:26px 30px;position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:flex-start}
+  .net-val{font-family:'Fraunces',serif;font-weight:500;font-size:52px;letter-spacing:-.02em;line-height:1;margin-top:12px}
+  .net-delta{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-weight:800;font-size:13px;color:#fff;
+    background:linear-gradient(135deg,var(--green),#28c489);padding:6px 13px;border-radius:20px;box-shadow:0 5px 14px rgba(21,168,111,.32)}
+  .net-mini{display:flex;gap:26px;margin-top:22px}
+  .net-mini .k{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+  .net-mini .v{font-family:'Spline Sans Mono',monospace;font-weight:600;font-size:16px;margin-top:4px}
+  .spark{position:absolute;right:0;bottom:0;width:60%;height:118px;opacity:1;pointer-events:none}
+
+  .goals{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+  .goals .g{padding:22px 16px;text-align:center;border-right:1px solid var(--line)}
+  .goals .g:last-child{border-right:none}
+  .ring{width:80px;height:80px;margin:0 auto 12px;position:relative}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .m{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:15px}
+  .g-name{font-weight:700;font-size:13.5px}.g-sub{font-size:12px;color:var(--ink2);font-weight:600;margin-top:2px}
+
+  .pad{padding:22px 24px}
+  .ctitle{font-family:'Fraunces',serif;font-weight:600;font-size:15px;margin-bottom:16px;display:flex;align-items:center;
+    justify-content:space-between;color:var(--ink)}
+  .ctitle a{font-size:12px;color:var(--coral);font-weight:700;text-decoration:none}
+  .ctitle .lead{display:flex;align-items:center;gap:8px}
+
+  .bud{margin-bottom:15px}.bud:last-child{margin-bottom:0}
+  .bud-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+  .bud-name{font-weight:700}.bud-fig{font-family:'Spline Sans Mono',monospace;font-weight:500;color:var(--ink2);font-size:12.5px}
+  .track{height:9px;background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .fill{height:100%;border-radius:6px}
+
+  .cf{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line)}
+  .cf:last-of-type{border-bottom:none}
+  .cf .k{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--ink2)}
+  .cf .ic{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;font-size:13px}
+  .cf .v{font-family:'Spline Sans Mono',monospace;font-weight:600;font-size:15px}
+  .safe{margin-top:14px;background:linear-gradient(135deg,var(--coral-soft),var(--sun-soft));border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:15px 16px}
+  .safe .k{font-size:11px;color:#c9602f;font-weight:800;text-transform:uppercase;letter-spacing:.09em}
+  .safe .v{font-family:'Fraunces',serif;font-weight:700;font-size:30px;color:var(--coral);margin-top:4px}
+  .safe .h{font-size:12px;color:var(--ink2);font-weight:600;margin-top:3px}
+
+  /* pet feed tracker */
+  .pet{display:flex;align-items:center;gap:13px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .pet:last-child{border-bottom:none}
+  .pet-av{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:23px;flex-shrink:0}
+  .pet-info{flex:1}.pet-name{font-weight:800;font-size:14px}
+  .pet-status{font-size:11.5px;font-weight:700;color:var(--ink2);margin-top:1px}
+  .feeds{display:flex;gap:7px}
+  .feed{border:1.5px solid var(--line);background:var(--surface);border-radius:11px;padding:6px 11px;font-size:11.5px;
+    font-weight:800;color:var(--ink2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:.2s var(--ease)}
+  .feed.done{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+  .feed.todo:hover{border-color:var(--coral);color:var(--coral);transform:translateY(-1px)}
+
+  .bill{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .bill:last-child{border-bottom:none}
+  .bd{width:42px;text-align:center;flex-shrink:0}
+  .bd .d{font-family:'Fraunces',serif;font-weight:600;font-size:18px;line-height:1}
+  .bd .mo{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+  .bn{flex:1;font-weight:700;font-size:13.5px}.bn small{display:block;font-weight:600;color:var(--ink2);font-size:11.5px}
+  .ba{font-family:'Spline Sans Mono',monospace;font-weight:600;font-size:13.5px}
+  .tag{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px}
+
+  @media(max-width:980px){
+    .grid{grid-template-columns:1fr}.nav{display:none}.search{min-width:0}
+    .goals{grid-template-columns:1fr 1fr}.goals .g:nth-child(2){border-right:none}.goals .g:nth-child(1),.goals .g:nth-child(2){border-bottom:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark serif">H</div><span class="brand-name">Home Hub</span></div>
+    <nav class="nav">
+      <a class="active"><span class="i">◎</span> Dashboard</a>
+      <a><span class="i">⇄</span> Money</a>
+      <a><span class="i">◇</span> Plan</a>
+      <a><span class="i">❖</span> Life</a>
+    </nav>
+    <div class="top-right">
+      <div class="search">⌕ Search or jump to… <kbd>⌘K</kbd></div>
+      <button class="add">＋ Quick add</button>
+      <div class="avatar">M&amp;H</div>
+    </div>
+  </header>
+
+  <div class="subnav">
+    <a class="active">Overview</a>
+    <a>This month</a>
+    <a>Year to date</a>
+    <a>Reminders</a>
+    <span class="scope">● All accounts synced</span>
+  </div>
+
+  <div class="wrap">
+    <div class="hello">
+      <div>
+        <h1 class="serif">Good morning, <em>Matt</em>! ☀️</h1>
+        <div class="verdict">Saturday, June 20 · you're <b>$1,240 ahead</b> of plan this month — nice work</div>
+      </div>
+      <div class="weather">
+        <div class="ico">⛅</div>
+        <div>
+          <div class="t num">23°</div>
+          <div class="hl">H 26° · L 14°</div>
+        </div>
+        <div class="meta">
+          <div class="loc">📍 Barrie, ON</div>
+          <div style="opacity:.9;margin-top:2px">Partly sunny</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- MAIN -->
+      <div class="col">
+        <div class="card hero">
+          <div>
+            <div class="eyebrow">Household net worth</div>
+            <div class="net-val num">$284,610</div>
+            <span class="net-delta">▲ $6,420 this month</span>
+            <div class="net-mini">
+              <div><div class="k">Assets</div><div class="v">$312,400</div></div>
+              <div><div class="k">Debts</div><div class="v">$27,790</div></div>
+              <div><div class="k">12-mo change</div><div class="v" style="color:var(--green)">+$48.2k</div></div>
+            </div>
+          </div>
+          <svg class="spark" viewBox="0 0 600 118" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="ln" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#13B6A4"/><stop offset="1" stop-color="#FF7A53"/></linearGradient>
+              <linearGradient id="fl" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#FF7A53" stop-opacity=".22"/><stop offset="1" stop-color="#FF7A53" stop-opacity="0"/></linearGradient>
+            </defs>
+            <path d="M0,94 C80,90 120,80 190,72 C270,62 300,66 370,50 C450,32 500,36 560,18 C580,12 595,10 600,8"
+              fill="none" stroke="url(#ln)" stroke-width="3" stroke-linecap="round"/>
+            <path d="M0,94 C80,90 120,80 190,72 C270,62 300,66 370,50 C450,32 500,36 560,18 C580,12 595,10 600,8 L600,118 L0,118 Z" fill="url(#fl)"/>
+          </svg>
+        </div>
+
+        <div class="card">
+          <div class="pad" style="padding-bottom:0"><div class="ctitle">Your goals <a>Manage →</a></div></div>
+          <div class="goals">
+            <div class="g">
+              <div class="ring"><svg width="80" height="80"><circle cx="40" cy="40" r="33" fill="none" stroke="#FFE2EC" stroke-width="9"/>
+                <circle cx="40" cy="40" r="33" fill="none" stroke="#FF5C8A" stroke-width="9" stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="64"/></svg>
+                <div class="m" style="color:#FF5C8A">69%</div></div>
+              <div class="g-name">💍 Wedding</div><div class="g-sub mono">$20.7k / $30k</div></div>
+            <div class="g">
+              <div class="ring"><svg width="80" height="80"><circle cx="40" cy="40" r="33" fill="none" stroke="#D7F4F0" stroke-width="9"/>
+                <circle cx="40" cy="40" r="33" fill="none" stroke="#13B6A4" stroke-width="9" stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="114"/></svg>
+                <div class="m" style="color:#13B6A4">45%</div></div>
+              <div class="g-name">🏡 House</div><div class="g-sub mono">$45k / $100k</div></div>
+            <div class="g">
+              <div class="ring"><svg width="80" height="80"><circle cx="40" cy="40" r="33" fill="none" stroke="#FFF0D2" stroke-width="9"/>
+                <circle cx="40" cy="40" r="33" fill="none" stroke="#FFB12E" stroke-width="9" stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="155"/></svg>
+                <div class="m" style="color:#E0920E">25%</div></div>
+              <div class="g-name">🚗 Car fund</div><div class="g-sub mono">$5k / $20k</div></div>
+            <div class="g">
+              <div class="ring"><svg width="80" height="80"><circle cx="40" cy="40" r="33" fill="none" stroke="#ECE6FB" stroke-width="9"/>
+                <circle cx="40" cy="40" r="33" fill="none" stroke="#8B6FE0" stroke-width="9" stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="87"/></svg>
+                <div class="m" style="color:#8B6FE0">58%</div></div>
+              <div class="g-name">🌴 Retirement</div><div class="g-sub">on track · age 61</div></div>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="ctitle">This month's budget <a>Full breakdown →</a></div>
+          <div class="bud"><div class="bud-top"><span class="bud-name">🛒 Groceries</span><span class="bud-fig num">$640 / $700</span></div>
+            <div class="track"><div class="fill" style="width:91%;background:var(--green)"></div></div></div>
+          <div class="bud"><div class="bud-top"><span class="bud-name">🍕 Dining &amp; takeout</span><span class="bud-fig num">$410 / $350</span></div>
+            <div class="track"><div class="fill" style="width:100%;background:var(--red)"></div></div></div>
+          <div class="bud"><div class="bud-top"><span class="bud-name">⛽ Transport &amp; fuel</span><span class="bud-fig num">$230 / $400</span></div>
+            <div class="track"><div class="fill" style="width:57%;background:var(--teal)"></div></div></div>
+          <div class="bud"><div class="bud-top"><span class="bud-name">🏠 Home &amp; utilities</span><span class="bud-fig num">$1,180 / $1,300</span></div>
+            <div class="track"><div class="fill" style="width:90%;background:var(--green)"></div></div></div>
+          <div class="bud"><div class="bud-top"><span class="bud-name">💍 Wedding savings</span><span class="bud-fig num">$800 / $800</span></div>
+            <div class="track"><div class="fill" style="width:100%;background:var(--berry)"></div></div></div>
+        </div>
+      </div>
+
+      <!-- RIGHT RAIL -->
+      <div class="col">
+        <div class="card pad">
+          <div class="ctitle">June cashflow</div>
+          <div class="cf"><div class="k"><span class="ic" style="background:var(--green-soft);color:var(--green)">↘</span> Money in</div>
+            <div class="v" style="color:var(--green)">+$8,940</div></div>
+          <div class="cf"><div class="k"><span class="ic" style="background:var(--red-soft);color:var(--red)">↗</span> Money out</div>
+            <div class="v" style="color:var(--red)">−$6,180</div></div>
+          <div class="cf"><div class="k"><span class="ic" style="background:var(--coral-soft);color:var(--coral)">=</span> Net</div>
+            <div class="v">+$2,760</div></div>
+          <div class="safe">
+            <div class="k">Safe to spend ✨</div>
+            <div class="v num">$1,490</div>
+            <div class="h">after bills &amp; savings, through Jul 15</div>
+          </div>
+        </div>
+
+        <!-- PET FEED TRACKER -->
+        <div class="card pad">
+          <div class="ctitle"><span class="lead">🐾 Pet feed tracker</span><a>Pets →</a></div>
+          <div class="pet">
+            <div class="pet-av" style="background:var(--sun-soft)">🐶</div>
+            <div class="pet-info"><div class="pet-name">Biscuit</div><div class="pet-status">Breakfast done · dinner at 6pm</div></div>
+            <div class="feeds">
+              <span class="feed done">✓ AM</span>
+              <span class="feed todo">＋ PM</span>
+            </div>
+          </div>
+          <div class="pet">
+            <div class="pet-av" style="background:var(--grape-soft)">🐱</div>
+            <div class="pet-info"><div class="pet-name">Mochi</div><div class="pet-status">All fed today 🎉</div></div>
+            <div class="feeds">
+              <span class="feed done">✓ AM</span>
+              <span class="feed done">✓ PM</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="ctitle">Coming up</div>
+          <div class="bill"><div class="bd"><div class="d serif">23</div><div class="mo">Jun</div></div>
+            <div class="bn">Mortgage pre-approval<small>RBC · appointment</small></div>
+            <span class="tag" style="background:var(--coral-soft);color:var(--coral)">Plan</span></div>
+          <div class="bill"><div class="bd"><div class="d serif">28</div><div class="mo">Jun</div></div>
+            <div class="bn">Car insurance<small>Auto-pay</small></div><div class="ba" style="color:var(--red)">−$184</div></div>
+          <div class="bill"><div class="bd"><div class="d serif">01</div><div class="mo">Jul</div></div>
+            <div class="bn">Rent<small>Auto-pay</small></div><div class="ba" style="color:var(--red)">−$2,150</div></div>
+          <div class="bill"><div class="bd"><div class="d serif">02</div><div class="mo">Jul</div></div>
+            <div class="bn">Holly — tips deposit<small>Est. last 4 wks</small></div><div class="ba" style="color:var(--green)">+$920</div></div>
+          <div class="bill"><div class="bd"><div class="d serif">15</div><div class="mo">Jul</div></div>
+            <div class="bn">Matt — payday<small>Salary</small></div><div class="ba" style="color:var(--green)">+$3,480</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

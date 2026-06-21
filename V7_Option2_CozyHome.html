@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Home Hub V7 · The Cozy Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#fff7ec; --ink:#5b4636; --ink-soft:#8a7660; --line:#e7d6bd;
+  --coral:#f08a5d; --honey:#f0b541; --sage:#88b04b; --sky-blue:#6fb3d6; --berry:#e0729a; --lav:#b39ddb;
+  --good:#5aa86b; --warn:#e08a3b; --bad:#d96a6a;
+  --glass:rgba(255,248,236,.78); --glass-line:rgba(208,180,140,.5);
+  /* live sky vars (set by JS) */
+  --sky-top:#bfe3f2; --sky-mid:#dff0ec; --sky-bot:#fff4d9; --sun-col:#ffd36b;
+  --fdisp:'Fraunces',Georgia,serif; --fui:'Nunito',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:var(--fui);color:var(--ink);background:#0c1320}
+#scene{position:fixed;inset:0;width:100%;height:100%}
+svg{width:100%;height:100%;display:block}
+.grain{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:.05;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* clickable feel */
+.hit{cursor:pointer}
+.room,.plant,.mailbox,.sky-hit{transition:filter .3s ease, transform .35s cubic-bezier(.2,.8,.2,1)}
+.room:hover{filter:drop-shadow(0 0 0 transparent) brightness(1.06)}
+.room:hover .roomGlow{opacity:1}
+.roomGlow{opacity:0;transition:opacity .3s}
+.plant:hover{transform:translateY(-4px)}
+
+/* ---------- BOOT ---------- */
+#boot{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(120% 120% at 50% 35%, #fff7ec, #fbe9cf);transition:opacity 1s ease}
+#boot.gone{opacity:0;pointer-events:none}
+#boot .mk{font-family:var(--fdisp);font-weight:600;font-size:clamp(34px,6vw,64px);color:var(--ink);opacity:0;animation:rise 1.2s .2s forwards}
+#boot .mk span{color:var(--coral)}
+#boot .sb{margin-top:10px;font-size:14px;color:var(--ink-soft);letter-spacing:.18em;text-transform:uppercase;opacity:0;animation:rise 1s .7s forwards}
+#boot .key{margin-top:24px;font-size:40px;opacity:0;animation:rise 1s 1s forwards, sway 2.4s 1.6s ease-in-out infinite}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes sway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+
+/* ---------- TOP BAR ---------- */
+#top{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  padding:16px 24px;opacity:0;transform:translateY(-10px);transition:.7s cubic-bezier(.2,.8,.2,1)}
+#top.show{opacity:1;transform:none}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--fdisp);font-weight:600;font-size:20px;color:var(--ink)}
+.brand .b{font-size:26px}
+.brand small{font-family:var(--fui);font-weight:600;font-size:11px;letter-spacing:.14em;color:var(--ink-soft);text-transform:uppercase}
+.top-right{display:flex;align-items:center;gap:12px}
+.pill{display:flex;align-items:center;gap:8px;padding:9px 15px;border-radius:30px;background:var(--glass);
+  backdrop-filter:blur(10px);border:1px solid var(--glass-line);font-weight:700;font-size:13px;color:var(--ink);
+  box-shadow:0 6px 18px rgba(120,90,50,.12)}
+.pill .em{font-size:16px}
+.pill small{font-weight:600;color:var(--ink-soft);font-size:11px}
+
+/* ---------- BOTTOM DOCK ---------- */
+#dock{position:fixed;left:50%;bottom:22px;transform:translate(-50%,18px);z-index:20;display:flex;align-items:center;gap:18px;
+  padding:13px 18px;border-radius:26px;background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-line);
+  box-shadow:0 12px 36px rgba(120,90,50,.2);opacity:0;transition:.7s .15s cubic-bezier(.2,.8,.2,1);flex-wrap:wrap;justify-content:center;max-width:94vw}
+#dock.show{opacity:1;transform:translate(-50%,0)}
+.dgroup{display:flex;align-items:center;gap:9px}
+.dlabel{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.seg{display:flex;background:rgba(231,214,189,.5);border-radius:16px;padding:3px}
+.seg button{border:none;background:transparent;font-family:var(--fui);font-weight:700;font-size:13px;color:var(--ink-soft);
+  padding:7px 12px;border-radius:13px;cursor:pointer;transition:.25s;display:flex;align-items:center;gap:5px}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 3px 8px rgba(120,90,50,.16)}
+.seg button:hover{color:var(--ink)}
+#timeSlider{-webkit-appearance:none;appearance:none;width:180px;height:8px;border-radius:8px;outline:none;
+  background:linear-gradient(90deg,#2b3a67,#6fb3d6 22%,#ffd36b 50%,#f0915d 72%,#2b3a67);cursor:pointer}
+#timeSlider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;
+  border:3px solid var(--honey);box-shadow:0 2px 8px rgba(120,90,50,.3);cursor:pointer}
+#timeSlider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--honey);cursor:pointer}
+.tnow{font-family:var(--fdisp);font-weight:600;font-size:15px;color:var(--ink);min-width:62px;text-align:center}
+.divider{width:1px;height:30px;background:var(--glass-line)}
+.livebtn{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:14px;border:1px solid var(--glass-line);
+  background:#fff;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;transition:.25s}
+.livebtn.on{background:var(--sage);color:#fff;border-color:var(--sage)}
+.livebtn .ld{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 0 currentColor}
+.livebtn.on .ld{animation:beat 1.6s infinite}
+@keyframes beat{0%{box-shadow:0 0 0 0 rgba(255,255,255,.7)}70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+
+/* ---------- PANEL ---------- */
+#panel{position:fixed;right:26px;top:50%;transform:translate(40px,-50%);z-index:30;width:350px;max-height:76vh;overflow:auto;
+  padding:0 0 22px;border-radius:26px;background:var(--glass);backdrop-filter:blur(16px);border:1px solid var(--glass-line);
+  box-shadow:0 22px 60px rgba(90,60,30,.28);opacity:0;pointer-events:none;transition:.5s cubic-bezier(.2,.8,.2,1)}
+#panel.show{opacity:1;transform:translate(0,-50%);pointer-events:auto}
+#panel::-webkit-scrollbar{width:7px}#panel::-webkit-scrollbar-thumb{background:rgba(208,180,140,.6);border-radius:7px}
+.p-head{padding:22px 24px 16px;border-radius:26px 26px 0 0;position:relative;overflow:hidden}
+.p-head .blob{position:absolute;right:-30px;top:-40px;width:140px;height:140px;border-radius:50%;opacity:.32;filter:blur(8px)}
+.p-eye{font-weight:800;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(91,70,54,.7);position:relative}
+.p-titrow{display:flex;align-items:center;gap:12px;margin-top:6px;position:relative}
+.p-emoji{font-size:34px;filter:drop-shadow(0 3px 6px rgba(120,90,50,.25))}
+.p-title{font-family:var(--fdisp);font-weight:600;font-size:25px;color:var(--ink)}
+.p-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;border:1px solid var(--glass-line);
+  background:rgba(255,255,255,.7);color:var(--ink-soft);cursor:pointer;font-size:15px;font-weight:800;z-index:2}
+.p-close:hover{color:var(--ink);background:#fff}
+.p-body{padding:4px 24px 0;font-size:14px;line-height:1.62;color:var(--ink-soft)}
+.p-body b{color:var(--ink)}
+.srow{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px dashed var(--line)}
+.srow .k{font-size:13px;font-weight:600;color:var(--ink-soft)}
+.srow .v{font-family:var(--fdisp);font-weight:600;font-size:15px;color:var(--ink)}
+.srow .v.pos{color:var(--good)}.srow .v.neg{color:var(--bad)}
+.pbar{margin-top:9px;height:11px;border-radius:8px;background:rgba(231,214,189,.7);overflow:hidden;position:relative}
+.pbar i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--sage),var(--honey));transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;margin:8px 7px 0 0;border-radius:30px;font-weight:700;
+  font-size:12px;color:var(--coral);background:rgba(240,138,93,.12);border:1px solid rgba(240,138,93,.3);cursor:pointer;transition:.25s}
+.chip:hover{background:rgba(240,138,93,.2)}
+
+/* tooltip */
+#tip{position:fixed;z-index:40;padding:9px 13px;border-radius:13px;background:var(--glass);backdrop-filter:blur(8px);
+  border:1px solid var(--glass-line);pointer-events:none;opacity:0;transition:opacity .18s;box-shadow:0 8px 20px rgba(120,90,50,.18);max-width:230px}
+#tip .tt{font-family:var(--fdisp);font-weight:600;font-size:14px;color:var(--ink)}
+#tip .ts{font-weight:700;font-size:12px;color:var(--coral);margin-top:1px}
+
+/* toast */
+#toast{position:fixed;left:50%;top:84px;transform:translate(-50%,-16px);z-index:45;padding:13px 22px;border-radius:18px;
+  background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-line);box-shadow:0 12px 30px rgba(120,90,50,.22);
+  text-align:center;opacity:0;pointer-events:none;transition:.45s}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast .te{font-size:24px}#toast .tx{font-family:var(--fdisp);font-weight:600;font-size:16px;margin-top:2px}
+#toast .td{font-weight:700;font-size:12px;color:var(--good);margin-top:1px}
+
+.hintline{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:18;font-weight:700;font-size:12px;
+  letter-spacing:.05em;color:var(--ink-soft);opacity:0;transition:.6s;pointer-events:none;background:var(--glass);
+  padding:7px 16px;border-radius:20px;border:1px solid var(--glass-line)}
+.hintline.show{opacity:.92}
+
+/* ---------- STUDY DESK (full money workspace) ---------- */
+#study{position:fixed;inset:0;z-index:50;overflow:auto;opacity:0;pointer-events:none;transition:.45s cubic-bezier(.2,.8,.2,1);
+  background:radial-gradient(130% 120% at 72% -10%, #fcf0d8, #efddbb);}
+#study.show{opacity:1;pointer-events:auto}
+#study::-webkit-scrollbar{width:9px}#study::-webkit-scrollbar-thumb{background:rgba(208,180,140,.6);border-radius:9px}
+.deskwrap{max-width:1200px;margin:0 auto;padding:26px 26px 60px}
+.study-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.backbtn{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:30px;border:1px solid var(--glass-line);
+  background:var(--glass);font-weight:800;font-size:13px;color:var(--ink);cursor:pointer;transition:.25s}
+.backbtn:hover{background:#fff;transform:translateX(-3px)}
+.study-title{display:flex;align-items:center;gap:11px;font-family:var(--fdisp);font-weight:600;font-size:27px;color:var(--ink)}
+.study-title .em{font-size:30px}
+.hero-s2s{display:flex;align-items:baseline;gap:12px;padding:8px 18px;border-radius:20px;background:#fff8ee;border:1px solid var(--line);box-shadow:0 8px 20px rgba(120,90,50,.1)}
+.hero-s2s .lab{font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.hero-s2s .num{font-family:var(--fdisp);font-weight:700;font-size:30px;color:var(--good)}
+.dgrid{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.dgrid{grid-template-columns:1fr}}
+.card{background:#fffaf1;border:1px solid var(--line);border-radius:20px;padding:17px 18px;box-shadow:0 10px 26px rgba(120,90,50,.09);margin-bottom:18px}
+.card h3{font-family:var(--fdisp);font-weight:600;font-size:16px;margin-bottom:12px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.card h3 small{margin-left:auto;font-family:var(--fui);font-weight:700;font-size:11px;color:var(--ink-soft)}
+.acct{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)}
+.acct:last-child{border-bottom:none}
+.acct .nm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13px;color:var(--ink)}
+.acct .nm .ad{width:9px;height:9px;border-radius:50%}
+.acct .nm small{display:block;font-weight:600;font-size:10px;color:var(--ink-soft)}
+.acct .ba{font-family:var(--fdisp);font-weight:600;font-size:16px}
+.acct .ba.neg{color:var(--bad)}
+.split{margin-top:4px}
+.split .row{display:flex;align-items:center;gap:10px;margin:9px 0}
+.split .who{width:54px;font-weight:800;font-size:12px;color:var(--ink)}
+.split .stk{flex:1;height:18px;border-radius:9px;background:#efe1c6;overflow:hidden;display:flex}
+.split .seg-s{height:100%}
+.split .tot{font-family:var(--fdisp);font-weight:600;font-size:13px;width:64px;text-align:right}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;font-weight:700;color:var(--ink-soft)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.env{margin:13px 0}
+.env .lab{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:12.5px;margin-bottom:5px;color:var(--ink)}
+.env .lab span:last-child{font-family:var(--fdisp);font-weight:600;color:var(--ink-soft)}
+.env .track{height:15px;border-radius:9px;background:#efe1c6;overflow:hidden;box-shadow:inset 0 1px 3px rgba(120,90,50,.15)}
+.env .track i{display:block;height:100%;border-radius:9px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.env.over .track i{background:linear-gradient(90deg,#e89a6b,var(--bad))!important}
+.env.over .lab span:last-child{color:var(--bad)}
+.drop{border:2.5px dashed #d8be90;border-radius:18px;padding:22px;text-align:center;transition:.25s;cursor:pointer;background:#fff8ec;position:relative;overflow:hidden}
+.drop:hover,.drop.hot{border-color:var(--coral);background:#fff3e3}
+.drop .di{font-size:34px}
+.drop .dt{font-family:var(--fdisp);font-weight:600;font-size:16px;margin-top:6px;color:var(--ink)}
+.drop .ds{font-size:12px;color:var(--ink-soft);margin-top:3px}
+.drop .sample{margin-top:11px;display:inline-block;padding:8px 15px;border-radius:24px;background:var(--coral);color:#fff;font-weight:800;font-size:12.5px}
+.scanbar{height:6px;border-radius:6px;background:#efe1c6;margin-top:14px;overflow:hidden;display:none}
+.scanbar.go{display:block}
+.scanbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sage),var(--honey));animation:scan 1.6s ease forwards}
+@keyframes scan{to{width:100%}}
+.preview{margin-top:14px;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:none}
+.preview.show{display:block}
+.preview .ph{padding:11px 14px;background:#f6e8cd;font-weight:800;font-size:12.5px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.preview .ph .dup{margin-left:auto;color:var(--warn);font-size:11px}
+.preview .pl{max-height:190px;overflow:auto}
+.preview .pa{display:flex;gap:10px;padding:11px 14px;border-top:1px solid var(--line);background:#fffdf8}
+.btn{padding:9px 16px;border-radius:24px;border:none;font-family:var(--fui);font-weight:800;font-size:13px;cursor:pointer;transition:.25s}
+.btn.go{background:var(--sage);color:#fff}.btn.go:hover{filter:brightness(1.05)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-soft)}
+.filterbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.fchip{padding:7px 13px;border-radius:22px;border:1px solid var(--line);background:#fff8ec;font-weight:700;font-size:12px;color:var(--ink-soft);cursor:pointer;transition:.2s}
+.fchip:hover{color:var(--ink)}
+.fchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ledger{max-height:none}
+.tx{display:grid;grid-template-columns:38px 1fr auto auto;gap:12px;align-items:center;padding:11px 10px;border-radius:13px;transition:.2s}
+.tx:hover{background:#fff;box-shadow:0 4px 12px rgba(120,90,50,.08)}
+.tx.in{animation:txin .5s ease}
+@keyframes txin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.tx .ic{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.tx .meta .d{font-weight:700;font-size:13.5px;color:var(--ink)}
+.tx .meta small{font-size:11px;color:var(--ink-soft)}
+.tx .cat{font-weight:700;font-size:11px;color:var(--ink-soft);padding:4px 10px;border-radius:20px;background:#f1e6d0;white-space:nowrap}
+.tx .amt{font-family:var(--fdisp);font-weight:600;font-size:15px;text-align:right;min-width:84px}
+.tx .amt.pos{color:var(--good)}.tx .amt.neg{color:var(--ink)}
+
+/* sway animations for foliage */
+@keyframes treesway{0%,100%{transform:rotate(-1.2deg)}50%{transform:rotate(1.2deg)}}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(1700px)}}
+@keyframes smoke{0%{transform:translateY(0) scale(1);opacity:.5}100%{transform:translateY(-60px) scale(1.8);opacity:0}}
+@keyframes flicker{0%,100%{opacity:.9}50%{opacity:.55}}
+.swayer{transform-box:fill-box;transform-origin:bottom center;animation:treesway 5s ease-in-out infinite}
+.swayer2{transform-box:fill-box;transform-origin:bottom center;animation:treesway 6.5s ease-in-out infinite}
+.cloud{animation:drift linear infinite}
+</style>
+</head>
+<body>
+
+<div id="scene">
+<svg id="svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="var(--sky-top)" id="skyTop"/>
+      <stop offset="0.55" stop-color="var(--sky-mid)" id="skyMid"/>
+      <stop offset="1"   stop-color="var(--sky-bot)" id="skyBot"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="var(--sun-col)" stop-opacity="0.9"/>
+      <stop offset="0.4" stop-color="var(--sun-col)" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="var(--sun-col)" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hillFar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9d18e"/><stop offset="1" stop-color="#8cc06f"/></linearGradient>
+    <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fc46a"/><stop offset="1" stop-color="#6ba84d"/></linearGradient>
+    <linearGradient id="roofG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e29a78"/><stop offset="1" stop-color="#c9714f"/></linearGradient>
+    <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8ecd2"/><stop offset="1" stop-color="#efdcb4"/></linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="soft2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+  </defs>
+
+  <!-- SKY -->
+  <rect id="skyRect" x="0" y="0" width="1600" height="900" fill="url(#sky)"/>
+
+  <!-- STARS (night) -->
+  <g id="stars" opacity="0"></g>
+
+  <!-- SUN / MOON -->
+  <g id="sunWrap">
+    <circle id="sunHalo" cx="300" cy="200" r="150" fill="url(#sunGlow)"/>
+    <circle id="sun" cx="300" cy="200" r="46" fill="var(--sun-col)"/>
+    <g id="moon" opacity="0"><circle cx="300" cy="200" r="40" fill="#fdf6e3"/><circle cx="316" cy="188" r="34" fill="var(--sky-top)"/></g>
+  </g>
+
+  <!-- CLOUDS -->
+  <g id="clouds"></g>
+
+  <!-- FAR HILLS -->
+  <path d="M0,640 Q280,560 560,620 T1120,600 T1600,630 L1600,900 L0,900 Z" fill="url(#hillFar)" opacity="0.85"/>
+  <g id="backTrees"></g>
+
+  <!-- LAWN -->
+  <path d="M0,700 Q400,660 800,690 T1600,680 L1600,900 L0,900 Z" fill="url(#lawn)"/>
+  <ellipse id="groundSnow" cx="800" cy="800" rx="1000" ry="160" fill="#eef6fb" opacity="0"/>
+
+  <!-- BACKYARD: big tree right -->
+  <g id="bigTree" transform="translate(1330,500)">
+    <rect x="-14" y="60" width="28" height="150" rx="10" fill="#9c6b43"/>
+    <g class="swayer" id="treeCanopy">
+      <circle cx="0" cy="20" r="92" fill="#7bb86a"/>
+      <circle cx="-58" cy="60" r="62" fill="#86c074"/>
+      <circle cx="58" cy="58" r="60" fill="#6fae5e"/>
+      <circle cx="0" cy="-40" r="64" fill="#8cc879"/>
+    </g>
+  </g>
+
+  <!-- THE HOUSE (cutaway dollhouse) -->
+  <g id="house">
+    <!-- soft ground shadow -->
+    <ellipse cx="800" cy="772" rx="430" ry="40" fill="#3a5a2a" opacity="0.18" filter="url(#soft)"/>
+
+    <!-- ROOF / ATTIC (Retirement) -->
+    <g class="room hit" data-room="attic">
+      <polygon class="roomGlow" points="470,470 800,300 1130,470" fill="#fff" opacity="0" filter="url(#soft2)"/>
+      <polygon points="455,478 800,292 1145,478" fill="url(#roofG)"/>
+      <polygon points="800,300 800,300 1130,470 470,470" fill="#000" opacity="0.05"/>
+      <!-- attic interior triangle -->
+      <polygon points="540,470 800,335 1060,470" fill="#f3e3c3"/>
+      <text x="800" y="430" text-anchor="middle" font-size="40">🌅</text>
+      <text x="800" y="462" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#8a7660">RETIREMENT · age 61</text>
+      <!-- chimney + smoke -->
+      <rect x="980" y="360" width="34" height="80" rx="4" fill="#b07a55"/>
+      <g id="smoke"></g>
+    </g>
+
+    <!-- WALL BLOCK 2 floors -->
+    <rect x="500" y="470" width="600" height="300" rx="10" fill="url(#wallG)"/>
+    <!-- floor divider -->
+    <rect x="500" y="618" width="600" height="6" fill="#d9bf94"/>
+    <!-- wall studs / vertical room dividers -->
+    <rect x="697" y="470" width="6" height="300" fill="#e3cda1"/>
+    <rect x="897" y="470" width="6" height="300" fill="#e3cda1"/>
+
+    <!-- UPSTAIRS LEFT: Bedroom (Wedding) -->
+    <g class="room hit" data-room="bedroom">
+      <rect class="roomGlow" x="506" y="476" width="185" height="136" rx="8" fill="#fff" filter="url(#soft2)"/>
+      <rect x="510" y="478" width="183" height="138" rx="6" fill="#f7e0e8"/>
+      <rect x="524" y="556" width="120" height="52" rx="7" fill="#e9b9c8"/><rect x="524" y="548" width="120" height="16" rx="6" fill="#f4d3de"/>
+      <text x="601" y="528" text-anchor="middle" font-size="30">💍</text>
+      <text x="601" y="600" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="12" fill="#a06b80">WEDDING</text>
+    </g>
+    <!-- UPSTAIRS MID: Study (Finance) -->
+    <g class="room hit" data-room="office">
+      <rect class="roomGlow" x="703" y="476" width="191" height="136" rx="8" fill="#fff" filter="url(#soft2)"/>
+      <rect x="707" y="478" width="189" height="138" rx="6" fill="#dceff0"/>
+      <rect x="722" y="560" width="160" height="48" rx="6" fill="#a9d7c9"/>
+      <rect x="800" y="500" width="74" height="50" rx="5" fill="#6fb3d6"/><rect x="806" y="506" width="62" height="38" rx="3" fill="#cdeaf6"/>
+      <text x="760" y="540" text-anchor="middle" font-size="28">💼</text>
+      <text x="800" y="600" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="12" fill="#5e8aa0">FINANCE</text>
+    </g>
+    <!-- UPSTAIRS RIGHT: Nursery / Family (Home & Pets) -->
+    <g class="room hit" data-room="living">
+      <rect class="roomGlow" x="903" y="476" width="191" height="136" rx="8" fill="#fff" filter="url(#soft2)"/>
+      <rect x="907" y="478" width="187" height="138" rx="6" fill="#e7f3da"/>
+      <rect x="922" y="560" width="160" height="48" rx="6" fill="#bcd99a"/>
+      <text x="1000" y="540" text-anchor="middle" font-size="30">🐾</text>
+      <text x="1000" y="600" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="12" fill="#6f9450">HOME &amp; PETS</text>
+    </g>
+
+    <!-- DOWNSTAIRS LEFT: Kitchen (Meals) -->
+    <g class="room hit" data-room="kitchen">
+      <rect class="roomGlow" x="506" y="624" width="185" height="142" rx="8" fill="#fff" filter="url(#soft2)"/>
+      <rect x="510" y="626" width="183" height="140" rx="6" fill="#fdeccd"/>
+      <rect x="518" y="690" width="170" height="74" rx="6" fill="#e9c79a"/>
+      <rect x="530" y="700" width="44" height="54" rx="4" fill="#d6ad77"/><rect x="592" y="700" width="44" height="54" rx="4" fill="#d6ad77"/>
+      <text x="601" y="676" text-anchor="middle" font-size="30">🍲</text>
+      <text x="601" y="754" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="12" fill="#b08a4a">KITCHEN</text>
+    </g>
+    <!-- DOWNSTAIRS MID: Front hall / door (Overview) -->
+    <g class="room hit" data-room="hall">
+      <rect class="roomGlow" x="703" y="624" width="191" height="142" rx="8" fill="#fff" filter="url(#soft2)"/>
+      <rect x="707" y="626" width="189" height="140" rx="6" fill="#f0e6d2"/>
+      <rect x="757" y="664" width="86" height="102" rx="8" fill="#c9714f"/>
+      <rect x="757" y="664" width="86" height="102" rx="8" fill="none" stroke="#a85636" stroke-width="3"/>
+      <circle cx="830" cy="716" r="4" fill="#ffd36b"/>
+      <text x="800" y="652" text-anchor="middle" font-size="22">🏡</text>
+      <text x="800" y="660" text-anchor="middle"></text>
+    </g>
+    <!-- DOWNSTAIRS RIGHT: Garage (Cars) -->
+    <g class="room hit" data-room="garage">
+      <rect class="roomGlow" x="903" y="624" width="191" height="142" rx="8" fill="#fff" filter="url(#soft2)"/>
+      <rect x="907" y="626" width="187" height="140" rx="6" fill="#e4ebf0"/>
+      <rect x="922" y="700" width="160" height="64" rx="8" fill="#9fb0bd"/>
+      <circle cx="958" cy="764" r="15" fill="#5b4636"/><circle cx="1046" cy="764" r="15" fill="#5b4636"/>
+      <rect x="940" y="676" width="124" height="34" rx="8" fill="#cfd8de"/>
+      <text x="1000" y="668" text-anchor="middle" font-size="26">🚗</text>
+      <text x="1000" y="754" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="12" fill="#6b7d8a">GARAGE</text>
+    </g>
+
+    <!-- porch + steps -->
+    <rect x="690" y="766" width="220" height="10" rx="4" fill="#caa472"/>
+    <rect x="715" y="776" width="170" height="9" rx="3" fill="#b9905f"/>
+  </g>
+
+  <!-- FRONT PATH -->
+  <path d="M790,786 Q760,840 700,900 L900,900 Q840,840 810,786 Z" fill="#e6d6b4" opacity="0.9"/>
+
+  <!-- MAILBOX (reminders) -->
+  <g id="mailbox" class="mailbox hit" data-room="mailbox" transform="translate(420,690)">
+    <rect x="-5" y="0" width="14" height="86" rx="4" fill="#9c6b43"/>
+    <rect x="-34" y="-34" width="74" height="44" rx="10" fill="#7fa8c9"/>
+    <path d="M-34,-34 a37,22 0 0 1 74,0 Z" fill="#6f96b5"/>
+    <rect x="-44" y="-20" width="14" height="20" rx="4" fill="#e0729a" id="mailFlag" transform="rotate(0)"/>
+    <circle cx="20" cy="-12" r="4" fill="#fff"/>
+    <text x="3" y="-44" text-anchor="middle" font-size="20" id="mailBadge">✉️</text>
+  </g>
+
+  <!-- GARDEN: savings goals as growing plants -->
+  <g id="garden"></g>
+
+  <!-- FOREGROUND particles (rain/snow/leaves/fireflies) -->
+  <g id="weatherFX"></g>
+  <!-- foreground bushes parallax -->
+  <g id="fg">
+    <ellipse cx="120" cy="880" rx="180" ry="70" fill="#5e9a44"/>
+    <ellipse cx="1500" cy="888" rx="220" ry="80" fill="#56923f"/>
+    <circle cx="60" cy="840" r="38" fill="#6aa84f"/><circle cx="160" cy="858" r="44" fill="#6aa84f"/>
+  </g>
+</svg>
+</div>
+<div class="grain"></div>
+
+<!-- BOOT -->
+<div id="boot">
+  <div class="mk">The <span>Cozy</span> Home</div>
+  <div class="sb">Home Hub · a place to live in</div>
+  <div class="key">🏡</div>
+</div>
+
+<!-- UI -->
+<header id="top">
+  <div class="brand"><span class="b">🏡</span>Home&nbsp;Hub <small>Matt&nbsp;&amp;&nbsp;Holly · Ontario</small></div>
+  <div class="top-right">
+    <div class="pill" id="weatherPill" title="Weather"><span class="em" id="wEmoji">☀️</span><span id="wText">21°</span><small id="wSub">Clear</small></div>
+    <div class="pill" title="Net worth grows the garden">🌱 <span id="nw">$148,200</span><small>net&nbsp;worth</small></div>
+    <div class="pill" id="clockPill">🕑 <span id="clock">2:00</span></div>
+  </div>
+</header>
+
+<div id="dock">
+  <div class="dgroup">
+    <span class="dlabel">Time</span>
+    <input type="range" id="timeSlider" min="0" max="1439" value="840"/>
+    <span class="tnow" id="tnow">2:00 pm</span>
+  </div>
+  <span class="divider"></span>
+  <div class="dgroup">
+    <span class="dlabel">Season</span>
+    <div class="seg" id="seasonSeg">
+      <button data-s="spring">🌸 Spring</button>
+      <button data-s="summer" class="on">☀️ Summer</button>
+      <button data-s="fall">🍂 Fall</button>
+      <button data-s="winter">❄️ Winter</button>
+    </div>
+  </div>
+  <span class="divider"></span>
+  <div class="dgroup">
+    <span class="dlabel">Weather</span>
+    <div class="seg" id="weatherSeg">
+      <button data-w="sun" class="on">☀️</button>
+      <button data-w="cloud">⛅</button>
+      <button data-w="rain">🌧️</button>
+      <button data-w="snow">❄️</button>
+    </div>
+  </div>
+  <span class="divider"></span>
+  <button class="livebtn" id="liveBtn"><span class="ld"></span>LIVE</button>
+</div>
+
+<aside id="panel">
+  <button class="p-close" id="pClose">✕</button>
+  <div class="p-head" id="pHead"><div class="blob" id="pBlob"></div>
+    <div class="p-eye" id="pEye">ROOM</div>
+    <div class="p-titrow"><span class="p-emoji" id="pEmoji">🏡</span><span class="p-title" id="pTitle">—</span></div>
+  </div>
+  <div class="p-body" id="pBody"></div>
+</aside>
+
+<!-- THE STUDY DESK (money workspace) -->
+<div id="study">
+  <div class="deskwrap">
+    <div class="study-top">
+      <button class="backbtn" id="studyBack">‹ back to the house</button>
+      <div class="study-title"><span class="em">💼</span> The Study</div>
+      <div class="hero-s2s"><span class="lab">Safe to spend<br>this week</span><span class="num" id="s2s">$312</span></div>
+    </div>
+    <div class="dgrid">
+      <!-- LEFT COLUMN -->
+      <div>
+        <div class="card">
+          <h3>🏦 Accounts <small id="netLine">net $65,260</small></h3>
+          <div id="accts"></div>
+        </div>
+        <div class="card">
+          <h3>👛 Income this month</h3>
+          <div class="split" id="splitWrap"></div>
+          <div class="legend">
+            <span><i style="background:var(--sky-blue)"></i>Matt · salary</span>
+            <span><i style="background:var(--honey)"></i>Holly · declared tips</span>
+            <span><i style="background:var(--coral)"></i>Holly · cash tips</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>✉️ Budget envelopes <small>June</small></h3>
+          <div id="envs"></div>
+        </div>
+      </div>
+      <!-- RIGHT COLUMN -->
+      <div>
+        <div class="card">
+          <h3>📥 Add a statement</h3>
+          <div class="drop" id="drop">
+            <div class="di">🗂️</div>
+            <div class="dt">Drop a bank or credit statement on the desk</div>
+            <div class="ds">BMO chequing · Canadian Tire Mastercard · CSV or PDF</div>
+            <span class="sample" id="sampleBtn">📄 Use a sample statement</span>
+            <div class="scanbar" id="scanbar"><i></i></div>
+          </div>
+          <div class="preview" id="preview">
+            <div class="ph" id="previewHead"></div>
+            <div class="pl" id="previewList"></div>
+            <div class="pa">
+              <button class="btn go" id="importBtn">Import transactions</button>
+              <button class="btn ghost" id="cancelBtn">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>📒 Transactions <small id="txCount"></small></h3>
+          <div class="filterbar" id="filterbar"></div>
+          <div class="ledger" id="ledger"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"><div class="tt" id="tipT"></div><div class="ts" id="tipS"></div></div>
+<div id="toast"><div class="te" id="toastE">🌱</div><div class="tx" id="toastX"></div><div class="td" id="toastD"></div></div>
+<div class="hintline" id="hint"></div>
+
+<script>
+/* ===================== DATA ===================== */
+const NET_WORTH=148200;
+const ROOMS={
+  attic:{eye:'RETIREMENT',emoji:'🌅',title:'The Loft',color:'#b39ddb',
+    body:`Sunlight pools in the rafters. Your projection engine — CPP + OAS + pension + RRSP/TFSA — says you're <b>on track to retire at 61</b> with about <b>$58k/year</b> in today's dollars, clear of the OAS clawback.`,
+    stats:[['Invested','$86,000'],['Retire age','61','pos'],['Est. income','$58k/yr'],['CPP estimate','$1,180/mo']]},
+  bedroom:{eye:'WEDDING PLAN',emoji:'💍',title:'The Bedroom',color:'#e0729a',
+    body:`483 days to go. <b>Budget $35,000 · committed $11,200.</b> Venue deposit paid; photographer shortlist saved (3). Guest list at 118 of 140.`,
+    stats:[['Saved','$19,400 / $35k'],['Committed','$11,200'],['Vendors booked','4'],['Guests','118 / 140']]},
+  office:{eye:'FINANCE',emoji:'💼',title:'The Study',color:'#6fb3d6',
+    body:`Quiet desk, warm lamp. <b>Safe-to-spend this week: $312.</b> 14 transactions auto-categorised since Monday. Canadian Tire Mastercard due in 6 days.`,
+    stats:[['Chequing','$4,210'],['Savings','$61,940'],['Credit owing','-$890','neg'],['Budget left','$312','pos']]},
+  living:{eye:'HOME & PETS',emoji:'🐾',title:'The Family Room',color:'#88b04b',
+    body:`The heart of the home. Pet feed tracker: <b>AM ✓ · PM pending.</b> 2 reminders today. Holly works the dinner shift, so PM feeding is on Matt.`,
+    stats:[['Pets fed','AM ✓ / PM —'],['Reminders','2 today'],['Bills due','none','pos'],['Home tasks','2 this week']]},
+  kitchen:{eye:'MEALS & GROCERIES',emoji:'🍲',title:'The Kitchen',color:'#f0b541',
+    body:`Something's simmering. AI meal plan built from your pantry + this week's Flipp flyers. <b>Projected grocery spend: $128</b> (down $22 vs your average). 3 favourites on sale.`,
+    stats:[['Meals planned','7 / 7','pos'],['Pantry items','41'],['Flyer deals','12'],['Est. spend','$128']]},
+  garage:{eye:'CARS & MAINTENANCE',emoji:'🚗',title:'The Garage',color:'#7d93a3',
+    body:`Car fund at <b>$12,500 / $40,000</b> — both vehicles bought in cash, no financing. Furnace filter due this month; gutters logged clean. Next service in 1,900 km.`,
+    stats:[['Car fund','$12,500'],['Upkeep tasks','2 due'],['Next service','1,900 km'],['Warranty','active','pos']]},
+  hall:{eye:'TODAY AT A GLANCE',emoji:'🏡',title:'Welcome Home',color:'#f08a5d',
+    body:`Wipe your feet. <b>Net worth $148,200</b>, up $4,180 this month — you're saving 28% of take-home. Two reminders, no bills due, and the garden's looking healthy.`,
+    stats:[['Net worth','$148,200','pos'],['This month','+$4,180','pos'],['Savings rate','28%','pos'],['Reminders','2 today']]},
+  mailbox:{eye:'REMINDERS & BILLS',emoji:'✉️',title:'The Mailbox',color:'#6fb3d6',
+    body:`The little red flag is up. <b>2 reminders</b> waiting: Canadian Tire MC payment in 6 days, and Holly's RRSP top-up before March 1. No bills overdue.`,
+    stats:[['Reminders','2'],['Bills overdue','0','pos'],['Next due','CT MC · 6 days'],['RRSP deadline','Mar 1']]},
+};
+const GOALS=[
+  {id:'emergency',emoji:'🛟',name:'Emergency Fund',saved:20000,target:20000,color:'#5aa86b',flower:'#7fd49a'},
+  {id:'wedding',emoji:'💍',name:'Wedding',saved:19400,target:35000,color:'#e0729a',flower:'#ffc6da'},
+  {id:'house',emoji:'🏡',name:'House Down Payment',saved:52000,target:90000,color:'#6fb3d6',flower:'#bfe3f2'},
+  {id:'cars',emoji:'🚗',name:'Car Fund',saved:12500,target:40000,color:'#f0b541',flower:'#ffe39a'},
+  {id:'retire',emoji:'🌅',name:'Retirement',saved:86000,target:1200000,color:'#b39ddb',flower:'#d7c6f2'},
+];
+const MILES=[ /* fun future projection toasts, fired by net-worth-ish slider not used here */ ];
+
+/* ===================== SKY / TIME ===================== */
+// keyframe palettes by hour: [skyTop, skyMid, skyBot, sunCol, sunY(0..1 of arc height), bright(0..1)]
+const SKYK=[
+  {h:0,  top:'#101a35',mid:'#1c2b50',bot:'#2b3a67',sun:'#cdd7ff',br:0.05},
+  {h:5,  top:'#3a4a7a',mid:'#7a6a9a',bot:'#e9a78c',sun:'#ffd9a0',br:0.3},
+  {h:7,  top:'#9fc4e8',mid:'#cfe6f2',bot:'#ffe7c4',sun:'#ffe08a',br:0.7},
+  {h:12, top:'#a9dbf0',mid:'#d6f0ec',bot:'#fff4d9',sun:'#ffd36b',br:1.0},
+  {h:17, top:'#bfe0ef',mid:'#ffe6cf',bot:'#ffd9a8',sun:'#ffc878',br:0.85},
+  {h:19, top:'#6f6aa0',mid:'#e7896a',bot:'#ffb27a',sun:'#ff9d5c',br:0.45},
+  {h:21, top:'#2e3566',mid:'#4a3f74',bot:'#a86a7e',sun:'#ffcaa0',br:0.18},
+  {h:24, top:'#101a35',mid:'#1c2b50',bot:'#2b3a67',sun:'#cdd7ff',br:0.05},
+];
+function hex2rgb(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function rgb2hex(a){return '#'+a.map(v=>('0'+Math.round(v).toString(16)).slice(-2)).join('');}
+function lerpHex(a,b,t){const x=hex2rgb(a),y=hex2rgb(b);return rgb2hex(x.map((v,i)=>v+(y[i]-v)*t));}
+function skyAt(hour){
+  let a=SKYK[0],b=SKYK[SKYK.length-1];
+  for(let i=0;i<SKYK.length-1;i++){if(hour>=SKYK[i].h&&hour<=SKYK[i+1].h){a=SKYK[i];b=SKYK[i+1];break;}}
+  const t=(hour-a.h)/((b.h-a.h)||1);
+  return {top:lerpHex(a.top,b.top,t),mid:lerpHex(a.mid,b.mid,t),bot:lerpHex(a.bot,b.bot,t),sun:lerpHex(a.sun,b.sun,t),br:a.br+(b.br-a.br)*t};
+}
+const root=document.documentElement;
+let minutes=840, season='summer', weather='sun', live=false, liveTimer=null;
+
+function applyTime(min){
+  const hour=min/60;
+  const s=skyAt(hour);
+  root.style.setProperty('--sky-top',s.top);
+  root.style.setProperty('--sky-mid',s.mid);
+  root.style.setProperty('--sky-bot',s.bot);
+  root.style.setProperty('--sun-col',s.sun);
+  // sun/moon arc: x from 150(6am) to 1450(6pm); above horizon between 6 and 18
+  const dayT=(hour-6)/12; // 0 at 6am .. 1 at 6pm
+  const x=150+dayT*1300;
+  const y=470-Math.sin(Math.max(0,Math.min(1,dayT))*Math.PI)*330;
+  const isDay=hour>=6&&hour<=18;
+  G('sun').setAttribute('cx',x);G('sun').setAttribute('cy',y);
+  G('sunHalo').setAttribute('cx',x);G('sunHalo').setAttribute('cy',y);
+  G('sun').style.opacity=isDay?1:0;G('sunHalo').style.opacity=isDay?(0.5+s.br*0.5):0;
+  // moon: opposite arc at night
+  const nightT=hour>18?(hour-18)/12:(hour+6)/12;
+  const mx=150+nightT*1300, my=470-Math.sin(Math.max(0,Math.min(1,nightT))*Math.PI)*300;
+  const mg=G('moon');mg.setAttribute('transform',`translate(${mx-300},${my-200})`);mg.style.opacity=isDay?0:1;
+  // stars
+  G('stars').style.opacity=isDay?0:Math.min(1,(1-s.br)*1.4);
+  // window glow at night
+  document.querySelectorAll('.room rect[fill^="#"]').forEach(()=>{});
+  G('windowGlow')&&0;
+  // tint scene darker at night via overlay? keep light for readability; lawn slightly darker
+  // night fireflies
+  toggleFireflies(!isDay && (season!=='winter'));
+  // clock pill
+  G('clock').textContent=fmtClock(min,false);
+  G('tnow').textContent=fmtClock(min,true);
+}
+function fmtClock(min,ampm){
+  let h=Math.floor(min/60)%24,m=min%60;const ap=h<12?'am':'pm';let hh=h%12;if(hh===0)hh=12;
+  const mm=('0'+m).slice(-2);return ampm?`${hh}:${mm} ${ap}`:`${hh}:${mm}`;
+}
+function G(id){return document.getElementById(id);}
+
+/* stars */
+(function(){let s='';for(let i=0;i<90;i++){const x=Math.random()*1600,y=Math.random()*520,r=Math.random()*1.6+0.4;
+  s+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(1)}" fill="#fff" opacity="${(0.4+Math.random()*0.6).toFixed(2)}"><animate attributeName="opacity" values="${(0.2+Math.random()*0.3).toFixed(2)};1;${(0.2+Math.random()*0.3).toFixed(2)}" dur="${(2+Math.random()*3).toFixed(1)}s" repeatCount="indefinite"/></circle>`;}
+  G('stars').innerHTML=s;})();
+
+/* clouds */
+(function(){let s='';const defs=[[0.55,180,'#ffffff'],[0.8,120,'#fdfbf4'],[0.4,240,'#ffffff']];
+  for(let i=0;i<5;i++){const y=60+Math.random()*240,sc=0.6+Math.random()*0.8,dur=70+Math.random()*70,delay=-Math.random()*dur,op=0.7+Math.random()*0.25;
+   s+=`<g class="cloud" style="animation-duration:${dur}s;animation-delay:${delay}s" transform="translate(${-300},${y}) scale(${sc})" opacity="${op}">
+     <ellipse cx="0" cy="0" rx="70" ry="40" fill="#fff"/><ellipse cx="60" cy="10" rx="60" ry="34" fill="#fff"/><ellipse cx="-55" cy="12" rx="50" ry="30" fill="#fff"/><ellipse cx="10" cy="-22" rx="46" ry="30" fill="#fff"/></g>`;}
+  G('clouds').innerHTML=s;})();
+
+/* chimney smoke */
+(function(){let s='';for(let i=0;i<4;i++){s+=`<circle cx="997" cy="360" r="${10+i*3}" fill="#fff" opacity="0" style="animation:smoke ${3+i*0.6}s ${i*0.8}s ease-out infinite;transform-box:fill-box;transform-origin:center"/>`;}
+  G('smoke').innerHTML=s;})();
+
+/* back trees */
+(function(){let s='';const xs=[120,260,1180,1480];for(const x of xs){const sc=0.5+Math.random()*0.4;
+  s+=`<g transform="translate(${x},640) scale(${sc})"><rect x="-9" y="0" width="18" height="90" rx="6" fill="#8a5f3c"/><g class="swayer2"><circle cy="-10" r="58" fill="#86c074"/><circle cx="-34" cy="22" r="40" fill="#79b566"/><circle cx="36" cy="22" r="40" fill="#6fae5e"/></g></g>`;}
+  G('backTrees').innerHTML=s;})();
+
+/* ===================== GARDEN (goals as plants) ===================== */
+function renderGarden(){
+  const xs=[170,250,330,1075,1180]; // plant x positions on lawn, around path
+  // choose spread positions across front lawn
+  const pos=[150,250,350, 1090,1200];
+  let s='';
+  GOALS.forEach((g,i)=>{
+    const pct=Math.min(g.saved/g.target,1);
+    const x=pos[i], baseY=812;
+    const grow=0.35+pct*0.65;            // overall plant scale
+    const stemH=40+pct*70;
+    const bloom=pct>0.25;
+    const fullBloom=pct>=0.999;
+    s+=`<g class="plant hit" data-goal="${g.id}" transform="translate(${x},${baseY})">
+      <ellipse cx="0" cy="6" rx="${26*grow}" ry="7" fill="#3a5a2a" opacity="0.18"/>
+      <g class="swayer" style="animation-duration:${4+i*0.5}s">
+        <rect x="-3" y="${-stemH}" width="6" height="${stemH}" rx="3" fill="#5e9a44"/>
+        <path d="M0,${-stemH*0.55} q-${22*grow},-6 -${30*grow},10 q14,6 30,-10" fill="#6aa84f"/>
+        <path d="M0,${-stemH*0.78} q${22*grow},-6 ${30*grow},10 q-14,6 -30,-10" fill="#79b566"/>
+        ${bloom?`<g transform="translate(0,${-stemH})">
+           ${[0,72,144,216,288].map(a=>`<ellipse cx="${Math.cos(a*Math.PI/180)*15*grow}" cy="${Math.sin(a*Math.PI/180)*15*grow}" rx="${11*grow}" ry="${15*grow}" fill="${g.flower}" transform="rotate(${a} ${Math.cos(a*Math.PI/180)*15*grow} ${Math.sin(a*Math.PI/180)*15*grow})"/>`).join('')}
+           <circle r="${11*grow}" fill="${g.color}"/>
+           ${fullBloom?`<text y="6" text-anchor="middle" font-size="${15*grow}">✨</text>`:''}
+        </g>`:`<circle cx="0" cy="${-stemH}" r="${7*grow}" fill="#8cc879"/>`}
+      </g>
+      <g transform="translate(0,26)">
+        <rect x="-30" y="0" width="60" height="26" rx="7" fill="#fff7ec" stroke="#e0c89a" stroke-width="1.5"/>
+        <text x="0" y="13" text-anchor="middle" font-size="13">${g.emoji}</text>
+        <text x="0" y="22" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="8.5" fill="#8a7660">${Math.round(pct*100)}%</text>
+      </g>
+    </g>`;
+  });
+  G('garden').innerHTML=s;
+  bindPickables();
+}
+
+/* ===================== SEASONS ===================== */
+function applySeason(s){
+  season=s;
+  document.querySelectorAll('#seasonSeg button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+  const canopy={spring:['#f7c6dd','#ffd6e6','#f3b8d2','#ffe0ec'],summer:['#7bb86a','#86c074','#6fae5e','#8cc879'],
+    fall:['#e6a14b','#d9663b','#e88f3b','#f0b541'],winter:['#cfe0d6','#dbe8e0','#c5d8cd','#e3efe8']};
+  const c=canopy[s];
+  const can=G('treeCanopy').children; if(can.length>=4){can[0].setAttribute('fill',c[0]);can[1].setAttribute('fill',c[1]);can[2].setAttribute('fill',c[2]);can[3].setAttribute('fill',c[3]);}
+  document.querySelectorAll('#backTrees .swayer2').forEach(g=>{[...g.children].forEach((ch,i)=>ch.setAttribute('fill',c[i%c.length]));});
+  // lawn tint + snow ground
+  G('groundSnow').style.opacity = s==='winter'?0.85:0;
+  // weather defaults per season (only if not user-forced recently)
+  if(s==='winter'&&weather==='sun'){setWeather('snow',false);}
+  if(s==='fall'&&weather==='sun'){/* keep sun but leaves fall*/}
+  refreshWeatherFX();
+}
+
+/* ===================== WEATHER ===================== */
+function setWeather(w,fromUser){
+  weather=w;
+  if(fromUser){autoWeather=false;}
+  document.querySelectorAll('#weatherSeg button').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
+  const map={sun:['☀️','Clear'],cloud:['⛅','Cloudy'],rain:['🌧️','Light rain'],snow:['❄️','Snow']};
+  G('wEmoji').textContent=map[w][0];G('wSub').textContent=map[w][1];
+  refreshWeatherFX();
+}
+let fxTimer=null,fireOn=false;
+function refreshWeatherFX(){
+  let s='';const wx=G('weatherFX');
+  // precipitation
+  if(weather==='rain'){for(let i=0;i<70;i++){const x=Math.random()*1600,d=(0.5+Math.random()*0.5);
+    s+=`<line x1="${x}" y1="${-20}" x2="${x-8}" y2="${10}" stroke="#9cc4e0" stroke-width="2" opacity="0.6"><animate attributeName="y1" values="-40;940" dur="${d}s" repeatCount="indefinite"/><animate attributeName="y2" values="-10;970" dur="${d}s" repeatCount="indefinite"/></line>`;}}
+  if(weather==='snow'){for(let i=0;i<60;i++){const x=Math.random()*1600,d=(4+Math.random()*4),r=1.5+Math.random()*2.5,sx=Math.random()*40-20;
+    s+=`<circle cx="${x}" cy="-10" r="${r}" fill="#fff" opacity="0.9"><animate attributeName="cy" values="-10;920" dur="${d}s" repeatCount="indefinite"/><animate attributeName="cx" values="${x};${x+sx};${x}" dur="${d}s" repeatCount="indefinite"/></circle>`;}}
+  // autumn falling leaves
+  if(season==='fall'){for(let i=0;i<26;i++){const x=Math.random()*1600,d=(5+Math.random()*5),col=['#e6a14b','#d9663b','#f0b541'][i%3];
+    s+=`<g opacity="0.85"><path d="M0,0 q6,-8 12,0 q-6,8 -12,0Z" fill="${col}" transform="translate(${x},-10)"><animate attributeName="transform" type="translate" values="${x},-20; ${x-60},920" dur="${d}s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="rotate" additive="sum" from="0 0 0" to="360 0 0" dur="${(2+Math.random()*2).toFixed(1)}s" repeatCount="indefinite"/></path></g>`;}}
+  // spring petals / butterflies
+  if(season==='spring'){for(let i=0;i<18;i++){const x=Math.random()*1600,d=(6+Math.random()*5);
+    s+=`<circle cx="${x}" cy="-10" r="3" fill="#ffd0e2" opacity="0.85"><animate attributeName="cy" values="-10;900" dur="${d}s" repeatCount="indefinite"/><animate attributeName="cx" values="${x};${x+50};${x}" dur="${d}s" repeatCount="indefinite"/></circle>`;}}
+  wx.innerHTML=s+'<g id="fireflies"></g>';
+  if(fireOn) buildFireflies();
+}
+function toggleFireflies(on){ if(on===fireOn)return; fireOn=on; const f=document.getElementById('fireflies'); if(!f)return;
+  if(on)buildFireflies(); else f.innerHTML=''; }
+function buildFireflies(){const f=document.getElementById('fireflies');if(!f)return;let s='';
+  for(let i=0;i<22;i++){const x=200+Math.random()*1200,y=500+Math.random()*340,d=(3+Math.random()*3);
+    s+=`<circle cx="${x}" cy="${y}" r="${2+Math.random()*1.5}" fill="#fff2a8" opacity="0.9" style="filter:drop-shadow(0 0 6px #ffe07a)"><animate attributeName="opacity" values="0;1;0" dur="${d}s" begin="${(-Math.random()*d).toFixed(1)}s" repeatCount="indefinite"/><animate attributeName="cy" values="${y};${y-30};${y}" dur="${(d*1.6).toFixed(1)}s" repeatCount="indefinite"/></circle>`;}
+  f.innerHTML=s;}
+
+/* ===================== PANEL + PICKING ===================== */
+const tip=G('tip');
+function openRoom(key){
+  if(key==='office'){openStudy();return;}
+  const r=ROOMS[key];if(!r)return;
+  G('pEye').textContent=r.eye;G('pEmoji').textContent=r.emoji;G('pTitle').textContent=r.title;
+  G('pHead').style.background=`linear-gradient(135deg, ${hexA(r.color,.28)}, ${hexA(r.color,.06)})`;
+  G('pBlob').style.background=r.color;
+  let h=`<p>${r.body}</p><div style="margin-top:14px">`;
+  r.stats.forEach(st=>h+=`<div class="srow"><span class="k">${st[0]}</span><span class="v ${st[2]||''}">${st[1]}</span></div>`);
+  h+=`</div><div style="margin-top:14px"><span class="chip">open module ›</span><span class="chip">pin to porch</span></div>`;
+  G('pBody').innerHTML=h;G('panel').classList.add('show');
+}
+function openGoal(id){
+  const g=GOALS.find(x=>x.id===id);if(!g)return;const pct=Math.min(g.saved/g.target,1),remain=Math.max(g.target-g.saved,0);
+  G('pEye').textContent='GARDEN · SAVINGS GOAL';G('pEmoji').textContent=g.emoji;G('pTitle').textContent=g.name;
+  G('pHead').style.background=`linear-gradient(135deg, ${hexA(g.color,.28)}, ${hexA(g.color,.06)})`;G('pBlob').style.background=g.color;
+  G('pBody').innerHTML=`<p>This plant grows as you fund the goal. ${pct>=1?'<b>In full bloom — funded! 🌸</b>':'Keep watering it.'}</p>
+    <div style="margin-top:14px">
+      <div class="srow"><span class="k">Saved</span><span class="v pos">$${g.saved.toLocaleString()}</span></div>
+      <div class="srow"><span class="k">Target</span><span class="v">$${g.target.toLocaleString()}</span></div>
+      <div class="srow"><span class="k">Remaining</span><span class="v ${remain?'':'pos'}">${remain?('$'+remain.toLocaleString()):'✓ funded'}</span></div>
+    </div>
+    <div style="margin-top:10px;font-weight:800;font-size:12px;color:#8a7660">${Math.round(pct*100)}% GROWN</div>
+    <div class="pbar"><i style="width:${pct*100}%"></i></div>
+    <div style="margin-top:14px"><span class="chip" onclick="water('${g.id}')">💧 water +$500</span><span class="chip">adjust target</span></div>`;
+  G('panel').classList.add('show');
+}
+function water(id){const g=GOALS.find(x=>x.id===id);if(!g)return;g.saved=Math.min(g.target,g.saved+500);renderGarden();openGoal(id);
+  toast('💧','Watered '+g.name,'+$500 added');}
+window.water=water;
+function hexA(h,a){const c=hex2rgb(h);return `rgba(${c[0]},${c[1]},${c[2]},${a})`;}
+G('pClose').onclick=()=>G('panel').classList.remove('show');
+
+function bindPickables(){
+  document.querySelectorAll('[data-room]').forEach(el=>{
+    el.onclick=()=>openRoom(el.dataset.room);
+    el.onmouseenter=e=>showTip(ROOMS[el.dataset.room]?.title||el.dataset.room, ROOMS[el.dataset.room]?.eye||'');
+    el.onmousemove=moveTip; el.onmouseleave=hideTip;
+  });
+  document.querySelectorAll('[data-goal]').forEach(el=>{
+    const g=GOALS.find(x=>x.id===el.dataset.goal);
+    el.onclick=()=>openGoal(el.dataset.goal);
+    el.onmouseenter=()=>showTip(g.emoji+' '+g.name, Math.round(g.saved/g.target*100)+'% · $'+g.saved.toLocaleString());
+    el.onmousemove=moveTip; el.onmouseleave=hideTip;
+  });
+}
+function showTip(t,s){G('tipT').textContent=t;G('tipS').textContent=s;tip.style.opacity=1;}
+function moveTip(e){tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';}
+function hideTip(){tip.style.opacity=0;}
+function toast(e,x,d){G('toastE').textContent=e;G('toastX').textContent=x;G('toastD').textContent=d;const t=G('toast');t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
+
+/* ===================== CONTROLS ===================== */
+G('timeSlider').addEventListener('input',e=>{minutes=+e.target.value;if(live){live=false;G('liveBtn').classList.remove('on');clearInterval(liveTimer);}applyTime(minutes);});
+document.querySelectorAll('#seasonSeg button').forEach(b=>b.onclick=()=>applySeason(b.dataset.s));
+document.querySelectorAll('#weatherSeg button').forEach(b=>b.onclick=()=>setWeather(b.dataset.w,true));
+G('liveBtn').onclick=()=>{
+  live=!live;G('liveBtn').classList.toggle('on',live);
+  if(live){autoWeather=true;syncLive();initWeather();liveTimer=setInterval(syncLive,30000);toast('🕑','Live mode on','syncing time & weather to right now');}
+  else clearInterval(liveTimer);
+};
+function syncLive(){const d=new Date();minutes=d.getHours()*60+d.getMinutes();G('timeSlider').value=minutes;applyTime(minutes);}
+
+/* parallax */
+let px=0,py=0;
+addEventListener('pointermove',e=>{px=(e.clientX/innerWidth-0.5);py=(e.clientY/innerHeight-0.5);});
+function parallax(){
+  G('clouds').style.transform=`translate(${px*22}px,${py*8}px)`;
+  G('backTrees').style.transform=`translate(${px*-16}px,0)`;
+  G('fg').style.transform=`translate(${px*40}px,${py*10}px)`;
+  G('garden').style.transform=`translate(${px*30}px,0)`;
+  requestAnimationFrame(parallax);
+}
+parallax();
+G('mailbox').addEventListener('mouseenter',()=>{G('mailFlag').setAttribute('transform','rotate(-25 -37 -10)');});
+G('mailbox').addEventListener('mouseleave',()=>{G('mailFlag').setAttribute('transform','rotate(0)');});
+
+/* hint */
+let hT;function hint(t){const h=G('hint');h.textContent=t;h.classList.add('show');clearTimeout(hT);hT=setTimeout(()=>h.classList.remove('show'),5500);}
+
+/* ===================== THE STUDY (money) ===================== */
+const ACCOUNTS=[
+  {nm:'BMO Chequing',sub:'everyday',bal:4210,col:'#6fb3d6'},
+  {nm:'Alterna Savings',sub:'high-interest',bal:61940,col:'#88b04b'},
+  {nm:'Canadian Tire MC',sub:'credit · due in 6d',bal:-890,col:'#e0729a'},
+];
+const CATS={
+  income:{e:'💰',bg:'#dff0d8',label:'Income'}, tips:{e:'🪙',bg:'#fdeccd',label:'Tips'},
+  grocery:{e:'🛒',bg:'#e7f3da',label:'Groceries'}, dining:{e:'🍽️',bg:'#fde3d4',label:'Dining'},
+  coffee:{e:'☕',bg:'#efe1d0',label:'Coffee'}, gas:{e:'⛽',bg:'#e4ebf0',label:'Gas'},
+  housing:{e:'🏠',bg:'#e9e3f2',label:'Housing'}, utilities:{e:'💡',bg:'#fbf0cf',label:'Utilities'},
+  pets:{e:'🐾',bg:'#e7f3da',label:'Pets'}, fun:{e:'🎬',bg:'#f7e0e8',label:'Entertainment'},
+  shopping:{e:'🛍️',bg:'#e4ebf0',label:'Shopping'}, health:{e:'🏥',bg:'#fde3d4',label:'Health'},
+};
+let TX=[
+  {d:'Jun 19',desc:'Loblaws',cat:'grocery',amt:-84.20,acct:'BMO'},
+  {d:'Jun 19',desc:'Tim Hortons',cat:'coffee',amt:-6.45,acct:'CT MC'},
+  {d:'Jun 18',desc:'Holly · declared tips',cat:'tips',amt:120.00,acct:'BMO'},
+  {d:'Jun 18',desc:'Esso',cat:'gas',amt:-62.10,acct:'CT MC'},
+  {d:'Jun 17',desc:'Matt · salary',cat:'income',amt:2180.00,acct:'BMO'},
+  {d:'Jun 16',desc:'Hydro One',cat:'utilities',amt:-142.00,acct:'BMO'},
+  {d:'Jun 15',desc:'Pet Valu',cat:'pets',amt:-38.50,acct:'CT MC'},
+  {d:'Jun 15',desc:'The Keg',cat:'dining',amt:-96.30,acct:'CT MC'},
+  {d:'Jun 14',desc:'Netflix',cat:'fun',amt:-16.99,acct:'BMO'},
+  {d:'Jun 14',desc:'Holly · cash tips',cat:'tips',amt:85.00,acct:'Cash'},
+  {d:'Jun 13',desc:'Canadian Tire',cat:'shopping',amt:-54.20,acct:'CT MC'},
+  {d:'Jun 12',desc:'Mortgage payment',cat:'housing',amt:-1650.00,acct:'BMO'},
+];
+const BUDGETS=[
+  {cat:'grocery',spent:430,limit:600},{cat:'dining',spent:196,limit:250},
+  {cat:'gas',spent:124,limit:200},{cat:'fun',spent:67,limit:80},
+  {cat:'shopping',spent:168,limit:150},{cat:'pets',spent:38,limit:60},
+];
+const INCOME={matt:4360, hollyDecl:980, hollyCash:640};
+// a "sample statement" the drop-zone pretends to scan
+const SAMPLE={fmt:'BMO Chequing · CSV', rows:[
+  {d:'Jun 11',desc:'Sobeys',cat:'grocery',amt:-71.34,acct:'BMO'},
+  {d:'Jun 11',desc:'Holly · declared tips',cat:'tips',amt:96.00,acct:'BMO'},
+  {d:'Jun 10',desc:'Bell Canada',cat:'utilities',amt:-88.00,acct:'BMO'},
+  {d:'Jun 10',desc:'Starbucks',cat:'coffee',amt:-5.80,acct:'BMO'},
+  {d:'Jun 09',desc:'Shoppers Drug Mart',cat:'health',amt:-32.45,acct:'BMO'},
+  {d:'Jun 12',desc:'Mortgage payment',cat:'housing',amt:-1650.00,acct:'BMO'}, // duplicate of existing
+], dup:1};
+
+let activeFilter='all';
+function money(n){return (n<0?'-$':'$')+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function renderAccounts(){
+  let net=0;ACCOUNTS.forEach(a=>net+=a.bal);
+  G('netLine').textContent='net '+money(net);
+  G('accts').innerHTML=ACCOUNTS.map(a=>`<div class="acct">
+    <span class="nm"><span class="ad" style="background:${a.col}"></span><span>${a.nm}<small>${a.sub}</small></span></span>
+    <span class="ba ${a.bal<0?'neg':''}">${money(a.bal)}</span></div>`).join('');
+}
+function renderSplit(){
+  const tot=INCOME.matt+INCOME.hollyDecl+INCOME.hollyCash;
+  const hollyTot=INCOME.hollyDecl+INCOME.hollyCash;
+  G('splitWrap').innerHTML=`
+   <div class="row"><span class="who">Matt</span><div class="stk"><div class="seg-s" style="width:100%;background:var(--sky-blue)"></div></div><span class="tot">${money(INCOME.matt)}</span></div>
+   <div class="row"><span class="who">Holly</span><div class="stk">
+      <div class="seg-s" style="width:${INCOME.hollyDecl/hollyTot*100}%;background:var(--honey)"></div>
+      <div class="seg-s" style="width:${INCOME.hollyCash/hollyTot*100}%;background:var(--coral)"></div>
+   </div><span class="tot">${money(hollyTot)}</span></div>
+   <div style="margin-top:8px;font-size:12px;color:var(--ink-soft);font-weight:700">Household total ${money(tot)} · Holly's tips are ${Math.round(hollyTot/tot*100)}% of income (${money(INCOME.hollyCash)} cash)</div>`;
+}
+function renderEnvs(){
+  G('envs').innerHTML=BUDGETS.map(b=>{
+    const c=CATS[b.cat],pct=Math.min(b.spent/b.limit,1),over=b.spent>b.limit;
+    const col=pct<0.75?'linear-gradient(90deg,var(--sage),#a9cf6a)':'linear-gradient(90deg,var(--honey),#e8a04b)';
+    return `<div class="env ${over?'over':''}"><div class="lab"><span>${c.e} ${c.label}</span><span>${money(b.spent).replace('.00','')} / ${money(b.limit).replace('.00','')}</span></div>
+      <div class="track"><i style="width:${pct*100}%;background:${col}"></i></div></div>`;
+  }).join('');
+}
+function renderLedger(){
+  const list=TX.filter(t=>activeFilter==='all'?true:(activeFilter==='in'?t.amt>0:(activeFilter==='out'?t.amt<0:t.cat===activeFilter)));
+  G('txCount').textContent=list.length+' shown';
+  G('ledger').innerHTML=list.map(t=>{const c=CATS[t.cat];
+    return `<div class="tx ${t._new?'in':''}"><div class="ic" style="background:${c.bg}">${c.e}</div>
+      <div class="meta"><div class="d">${t.desc}</div><small>${t.d} · ${t.acct}</small></div>
+      <div class="cat">${c.label}</div>
+      <div class="amt ${t.amt>0?'pos':'neg'}">${t.amt>0?'+':''}${money(t.amt)}</div></div>`;}).join('');
+}
+function renderFilters(){
+  const cats=[...new Set(TX.map(t=>t.cat))];
+  const chips=[['all','All'],['in','Money in'],['out','Money out'],...cats.map(c=>[c,CATS[c].e+' '+CATS[c].label])];
+  G('filterbar').innerHTML=chips.map(([k,l])=>`<span class="fchip ${k===activeFilter?'on':''}" data-f="${k}">${l}</span>`).join('');
+  document.querySelectorAll('#filterbar .fchip').forEach(ch=>ch.onclick=()=>{activeFilter=ch.dataset.f;renderFilters();renderLedger();});
+}
+function renderStudy(){renderAccounts();renderSplit();renderEnvs();renderFilters();renderLedger();}
+function openStudy(){G('panel').classList.remove('show');renderStudy();G('study').classList.add('show');}
+function closeStudy(){G('study').classList.remove('show');resetUpload();}
+G('studyBack').onclick=closeStudy;
+
+/* ----- statement upload / scan / preview / import ----- */
+let pending=null;
+function resetUpload(){pending=null;G('preview').classList.remove('show');G('scanbar').classList.remove('go');}
+function startScan(name){
+  G('preview').classList.remove('show');
+  const sb=G('scanbar');sb.classList.remove('go');void sb.offsetWidth;sb.classList.add('go');
+  setTimeout(()=>{
+    pending=SAMPLE.rows.map(r=>({...r}));
+    G('previewHead').innerHTML=`✅ Detected <b style="margin:0 4px">${SAMPLE.fmt}</b> · ${pending.length} transactions <span class="dup">⚠ ${SAMPLE.dup} possible duplicate</span>`;
+    G('previewList').innerHTML=pending.map(t=>{const c=CATS[t.cat];const isDup=TX.some(x=>x.d===t.d&&x.amt===t.amt&&x.desc===t.desc);
+      return `<div class="tx"><div class="ic" style="background:${c.bg}">${c.e}</div>
+        <div class="meta"><div class="d">${t.desc} ${isDup?'<span style="color:var(--warn);font-size:11px">· duplicate</span>':''}</div><small>${t.d} · auto-categorised</small></div>
+        <div class="cat">${c.label}</div><div class="amt ${t.amt>0?'pos':'neg'}">${t.amt>0?'+':''}${money(t.amt)}</div></div>`;}).join('');
+    G('preview').classList.add('show');
+  },1650);
+}
+function importPending(){
+  if(!pending)return;let added=0;
+  pending.forEach(t=>{const dup=TX.some(x=>x.d===t.d&&x.amt===t.amt&&x.desc===t.desc);if(!dup){TX.unshift({...t,_new:true});added++;}});
+  // update a budget envelope or two from imported spend (demo: groceries/utilities)
+  resetUpload();renderStudy();
+  setTimeout(()=>TX.forEach(t=>delete t._new),700);
+  toast('📥',added+' transactions imported',(SAMPLE.dup?SAMPLE.dup+' duplicate skipped':'all clean'));
+}
+G('importBtn').onclick=importPending;
+G('cancelBtn').onclick=resetUpload;
+G('sampleBtn').onclick=e=>{e.stopPropagation();startScan('sample.csv');};
+const drop=G('drop');
+drop.onclick=()=>startScan('statement');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];startScan(f?f.name:'statement');});
+
+/* ===================== LIVE WEATHER (Open-Meteo, no key) ===================== */
+let autoWeather=true;
+function codeToWeather(c){
+  if(c===0) return 'sun';
+  if(c<=2) return 'sun';
+  if(c===3||c===45||c===48) return 'cloud';
+  if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95) return 'rain';
+  if((c>=71&&c<=77)||c===85||c===86) return 'snow';
+  return 'cloud';
+}
+async function fetchWeather(lat,lon,place){
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`);
+    const j=await r.json();const t=Math.round(j.current.temperature_2m);const code=j.current.weather_code;
+    G('wText').textContent=t+'°';
+    if(autoWeather){const w=codeToWeather(code);setWeather(w,false);}
+  }catch(err){/* offline: keep current */}
+}
+function initWeather(){
+  // try geolocation; fall back to Toronto, Ontario
+  const fallback=()=>fetchWeather(43.65,-79.38,'Toronto');
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      p=>fetchWeather(p.coords.latitude,p.coords.longitude,'here'),
+      fallback,{timeout:6000,maximumAge:600000});
+  } else fallback();
+}
+
+/* ===================== INIT ===================== */
+renderGarden();
+applySeason('summer');
+setWeather('sun',false);
+applyTime(minutes);
+
+// live by default — real clock + real weather
+live=true;G('liveBtn').classList.add('on');
+syncLive();liveTimer=setInterval(syncLive,30000);
+initWeather();setInterval(initWeather,600000);
+
+setTimeout(()=>{
+  G('boot').classList.add('gone');
+  G('top').classList.add('show');G('dock').classList.add('show');
+  hint('CLICK THE STUDY FOR YOUR MONEY · CLICK A PLANT · WEATHER & TIME ARE LIVE');
+},2400);
+</script>
+</body>
+</html>

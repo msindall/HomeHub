@@ -400,18 +400,28 @@ async function parseWithAI(allLines, filename) {
 
 var pendingImport = null;
 
-function detectCSVFormat(headerLine) {
+function detectCSVFormat(headerLine, acct) {
   var h = headerLine.toUpperCase();
-  if (/FOLLOWING DATA IS VALID AS OF/.test(h)) return { label: 'BMO Chequing / Savings', icon: '🏦', color: 'var(--green)' };
-  if (/MY ACCOUNT TRANSACTIONS/.test(h)) return { label: 'Canadian Tire Mastercard', icon: '🍁', color: '#e8393a' };
-  if (h.includes('CAD$') && !h.includes('CURRENCY')) return { label: 'RBC Chequing / Savings', icon: '🏦', color: 'var(--accent)' };
-  if (h.includes('CARD NO') && h.includes('CATEGORY') && h.includes('DEBIT') && h.includes('CREDIT')) return { label: 'Capital One Mastercard', icon: '💳', color: '#004a97' };
-  if ((h.includes('DESCRIPTION 1') || h.includes('DESCRIPTION 2')) && h.includes('AMOUNT') && h.includes('CURRENCY')) return { label: 'RBC Visa', icon: '💳', color: 'var(--accent)' };
-  if (h.includes('CARD NO') && h.includes('DEBIT') && h.includes('CREDIT')) return { label: 'TD / Amex Credit Card', icon: '💳', color: 'var(--member1)' };
-  if (h.includes('FIRST BANK CARD') && h.includes('TRANSACTION TYPE')) return { label: 'BMO Chequing / Savings', icon: '🏦', color: 'var(--green)' };
-  if (h.includes('TRANSACTION') && h.includes('DESCRIPTION') && h.includes('AMOUNT') && h.includes('BALANCE') && !h.includes('CARD NO')) return { label: 'Alterna Savings', icon: '💰', color: 'var(--green)' };
-  if (h.includes('TRANSACTION') && h.includes('BALANCE')) return { label: 'Savings Account', icon: '💰', color: 'var(--green)' };
-  return { label: 'Generic CSV', icon: '📄', color: 'var(--muted)' };
+  var res;
+  if (/FOLLOWING DATA IS VALID AS OF/.test(h)) res = { label: 'BMO Chequing / Savings', icon: '🏦', color: 'var(--green)' };
+  else if (/MY ACCOUNT TRANSACTIONS/.test(h)) res = { label: 'Canadian Tire Mastercard', icon: '🍁', color: '#e8393a' };
+  else if (h.includes('CAD$') && !h.includes('CURRENCY')) res = { label: 'RBC Chequing / Savings', icon: '🏦', color: 'var(--accent)' };
+  else if (h.includes('CARD NO') && h.includes('CATEGORY') && h.includes('DEBIT') && h.includes('CREDIT')) res = { label: 'Capital One Mastercard', icon: '💳', color: '#004a97' };
+  else if ((h.includes('DESCRIPTION 1') || h.includes('DESCRIPTION 2')) && h.includes('AMOUNT') && h.includes('CURRENCY')) res = { label: 'RBC Visa', icon: '💳', color: 'var(--accent)' };
+  else if (h.includes('CARD NO') && h.includes('DEBIT') && h.includes('CREDIT')) res = { label: 'TD / Amex Credit Card', icon: '💳', color: 'var(--member1)' };
+  else if (h.includes('FIRST BANK CARD') && h.includes('TRANSACTION TYPE')) res = { label: 'BMO Chequing / Savings', icon: '🏦', color: 'var(--green)' };
+  else if (h.includes('TRANSACTION') && h.includes('DESCRIPTION') && h.includes('AMOUNT') && h.includes('BALANCE') && !h.includes('CARD NO')) res = { label: 'Alterna Savings', icon: '💰', color: 'var(--green)' };
+  else if (h.includes('TRANSACTION') && h.includes('BALANCE')) res = { label: 'Savings Account', icon: '💰', color: 'var(--green)' };
+  else res = { label: 'Generic CSV', icon: '📄', color: 'var(--muted)' };
+  // Account-aware override: a credit-card / debt account must never be shown (or
+  // treated) as chequing/savings. Relabel to the selected account so the user
+  // can see the statement is going where they picked.
+  if (acct && typeof ACCT_IS_DEBT === 'object' && ACCT_IS_DEBT[acct.type]) {
+    if (!/credit|mastercard|visa|amex/i.test(res.label)) {
+      res = { label: (acct.nickname || acct.type) + ' · Credit Card', icon: '💳', color: 'var(--member1)' };
+    }
+  }
+  return res;
 }
 
 async function handleStatementUpload(input) {
@@ -420,6 +430,8 @@ async function handleStatementUpload(input) {
   if (!accountId) { input.value=''; return; }
   var person  = getUploadPerson();
   var account = accountId;   // transactions store account id
+  var acctObj = (typeof getAccountById === 'function') ? getAccountById(accountId) : null;
+  var acctIsDebt = acctObj ? !!ACCT_IS_DEBT[acctObj.type] : false;
   var status = document.getElementById('upload-status');
   var statId = uid();
   var isPDF = file.name.toLowerCase().endsWith('.pdf');
@@ -542,7 +554,7 @@ async function handleStatementUpload(input) {
       });
 
       var firstLine = text.replace(/^\uFEFF/,'').split('\n')[0]||'';
-      var fmt = detectCSVFormat(firstLine);
+      var fmt = detectCSVFormat(firstLine, acctObj);
       status.innerHTML = '<span style="background:'+fmt.color+'22;border:1px solid '+fmt.color+'44;color:'+fmt.color+';padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">'+fmt.icon+' '+fmt.label+'</span> &nbsp; Parsing...';
 
       var allLines = text.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
@@ -613,7 +625,17 @@ async function handleStatementUpload(input) {
         input.value = ''; return;
       }
 
-      pendingImport = { file:file, person:person, account:account, statId:statId, newOnes:newOnes, dupCount:dupCount, openingBalance:csvOpeningBalance };
+      // Credit-card / debt accounts: purchases must be NEGATIVE (they add to what
+      // you owe). If a card file came through with mostly positive amounts (a
+      // bank/generic parse of a card export), auto-flip so it matches the account.
+      var willFlip = false;
+      if (acctIsDebt) {
+        var posN = newOnes.filter(function(t){ return (parseFloat(t.amount)||0) > 0; }).length;
+        var negN = newOnes.filter(function(t){ return (parseFloat(t.amount)||0) < 0; }).length;
+        if (posN > negN) { willFlip = true; newOnes.forEach(function(t){ t.amount = -(parseFloat(t.amount)||0); }); }
+      }
+
+      pendingImport = { file:file, person:person, account:account, statId:statId, newOnes:newOnes, dupCount:dupCount, openingBalance:csvOpeningBalance, acctIsDebt:acctIsDebt, flipped:willFlip, fmt:fmt, totalCount:parsedTxns.length };
       showImportPreview(newOnes, dupCount, parsedTxns.length, fmt);
       status.style.color = 'var(--green)';
       status.innerHTML = '<span style="background:'+fmt.color+'22;border:1px solid '+fmt.color+'44;color:'+fmt.color+';padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">'+fmt.icon+' '+fmt.label+'</span>'
@@ -675,7 +697,23 @@ function showImportPreview(txns, dupCount, totalCount, fmt) {
   var transferNote = transferCount > 0
     ? ' &nbsp; <span style="color:var(--yellow);font-size:12px">⇄ '+transferCount+' possible transfer'+(transferCount>1?'s':'')+' — confirm categories before importing</span>'
     : '';
-  if (dupInfo) dupInfo.innerHTML = (dupCount > 0 ? '('+dupCount+' duplicate'+(dupCount>1?'s':'')+' skipped)' : '') + transferNote;
+  var flipBtn = '', debtNote = '';
+  if (pendingImport) {
+    flipBtn = ' &nbsp; <button class="btn btn-ghost btn-sm" style="padding:2px 10px" onclick="flipImportSigns()">⇄ Flip signs'
+      + (pendingImport.flipped ? ' <span style="color:var(--green)">(flipped ✓)</span>' : '') + '</button>';
+    if (pendingImport.acctIsDebt) {
+      debtNote = '<div style="font-size:11px;color:var(--muted);margin-top:5px">💳 Credit-card account — purchases should be <b>negative</b> (they add to what you owe). '
+        + (pendingImport.flipped ? 'Signs were auto-flipped to match this account.' : 'If purchases show as “+”, click <b>Flip signs</b>.') + '</div>';
+    }
+  }
+  if (dupInfo) dupInfo.innerHTML = (dupCount > 0 ? '('+dupCount+' duplicate'+(dupCount>1?'s':'')+' skipped)' : '') + transferNote + flipBtn + debtNote;
+}
+
+function flipImportSigns() {
+  if (!pendingImport) return;
+  pendingImport.newOnes.forEach(function(t){ t.amount = -(parseFloat(t.amount)||0); });
+  pendingImport.flipped = !pendingImport.flipped;
+  showImportPreview(pendingImport.newOnes, pendingImport.dupCount, pendingImport.totalCount, pendingImport.fmt);
 }
 
 function cancelPreview() {
@@ -2828,6 +2866,14 @@ function _initApp() {
     if (changed) saveState();
   })();
 
+  (function migrateGoalAccountIds() {
+    var changed = false;
+    (state.goals || []).forEach(function(g) {
+      if (typeof g.accountId === 'undefined') { g.accountId = ''; changed = true; }
+    });
+    if (changed) saveState();
+  })();
+
   var hashMatch = window.location.hash.match(/^#setup=(.+)$/);
   if (hashMatch) {
     try {
@@ -2870,6 +2916,7 @@ function _initApp() {
     badge.textContent = 'v6.38';
     brand.appendChild(badge);
   }
+  try { if (window.HHHome) HHHome.init(); } catch(e) {}
 }
 
 var THEMES = {

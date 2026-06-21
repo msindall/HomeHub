@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Home Hub V7 · Sims-Style Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f4f8fb; --ink:#33414e; --ink-soft:#6b7a88; --line:#dfe7ee;
+  --sims-green:#46d160; --sims-green-d:#2faa46; --sims-blue:#2f9bd8; --sims-blue-d:#1f7fb6;
+  --coral:#f0875d; --honey:#f0b541; --berry:#e0729a; --lav:#9b8fe0;
+  --good:#46c46a; --warn:#ecae3e; --bad:#e3675f;
+  --glass:rgba(244,250,253,.82); --glass-line:rgba(160,190,210,.5);
+  --sky-top:#bfe3f2; --sky-mid:#dff0ec; --sky-bot:#fff4d9; --sun-col:#ffd36b;
+  --fdisp:'Fredoka',system-ui,sans-serif; --fui:'Nunito',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:var(--fui);color:var(--ink);background:#0c1320}
+#scene{position:fixed;inset:0}
+svg{width:100%;height:100%;display:block}
+.hit{cursor:pointer}
+.roomHit{fill:rgba(255,255,255,0);transition:fill .2s}
+.roomHit:hover{fill:rgba(255,255,255,.14)}
+.goalHit{fill:rgba(255,255,255,0);transition:fill .2s}
+.goalHit:hover{fill:rgba(255,255,255,.18)}
+
+/* boot */
+#boot{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(120% 120% at 50% 38%, #1b3a4d, #0c1320);transition:opacity 1s}
+#boot.gone{opacity:0;pointer-events:none}
+#boot .pb{width:0;height:0;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:34px solid var(--sims-green);
+  position:relative;filter:drop-shadow(0 0 18px rgba(70,209,96,.7));animation:spin 1.6s linear infinite, rise 1s forwards;opacity:0}
+#boot .pb:after{content:'';position:absolute;left:-26px;top:34px;border-left:26px solid transparent;border-right:26px solid transparent;border-top:34px solid var(--sims-green-d)}
+#boot .mk{font-family:var(--fdisp);font-weight:600;font-size:clamp(30px,5vw,52px);color:#eaf6ff;margin-top:30px;opacity:0;animation:rise 1s .4s forwards}
+#boot .sb{margin-top:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;font-size:13px;color:#7fb3c9;opacity:0;animation:rise 1s .7s forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes spin{0%{transform:scaleX(1)}50%{transform:scaleX(.18)}100%{transform:scaleX(1)}}
+
+/* top bar */
+#top{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 22px;opacity:0;transform:translateY(-10px);transition:.7s cubic-bezier(.2,.8,.2,1)}
+#top.show{opacity:1;transform:none}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--fdisp);font-weight:600;font-size:20px;color:#eaf6ff;text-shadow:0 2px 8px rgba(0,0,0,.4)}
+.brand small{font-family:var(--fui);font-weight:700;font-size:11px;letter-spacing:.12em;color:#bfe0ef;text-transform:uppercase}
+.top-right{display:flex;gap:10px}
+.pill{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:16px;background:var(--glass);backdrop-filter:blur(10px);
+  border:1px solid var(--glass-line);font-weight:800;font-size:13px;color:var(--ink);box-shadow:0 6px 16px rgba(0,30,50,.18)}
+.pill .em{font-size:16px}.pill small{font-weight:700;color:var(--ink-soft);font-size:11px}
+
+/* needs HUD (Sims) */
+#needs{position:fixed;left:20px;bottom:116px;z-index:20;display:flex;align-items:flex-end;gap:14px;
+  padding:14px 16px;border-radius:20px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-line);
+  box-shadow:0 12px 30px rgba(0,30,50,.25);opacity:0;transform:translateY(16px);transition:.7s .1s cubic-bezier(.2,.8,.2,1)}
+#needs.show{opacity:1;transform:none}
+.mood{display:flex;flex-direction:column;align-items:center;gap:6px;padding-right:14px;border-right:1px solid var(--glass-line)}
+.mood .ring{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative}
+.mood .plumb{width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:17px solid var(--sims-green);position:relative;animation:spin 1.8s linear infinite;transform-origin:center}
+.mood .plumb:after{content:'';position:absolute;left:-13px;top:17px;border-left:13px solid transparent;border-right:13px solid transparent;border-top:17px solid var(--sims-green-d)}
+.mood small{font-weight:800;font-size:10px;letter-spacing:.08em;color:var(--ink-soft);text-transform:uppercase}
+.needcol{display:flex;gap:12px}
+.need{display:flex;flex-direction:column;align-items:center;gap:6px;width:54px;cursor:pointer}
+.need .track{width:13px;height:64px;border-radius:8px;background:#e4ecf2;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:inset 0 1px 3px rgba(0,30,50,.12)}
+.need .track i{display:block;width:100%;border-radius:8px;transition:height 1s cubic-bezier(.2,.8,.2,1)}
+.need .lab{font-weight:800;font-size:10px;color:var(--ink-soft);text-align:center;letter-spacing:.02em}
+.need .em{font-size:16px}
+.need:hover .lab{color:var(--ink)}
+/* household portrait tray (Sims) */
+#tray{position:fixed;left:20px;bottom:20px;z-index:20;display:flex;gap:10px;padding:10px 14px;border-radius:18px;
+  background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-line);box-shadow:0 12px 30px rgba(0,30,50,.25);
+  opacity:0;transform:translateY(16px);transition:.7s .05s cubic-bezier(.2,.8,.2,1)}
+#tray.show{opacity:1;transform:none}
+.port{display:flex;flex-direction:column;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;padding:2px;position:relative}
+.pav{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:25px;
+  border:3px solid rgba(255,255,255,.55);box-shadow:0 3px 8px rgba(0,30,50,.2);transition:.2s}
+.port.on .pav{border-color:var(--sims-green);box-shadow:0 0 0 3px rgba(70,209,96,.4),0 4px 12px rgba(0,30,50,.25);transform:translateY(-3px)}
+.port.on::before{content:'';position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:9px solid var(--sims-green);filter:drop-shadow(0 0 5px rgba(70,209,96,.7))}
+.port .pnm{font-weight:800;font-size:11px;color:var(--ink-soft)}
+.port.on .pnm{color:var(--ink)}
+
+/* dock */
+#dock{position:fixed;right:20px;bottom:20px;z-index:20;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end;
+  padding:12px 16px;border-radius:20px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-line);
+  box-shadow:0 12px 30px rgba(0,30,50,.25);opacity:0;transform:translateY(16px);transition:.7s .15s cubic-bezier(.2,.8,.2,1);max-width:62vw}
+#dock.show{opacity:1;transform:none}
+.dgroup{display:flex;align-items:center;gap:8px}
+.dlabel{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.seg{display:flex;background:#e4ecf2;border-radius:14px;padding:3px}
+.seg button{border:none;background:transparent;font-family:var(--fui);font-weight:800;font-size:12px;color:var(--ink-soft);padding:6px 10px;border-radius:11px;cursor:pointer;transition:.2s}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(0,30,50,.16)}
+#timeSlider{-webkit-appearance:none;appearance:none;width:150px;height:7px;border-radius:7px;outline:none;cursor:pointer;
+  background:linear-gradient(90deg,#26406b,#6fb3d6 22%,#ffd36b 50%,#f0915d 72%,#26406b)}
+#timeSlider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--sims-green);box-shadow:0 2px 6px rgba(0,30,50,.3);cursor:pointer}
+#timeSlider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--sims-green);cursor:pointer}
+.tnow{font-family:var(--fdisp);font-weight:600;font-size:14px;min-width:64px;text-align:center;color:var(--ink)}
+.livebtn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:12px;border:1px solid var(--glass-line);background:#fff;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;transition:.2s}
+.livebtn.on{background:var(--sims-green);color:#fff;border-color:var(--sims-green)}
+.livebtn .ld{width:8px;height:8px;border-radius:50%;background:currentColor}
+.livebtn.on .ld{animation:beat 1.5s infinite}
+@keyframes beat{0%{box-shadow:0 0 0 0 rgba(255,255,255,.7)}70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+
+/* sims idle + plumbob (in svg) */
+.sim{transform-box:fill-box;transform-origin:bottom center;animation:bob 2.6s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.housePlumb{transform-box:fill-box;transform-origin:center;animation:spin 2s linear infinite}
+@keyframes drift{from{transform:translateX(-300px)}to{transform:translateX(1900px)}}
+.cloud{animation:drift linear infinite}
+
+/* panel + study desk : reuse cozy styles, sims-tinted */
+#panel{position:fixed;right:22px;top:46%;transform:translate(40px,-50%);z-index:30;width:340px;max-height:72vh;overflow:auto;
+  border-radius:22px;background:var(--glass);backdrop-filter:blur(16px);border:1px solid var(--glass-line);
+  box-shadow:0 22px 60px rgba(0,30,50,.3);opacity:0;pointer-events:none;transition:.5s cubic-bezier(.2,.8,.2,1)}
+#panel.show{opacity:1;transform:translate(0,-50%);pointer-events:auto}
+.p-head{padding:20px 22px 14px;position:relative;overflow:hidden;border-radius:22px 22px 0 0}
+.p-eye{font-weight:800;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(51,65,78,.7)}
+.p-titrow{display:flex;align-items:center;gap:11px;margin-top:5px}
+.p-emoji{font-size:32px}.p-title{font-family:var(--fdisp);font-weight:600;font-size:24px}
+.p-close{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--glass-line);background:rgba(255,255,255,.7);color:var(--ink-soft);cursor:pointer;font-weight:800;z-index:2}
+.p-body{padding:4px 22px 20px;font-size:14px;line-height:1.6;color:var(--ink-soft)}
+.p-body b{color:var(--ink)}
+.srow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)}
+.srow .k{font-size:13px;font-weight:700;color:var(--ink-soft)}.srow .v{font-family:var(--fdisp);font-weight:600;font-size:15px}
+.srow .v.pos{color:var(--good)}.srow .v.neg{color:var(--bad)}
+.pbar{margin-top:8px;height:11px;border-radius:8px;background:#e4ecf2;overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--sims-green),var(--honey));transition:width 1s}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;margin:8px 7px 0 0;border-radius:24px;font-weight:800;font-size:12px;color:var(--sims-blue-d);background:rgba(47,155,216,.12);border:1px solid rgba(47,155,216,.3);cursor:pointer}
+#panel::-webkit-scrollbar{width:7px}#panel::-webkit-scrollbar-thumb{background:rgba(160,190,210,.6);border-radius:7px}
+
+/* STUDY DESK */
+#study{position:fixed;inset:0;z-index:50;overflow:auto;opacity:0;pointer-events:none;transition:.45s cubic-bezier(.2,.8,.2,1);
+  background:radial-gradient(130% 120% at 72% -10%,#eaf4fb,#d6e6f0)}
+#study.show{opacity:1;pointer-events:auto}
+#study::-webkit-scrollbar{width:9px}#study::-webkit-scrollbar-thumb{background:rgba(160,190,210,.6);border-radius:9px}
+.deskwrap{max-width:1200px;margin:0 auto;padding:24px 24px 60px}
+.study-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.backbtn{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:24px;border:1px solid var(--glass-line);background:var(--glass);font-weight:800;font-size:13px;color:var(--ink);cursor:pointer;transition:.2s}
+.backbtn:hover{background:#fff;transform:translateX(-3px)}
+.study-title{display:flex;align-items:center;gap:10px;font-family:var(--fdisp);font-weight:600;font-size:26px}
+.study-title .em{font-size:30px}
+.hero-s2s{display:flex;align-items:baseline;gap:12px;padding:8px 18px;border-radius:18px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 20px rgba(0,30,50,.1)}
+.hero-s2s .lab{font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.hero-s2s .num{font-family:var(--fdisp);font-weight:600;font-size:28px;color:var(--good)}
+.dgrid{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.dgrid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:0 10px 26px rgba(0,30,50,.08);margin-bottom:18px}
+.card h3{font-family:var(--fdisp);font-weight:600;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card h3 small{margin-left:auto;font-family:var(--fui);font-weight:800;font-size:11px;color:var(--ink-soft)}
+.acct{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)}
+.acct:last-child{border:none}
+.acct .nm{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px}
+.acct .nm .ad{width:9px;height:9px;border-radius:50%}.acct .nm small{display:block;font-weight:700;font-size:10px;color:var(--ink-soft)}
+.acct .ba{font-family:var(--fdisp);font-weight:600;font-size:16px}.acct .ba.neg{color:var(--bad)}
+.split .row{display:flex;align-items:center;gap:10px;margin:9px 0}
+.split .who{width:50px;font-weight:800;font-size:12px}
+.split .stk{flex:1;height:18px;border-radius:9px;background:#e4ecf2;overflow:hidden;display:flex}
+.split .seg-s{height:100%}.split .tot{font-family:var(--fdisp);font-weight:600;font-size:13px;width:64px;text-align:right}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;font-weight:800;color:var(--ink-soft)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.env{margin:12px 0}.env .lab{display:flex;justify-content:space-between;font-weight:800;font-size:12.5px;margin-bottom:5px}
+.env .lab span:last-child{font-family:var(--fdisp);font-weight:600;color:var(--ink-soft)}
+.env .track{height:15px;border-radius:9px;background:#e4ecf2;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,30,50,.12)}
+.env .track i{display:block;height:100%;border-radius:9px;transition:width .9s}
+.env.over .track i{background:linear-gradient(90deg,#ec9a6b,var(--bad))!important}.env.over .lab span:last-child{color:var(--bad)}
+.drop{border:2.5px dashed #b9cfde;border-radius:16px;padding:20px;text-align:center;transition:.2s;cursor:pointer;background:#f7fbfe;position:relative;overflow:hidden}
+.drop:hover,.drop.hot{border-color:var(--sims-blue);background:#eef7fd}
+.drop .di{font-size:32px}.drop .dt{font-family:var(--fdisp);font-weight:600;font-size:16px;margin-top:6px}.drop .ds{font-size:12px;color:var(--ink-soft);margin-top:3px}
+.drop .sample{margin-top:10px;display:inline-block;padding:8px 15px;border-radius:22px;background:var(--sims-blue);color:#fff;font-weight:800;font-size:12.5px}
+.scanbar{height:6px;border-radius:6px;background:#e4ecf2;margin-top:12px;overflow:hidden;display:none}.scanbar.go{display:block}
+.scanbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sims-green),var(--honey));animation:scan 1.6s ease forwards}
+@keyframes scan{to{width:100%}}
+.preview{margin-top:12px;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:none}.preview.show{display:block}
+.preview .ph{padding:11px 14px;background:#eaf2f8;font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.preview .ph .dup{margin-left:auto;color:var(--warn);font-size:11px}
+.preview .pl{max-height:190px;overflow:auto}.preview .pa{display:flex;gap:10px;padding:11px 14px;border-top:1px solid var(--line);background:#fafdff}
+.btn{padding:9px 16px;border-radius:22px;border:none;font-family:var(--fui);font-weight:800;font-size:13px;cursor:pointer}
+.btn.go{background:var(--sims-green);color:#fff}.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-soft)}
+.filterbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.fchip{padding:7px 12px;border-radius:20px;border:1px solid var(--line);background:#f7fbfe;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer}
+.fchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tx{display:grid;grid-template-columns:38px 1fr auto auto;gap:12px;align-items:center;padding:11px 10px;border-radius:13px;transition:.15s}
+.tx:hover{background:#f3f8fc}.tx.in{animation:txin .5s ease}
+@keyframes txin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.tx .ic{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.tx .meta .d{font-weight:800;font-size:13.5px}.tx .meta small{font-size:11px;color:var(--ink-soft)}
+.tx .cat{font-weight:800;font-size:11px;color:var(--ink-soft);padding:4px 10px;border-radius:18px;background:#eef3f8;white-space:nowrap}
+.tx .amt{font-family:var(--fdisp);font-weight:600;font-size:15px;text-align:right;min-width:84px}
+.tx .amt.pos{color:var(--good)}
+
+#tip{position:fixed;z-index:40;padding:8px 12px;border-radius:12px;background:var(--glass);backdrop-filter:blur(8px);border:1px solid var(--glass-line);pointer-events:none;opacity:0;transition:opacity .18s;box-shadow:0 8px 20px rgba(0,30,50,.2);max-width:230px}
+#tip .tt{font-family:var(--fdisp);font-weight:600;font-size:14px}#tip .ts{font-weight:800;font-size:12px;color:var(--sims-blue-d);margin-top:1px}
+#toast{position:fixed;left:50%;top:78px;transform:translate(-50%,-16px);z-index:45;padding:12px 20px;border-radius:16px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-line);box-shadow:0 12px 30px rgba(0,30,50,.25);text-align:center;opacity:0;pointer-events:none;transition:.45s}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast .te{font-size:22px}#toast .tx2{font-family:var(--fdisp);font-weight:600;font-size:16px;margin-top:2px}#toast .td{font-weight:800;font-size:12px;color:var(--good);margin-top:1px}
+.hintline{position:fixed;left:50%;bottom:108px;transform:translateX(-50%);z-index:18;font-weight:800;font-size:12px;color:#eaf6ff;opacity:0;transition:.6s;pointer-events:none;background:rgba(20,40,55,.6);padding:7px 16px;border-radius:18px;backdrop-filter:blur(6px)}
+.hintline.show{opacity:.95}
+.fld{display:block;font-weight:800;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:10px}
+.fld input{display:block;width:100%;margin-top:4px;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:#fff;font-family:var(--fui);font-weight:700;font-size:13px;color:var(--ink)}
+.fld input[type=color]{height:38px;padding:3px;cursor:pointer}
+.mailbox{transform-box:fill-box;transform-origin:bottom center;animation:mailbounce 3s ease-in-out infinite;cursor:pointer}
+@keyframes mailbounce{0%,90%,100%{transform:translateY(0) rotate(0)}94%{transform:translateY(-5px) rotate(-4deg)}97%{transform:translateY(-2px) rotate(3deg)}}
+.mnotif{transform-box:fill-box;transform-origin:center;animation:notifpulse 1.3s ease-in-out infinite}
+@keyframes notifpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+</style>
+</head>
+<body>
+
+<div id="scene">
+<svg id="svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--sky-top)"/><stop offset="0.55" stop-color="var(--sky-mid)"/><stop offset="1" stop-color="var(--sky-bot)"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="var(--sun-col)" stop-opacity="0.9"/><stop offset="0.4" stop-color="var(--sun-col)" stop-opacity="0.3"/><stop offset="1" stop-color="var(--sun-col)" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="1600" height="1000" fill="url(#sky)"/>
+  <g id="stars" opacity="0"></g>
+  <g id="sunWrap">
+    <circle id="sunHalo" cx="300" cy="220" r="150" fill="url(#sunGlow)"/>
+    <circle id="sun" cx="300" cy="220" r="44" fill="var(--sun-col)"/>
+    <g id="moon" opacity="0"><circle cx="300" cy="220" r="38" fill="#fdf6e3"/><circle cx="315" cy="208" r="32" fill="var(--sky-top)"/></g>
+  </g>
+  <g id="clouds"></g>
+  <!-- isometric lot generated by JS -->
+  <g id="lot" transform="translate(770,250)"></g>
+  <!-- weather particles -->
+  <g id="weatherFX"></g>
+</svg>
+</div>
+
+<!-- boot -->
+<div id="boot"><div class="pb"></div><div class="mk">Welcome Home</div><div class="sb">Home Hub · a lot to live on</div></div>
+
+<!-- UI -->
+<header id="top">
+  <div class="brand">🏡 Home&nbsp;Hub <small>Matt&nbsp;&amp;&nbsp;Holly · Ontario</small></div>
+  <div class="top-right">
+    <div class="pill" id="weatherPill"><span class="em" id="wEmoji">☀️</span><span id="wText">21°</span><small id="wSub">Clear</small></div>
+    <div class="pill">🌱 <span id="nw">$148,200</span><small>net&nbsp;worth</small></div>
+    <div class="pill">🕑 <span id="clock">2:00</span></div>
+  </div>
+</header>
+
+<!-- household portrait tray -->
+<div id="tray"></div>
+
+<!-- needs HUD -->
+<div id="needs">
+  <div class="mood"><div class="ring"><div class="plumb" id="plumbMood"></div></div><small id="moodTxt">Happy</small></div>
+  <div class="needcol" id="needcol"></div>
+</div>
+
+<!-- dock -->
+<div id="dock">
+  <div class="dgroup"><span class="dlabel">Time</span><input type="range" id="timeSlider" min="0" max="1439" value="840"/><span class="tnow" id="tnow">2:00 pm</span></div>
+  <div class="dgroup"><span class="dlabel">Season</span><div class="seg" id="seasonSeg">
+    <button data-s="spring">🌸</button><button data-s="summer" class="on">☀️</button><button data-s="fall">🍂</button><button data-s="winter">❄️</button></div></div>
+  <button class="livebtn" id="liveBtn"><span class="ld"></span>LIVE</button>
+</div>
+
+<aside id="panel"><button class="p-close" id="pClose">✕</button>
+  <div class="p-head" id="pHead"><div class="p-eye" id="pEye">ROOM</div>
+    <div class="p-titrow"><span class="p-emoji" id="pEmoji">🏡</span><span class="p-title" id="pTitle">—</span></div></div>
+  <div class="p-body" id="pBody"></div>
+</aside>
+
+<!-- study desk -->
+<div id="study"><div class="deskwrap">
+  <div class="study-top">
+    <button class="backbtn" id="studyBack">‹ back to the lot</button>
+    <div class="study-title"><span class="em">💼</span> The Study</div>
+    <div class="hero-s2s"><span class="lab">Safe to spend<br>this week</span><span class="num" id="s2s">$312</span></div>
+  </div>
+  <div class="dgrid">
+    <div>
+      <div class="card"><h3>🏦 Accounts <small id="netLine"></small></h3><div id="accts"></div></div>
+      <div class="card"><h3>👛 Income this month</h3><div class="split" id="splitWrap"></div>
+        <div class="legend"><span><i style="background:var(--sims-blue)"></i>Matt · salary</span><span><i style="background:var(--honey)"></i>Holly · declared</span><span><i style="background:var(--coral)"></i>Holly · cash</span></div></div>
+      <div class="card"><h3>✉️ Budget envelopes <small>June</small></h3><div id="envs"></div></div>
+    </div>
+    <div>
+      <div class="card"><h3>📥 Add a statement</h3>
+        <div class="drop" id="drop"><div class="di">🗂️</div><div class="dt">Drop a bank or credit statement here</div>
+          <div class="ds">BMO chequing · Canadian Tire Mastercard · CSV or PDF</div>
+          <span class="sample" id="sampleBtn">📄 Use a sample statement</span><div class="scanbar" id="scanbar"><i></i></div></div>
+        <div class="preview" id="preview"><div class="ph" id="previewHead"></div><div class="pl" id="previewList"></div>
+          <div class="pa"><button class="btn go" id="importBtn">Import transactions</button><button class="btn ghost" id="cancelBtn">Cancel</button></div></div>
+      </div>
+      <div class="card"><h3>📒 Transactions <small id="txCount"></small></h3><div class="filterbar" id="filterbar"></div><div id="ledger"></div></div>
+    </div>
+  </div>
+</div></div>
+
+<div id="tip"><div class="tt" id="tipT"></div><div class="ts" id="tipS"></div></div>
+<div id="toast"><div class="te" id="toastE">🌱</div><div class="tx2" id="toastX"></div><div class="td" id="toastD"></div></div>
+<div class="hintline" id="hint"></div>
+
+<script>
+const G=id=>document.getElementById(id);
+function hex2rgb(h){h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function rgb2hex(a){return '#'+a.map(v=>('0'+Math.max(0,Math.min(255,Math.round(v))).toString(16)).slice(-2)).join('');}
+function lerpHex(a,b,t){const x=hex2rgb(a),y=hex2rgb(b);return rgb2hex(x.map((v,i)=>v+(y[i]-v)*t));}
+function shade(hex,f){const c=hex2rgb(hex);return rgb2hex(c.map(v=> f>=0? v+(255-v)*f : v*(1+f)));}
+
+/* ===================== ISO ENGINE ===================== */
+const TW=58, TH=29, ZH=46;
+function prj(x,y,z){return [(x-y)*TW, (x+y)*TH - z*ZH];}
+function ptStr(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}
+const DRAW=[]; // {k:depth, s:svg}
+function push(k,s){DRAW.push({k,s});}
+function poly(points,fill,stroke){return `<polygon points="${points.map(ptStr).join(' ')}" fill="${fill}"${stroke?` stroke="${stroke}" stroke-width="0.7" stroke-linejoin="round"`:''}/>`;}
+// flat floor tile
+function tile(x,y,base,grid){
+  const p=[prj(x,y,0),prj(x+1,y,0),prj(x+1,y+1,0),prj(x,y+1,0)];
+  push((x+y)-0.4, poly(p, base, grid?shade(base,-.12):null));
+}
+// cuboid: base grid (x,y), size (w,d) in tiles, from z to z+h(in z-units)
+function box(x,y,z,w,d,h,base,depthBias){
+  const top=shade(base,.16), left=shade(base,-.04), right=shade(base,-.22), edge=shade(base,-.32);
+  const T=[prj(x,y,z+h),prj(x+w,y,z+h),prj(x+w,y+d,z+h),prj(x,y+d,z+h)];          // top
+  const R=[prj(x+w,y,z),prj(x+w,y+d,z),prj(x+w,y+d,z+h),prj(x+w,y,z+h)];          // +x face (right)
+  const F=[prj(x,y+d,z),prj(x+w,y+d,z),prj(x+w,y+d,z+h),prj(x,y+d,z+h)];          // +y face (front-left)
+  const s = poly(R,right,edge)+poly(F,left,edge)+poly(T,top,edge);
+  push((x+w)+(y+d)+(z*0.02)+(depthBias||0), s);
+}
+// wall as 1-tile segments so depth-sorts cleanly; orient 'h'(runs along x at given y) or 'v'(runs along y at given x)
+function wall(orient,fixed,from,to,base,hgt){
+  const H=hgt||1.7, th=0.16;
+  if(orient==='h'){ for(let x=from;x<to;x++) box(x,fixed,0,1,th,H,base,-0.05); }
+  else { for(let y=from;y<to;y++) box(fixed,y,0,th,1,H,base,-0.05); }
+}
+function label(x,y,emoji,text,col){
+  const c=prj(x,y,0); const w=text.length*8+44;
+  push(1000+(x+y), `<g pointer-events="none" transform="translate(${c[0]},${c[1]-4})">
+    <rect x="${-w/2}" y="-15" width="${w}" height="30" rx="15" fill="#ffffff" opacity="0.94"/>
+    <rect x="${-w/2}" y="-15" width="${w}" height="30" rx="15" fill="none" stroke="${col}" stroke-width="1.5" opacity="0.6"/>
+    <text x="${-w/2+18}" y="6" text-anchor="middle" font-size="17">${emoji}</text>
+    <text x="${10}" y="5" text-anchor="middle" font-family="Fredoka" font-weight="600" font-size="13.5" fill="#33414e">${text}</text>
+  </g>`);
+}
+// a little Sim (reads PEOPLE; drawn above ground so never hidden)
+function sim(x,y,id,plumbob){
+  const P=PEOPLE[id], col=P.color, name=P.name;
+  const b=prj(x+0.5,y+0.5,0);const k=900+(x+y);
+  const sk='#f1c9a5';
+  let s=`<g class="sim">
+    <ellipse cx="${b[0]}" cy="${b[1]+2}" rx="16" ry="6" fill="#000" opacity="0.16"/>
+    ${plumbob?`<g class="housePlumb"><polygon points="${b[0]-7},${b[1]-66} ${b[0]+7},${b[1]-66} ${b[0]},${b[1]-54}" fill="#2faa46"/><polygon points="${b[0]-7},${b[1]-66} ${b[0]+7},${b[1]-66} ${b[0]},${b[1]-78}" fill="#46d160"/></g>`:''}
+    <path d="M${b[0]-10},${b[1]} q-1,-22 10,-22 q11,0 10,22 Z" fill="${col}"/>
+    <rect x="${b[0]-9}" y="${b[1]-2}" width="7" height="12" rx="3" fill="${shade(col,-.18)}"/><rect x="${b[0]+2}" y="${b[1]-2}" width="7" height="12" rx="3" fill="${shade(col,-.18)}"/>
+    <circle cx="${b[0]}" cy="${b[1]-30}" r="9" fill="${sk}"/>
+    <path d="M${b[0]-9},${b[1]-32} q9,-12 18,0 q-9,-6 -18,0Z" fill="#5b4636"/>
+    <g transform="translate(${b[0]},${b[1]+14})"><rect x="-22" y="0" width="44" height="17" rx="8" fill="#ffffff" opacity="0.92"/><text x="0" y="12" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="10" fill="#33414e">${name}</text></g>
+  </g>`;
+  push(k, s);
+}
+// growing garden plant (goal)
+function plant(x,y,goal){
+  const pct=Math.min(goal.saved/goal.target,1);
+  const b=prj(x+0.5,y+0.5,0);
+  const grow=0.5+pct*0.9, stemH=22+pct*46, bloom=pct>0.25, full=pct>=0.999;
+  const fl=goal.flower, cc=goal.color;
+  let petals='';
+  if(bloom){[0,72,144,216,288].forEach(a=>{const rx=Math.cos(a*Math.PI/180)*11*grow, ry=Math.sin(a*Math.PI/180)*11*grow;
+    petals+=`<ellipse cx="${b[0]+rx}" cy="${b[1]-stemH+ry}" rx="${8*grow}" ry="${11*grow}" fill="${fl}"/>`;});}
+  let s=`<g>
+    <ellipse cx="${b[0]}" cy="${b[1]+2}" rx="${16*grow}" ry="6" fill="#000" opacity="0.14"/>
+    <path d="M${b[0]-9},${b[1]+4} L${b[0]+9},${b[1]+4} L${b[0]+6},${b[1]-8} L${b[0]-6},${b[1]-8} Z" fill="#c98a5a"/>
+    <rect x="${b[0]-2.5}" y="${b[1]-stemH}" width="5" height="${stemH}" rx="2.5" fill="#4f9a44"/>
+    <ellipse cx="${b[0]-10*grow}" cy="${b[1]-stemH*0.6}" rx="${10*grow}" ry="5" fill="#5fae4f" transform="rotate(-25 ${b[0]} ${b[1]-stemH*0.6})"/>
+    <ellipse cx="${b[0]+10*grow}" cy="${b[1]-stemH*0.78}" rx="${10*grow}" ry="5" fill="#6cba5b" transform="rotate(25 ${b[0]} ${b[1]-stemH*0.78})"/>
+    ${bloom?petals+`<circle cx="${b[0]}" cy="${b[1]-stemH}" r="${8*grow}" fill="${cc}"/>`+(full?`<text x="${b[0]}" y="${b[1]-stemH+5}" text-anchor="middle" font-size="${13*grow}">✨</text>`:''):`<circle cx="${b[0]}" cy="${b[1]-stemH}" r="${6*grow}" fill="#7cc063"/>`}
+    <g transform="translate(${b[0]},${b[1]+18})"><rect x="-26" y="0" width="52" height="22" rx="6" fill="#fff" stroke="${cc}" stroke-width="1.5"/>
+      <text x="0" y="11" text-anchor="middle" font-size="11">${goal.emoji}</text><text x="0" y="19" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="8" fill="#6b7a88">${Math.round(pct*100)}%</text></g>
+  </g>`;
+  push(500+(x+y), s);
+}
+
+/* ===================== DATA ===================== */
+const GOALS=[
+  {id:'emergency',emoji:'🛟',name:'Emergency Fund',saved:20000,target:20000,color:'#46c46a',flower:'#9fe7b0'},
+  {id:'wedding',emoji:'💍',name:'Wedding',saved:19400,target:35000,color:'#e0729a',flower:'#ffc6da'},
+  {id:'house',emoji:'🏡',name:'House Down Payment',saved:52000,target:90000,color:'#2f9bd8',flower:'#bfe3f2'},
+  {id:'cars',emoji:'🚗',name:'Car Fund',saved:12500,target:40000,color:'#f0b541',flower:'#ffe39a'},
+  {id:'retire',emoji:'🌅',name:'Retirement',saved:86000,target:1200000,color:'#9b8fe0',flower:'#d7c6f2'},
+];
+const ROOMS={
+  office:{eye:'FINANCE',emoji:'💼',title:'The Study',color:'#2f9bd8',
+    body:`A tidy desk and a humming computer. <b>Safe-to-spend this week: $312.</b> 14 transactions auto-categorised since Monday. Click below to sit down at the desk.`,
+    stats:[['Chequing','$4,210'],['Savings','$61,940'],['Credit owing','-$890','neg'],['Budget left','$312','pos']]},
+  bedroom:{eye:'WEDDING PLAN',emoji:'💍',title:'The Bedroom',color:'#e0729a',
+    body:`483 days to go. <b>Budget $35,000 · committed $11,200.</b> Venue deposit paid; photographer shortlist saved (3). Guest list 118 / 140.`,
+    stats:[['Saved','$19,400 / $35k'],['Committed','$11,200'],['Vendors booked','4'],['Guests','118 / 140']]},
+  sunroom:{eye:'RETIREMENT',emoji:'🌅',title:'The Sunroom',color:'#9b8fe0',
+    body:`Light pours in. Projection: CPP + OAS + pension + RRSP/TFSA — <b>on track to retire at 61</b> with ~$58k/yr (today's dollars), clear of OAS clawback.`,
+    stats:[['Invested','$86,000'],['Retire age','61','pos'],['Est. income','$58k/yr'],['CPP est.','$1,180/mo']]},
+  kitchen:{eye:'MEALS & GROCERIES',emoji:'🍲',title:'The Kitchen',color:'#f0b541',
+    body:`Something's simmering. AI meal plan from your pantry + Flipp flyers. <b>Projected grocery spend: $128</b> (down $22). 3 favourites on sale.`,
+    stats:[['Meals planned','7 / 7','pos'],['Pantry items','41'],['Flyer deals','12'],['Est. spend','$128']]},
+  living:{eye:'HOME & PETS',emoji:'🐾',title:'The Living Room',color:'#46c46a',
+    body:`The heart of the home. Pet feed tracker: <b>AM ✓ · PM pending.</b> 2 reminders today; Holly works the dinner shift so PM feeding is on Matt.`,
+    stats:[['Pets fed','AM ✓ / PM —'],['Reminders','2 today'],['Bills due','none','pos'],['Home tasks','2 this week']]},
+  garage:{eye:'CARS & MAINTENANCE',emoji:'🚗',title:'The Garage',color:'#7d93a3',
+    body:`Car fund <b>$12,500 / $40,000</b> — both vehicles in cash, no financing. Furnace filter due this month; next service in 1,900 km.`,
+    stats:[['Car fund','$12,500'],['Upkeep tasks','2 due'],['Next service','1,900 km'],['Warranty','active','pos']]},
+};
+const NEEDS=[
+  {k:'Money',em:'💰',v:0.86,room:'office'},
+  {k:'Home',em:'🧹',v:0.70,room:'living'},
+  {k:'Pets',em:'🐾',v:0.58,room:'living'},
+  {k:'Plans',em:'🎯',v:0.82,room:'bedroom'},
+];
+const PEOPLE={
+  matt:{name:'Matt',role:'Banker (salaried)',income:'Salary + pension',color:'#3f7fae',emoji:'👨'},
+  holly:{name:'Holly',role:'Waitress',income:'Wage + tips',color:'#e07ea0',emoji:'👩'},
+  pet:{name:'Biscuit',role:'Dog',income:'—',color:'#6b5a48',emoji:'🐾'},
+};
+const SIMS=[{id:'matt',x:1.4,y:2.2,plumbob:true},{id:'holly',x:2.2,y:4.0,plumbob:false},{id:'pet',x:4.6,y:4.4,plumbob:false}];
+const NOTIF=2;
+let activeSim='matt';
+
+/* ===================== BUILD THE LOT ===================== */
+// floor colours per room
+const FLOOR={office:'#b88c5a',bedroom:'#d8a7c4',sunroom:'#cfe3b0',kitchen:'#dcc9a6',living:'#a9c8e0',garage:'#bcc3ca'};
+// room footprints [x0,y0,x1,y1] on a 9x6 plan; back row y0..3, front row y3..6
+const RECT={office:[0,0,3,3],bedroom:[3,0,6,3],sunroom:[6,0,9,3],kitchen:[0,3,3,6],living:[3,3,6,6],garage:[6,3,9,6]};
+function buildLot(){
+  DRAW.length=0;
+  // yard grass (around + front), incl front garden rows y6..8 and side strips
+  const grassA=seasonGrass()[0], grassB=seasonGrass()[1];
+  for(let x=-2;x<11;x++)for(let y=-2;y<9;y++){
+    const inHouse=(x>=0&&x<9&&y>=0&&y<6);
+    if(inHouse)continue;
+    tile(x,y, ((x+y)&1)?grassA:grassB, false);
+  }
+  // house floors
+  for(const id in RECT){const[r0,c0,r1,c1]=RECT[id];for(let x=r0;x<r1;x++)for(let y=c0;y<c1;y++)tile(x,y,FLOOR[id],true);}
+  // far perimeter walls: north (y=0) and west (x=0)
+  wall('h',0,0,9,'#e7d3b0');
+  wall('v',0,0,6,'#e0cba6');
+  // interior column walls (half-height so we see over) at x=3 and x=6
+  wall('v',3,0,6,'#ead9bb',1.0); wall('v',6,0,6,'#ead9bb',1.0);
+  // a knee divider between rows at y=3 (very low so rooms readable)
+  wall('h',3,0,9,'#ecdcc0',0.55);
+
+  // ---- furniture per room ----
+  // STUDY: desk + chair + monitor
+  box(0.4,0.5,0,1.7,0.7,0.7,'#8a5a32');                 // desk
+  box(1.1,0.6,0.7,0.5,0.4,0.4,'#2f3b46');               // monitor base/screen
+  box(0.5,1.5,0,0.6,0.6,0.5,'#3f7fae');                 // chair
+  // BEDROOM: bed + rug + nightstand
+  box(3.5,0.6,0,1.5,2.0,0.45,'#c98ab0');                // bed base
+  box(3.5,0.6,0.45,1.5,0.7,0.25,'#ffffff');             // pillows
+  box(5.2,0.6,0,0.5,0.5,0.5,'#9b6f8f');                 // nightstand
+  // SUNROOM: armchair + small potted plant
+  box(6.5,1.4,0,0.8,0.8,0.6,'#caa6e0');
+  box(7.7,0.6,0,0.45,0.45,0.42,'#a9742f');              // pot
+  push((7.7)+(0.6)+0.4, `<circle cx="${prj(7.92,0.82,0.95)[0]}" cy="${prj(7.92,0.82,0.95)[1]}" r="13" fill="#6cba5b"/><circle cx="${prj(7.92,0.82,0.95)[0]-8}" cy="${prj(7.92,0.82,0.95)[1]+4}" r="9" fill="#7cc863"/>`);
+  // KITCHEN: counter row + fridge + stove
+  box(0.3,3.4,0,2.3,0.7,0.85,'#e8e2d6');                // counter
+  box(0.4,3.5,0.85,0.5,0.5,0.12,'#5b6b78');             // sink
+  box(0.3,5.0,0,0.8,0.8,1.5,'#cfd6db');                 // fridge
+  box(1.5,5.0,0,0.8,0.8,0.85,'#b9c0c6');                // stove
+  // LIVING: couch + coffee table + TV
+  box(3.4,3.5,0,2.0,0.8,0.6,'#6fae8a');                 // couch
+  box(3.6,3.5,0.6,2.0,0.3,0.25,'#5c9a78');              // couch back
+  box(4.0,4.5,0,1.0,0.6,0.3,'#a9742f');                 // coffee table
+  box(3.4,5.4,0,1.8,0.18,1.0,'#2f3b46');                // TV stand wall
+  // GARAGE: car (body + cabin + wheels)
+  box(6.6,3.6,0,1.7,0.95,0.55,'#d65a5a');               // car body
+  box(7.0,3.7,0.55,0.9,0.75,0.4,'#e88a8a');             // cabin
+  box(6.75,3.55,0,0.3,0.3,0.18,'#2b2b2b');box(7.95,3.55,0,0.3,0.3,0.18,'#2b2b2b');
+  box(6.75,4.35,0,0.3,0.3,0.18,'#2b2b2b');box(7.95,4.35,0,0.3,0.3,0.18,'#2b2b2b');
+
+  // labels
+  label(1.5,1.5,'💼','Study','#2f9bd8');label(4.5,1.5,'💍','Bedroom','#e0729a');label(7.5,1.5,'🌅','Sunroom','#9b8fe0');
+  label(1.5,4.5,'🍲','Kitchen','#f0b541');label(4.5,4.5,'🐾','Living','#46c46a');label(7.5,4.5,'🚗','Garage','#7d93a3');
+
+  // sims (active one wears the plumbob)
+  SIMS.forEach(s=>sim(s.x,s.y,s.id,s.id===activeSim));
+
+  // front path column
+  for(let y=6;y<9;y++)tile(4,y,'#d7c9ad',true);
+  // 5 goal plants spread across the front yard
+  const spots=[[1,7],[2.4,8],[6,8],[7.4,7],[8.6,6.4]];
+  GOALS.forEach((g,i)=>plant(spots[i][0],spots[i][1],g));
+
+  // trees in front-yard corners (clear of the house)
+  treeAt(-1.4,6.4); treeAt(10.6,7.2);
+
+  // emit sorted
+  DRAW.sort((a,b)=>a.k-b.k);
+  let svg=DRAW.map(d=>d.s).join('');
+  // clickable overlays on top
+  svg+=roomOverlays();
+  svg+=mailboxSVG();
+  G('lot').innerHTML=svg;
+  bindLot();
+}
+function mailboxSVG(){
+  const mb=prj(3.5,7.4,0), n=NOTIF;
+  return `<g class="mailbox" data-room="mailbox" transform="translate(${mb[0]},${mb[1]})">
+    <ellipse cx="0" cy="6" rx="20" ry="7" fill="#000" opacity="0.16"/>
+    <rect x="-4" y="-34" width="8" height="40" rx="3" fill="#9c6b43"/>
+    <g transform="translate(0,-56)">
+      <rect x="-23" y="0" width="46" height="29" rx="9" fill="#5fa0d6"/>
+      <path d="M-23,0 a23,17 0 0 1 46,0 Z" fill="#4f8fc4"/>
+      <rect x="-31" y="6" width="9" height="17" rx="3" fill="#e0729a"/>
+      <text x="0" y="21" text-anchor="middle" font-size="17">✉️</text>
+      ${n>0?`<g class="mnotif" transform="translate(21,-4)"><circle r="12" fill="#e3473f" stroke="#fff" stroke-width="2"/><text y="4" text-anchor="middle" font-family="Fredoka" font-weight="700" font-size="13" fill="#fff">${n}</text></g>`:''}
+    </g>
+    <text x="0" y="26" text-anchor="middle" font-family="Fredoka" font-weight="600" font-size="12" fill="#33414e">${n>0?n+' new':'Mail'}</text>
+  </g>`;
+}
+function treeAt(x,y){
+  const t=prj(x,y,0), col=seasonTree();
+  push((x+y)+0.65, `<g class="sim" style="animation-duration:6s"><rect x="${t[0]-7}" y="${t[1]-50}" width="14" height="56" rx="6" fill="#8a5f3c"/>
+    <circle cx="${t[0]}" cy="${t[1]-60}" r="30" fill="${col[0]}"/><circle cx="${t[0]-22}" cy="${t[1]-44}" r="22" fill="${col[1]}"/><circle cx="${t[0]+22}" cy="${t[1]-44}" r="22" fill="${col[2]}"/></g>`);
+}
+function roomOverlays(){
+  let s='';
+  for(const id in RECT){const[r0,c0,r1,c1]=RECT[id];
+    const p=[prj(r0,c0,0),prj(r1,c0,0),prj(r1,c1,0),prj(r0,c1,0)];
+    s+=`<polygon class="roomHit hit" data-room="${id}" points="${p.map(ptStr).join(' ')}"/>`;}
+  // garden plant hit zones
+  const spots=[[1,7],[2.4,8],[6,8],[7.4,7],[8.6,6.4]];
+  GOALS.forEach((g,i)=>{const x=spots[i][0],y=spots[i][1];const p=[prj(x-.4,y-.4,0),prj(x+.6,y-.4,0),prj(x+.6,y+.6,0),prj(x-.4,y+.6,0)];
+    s+=`<polygon class="goalHit hit" data-goal="${g.id}" points="${p.map(ptStr).join(' ')}"/>`;});
+  // sim click zones (on top so clicking a person selects/edits them)
+  SIMS.forEach(p=>{const c=prj(p.x+0.5,p.y+0.5,0);s+=`<circle class="hit" data-person="${p.id}" cx="${c[0]}" cy="${c[1]-18}" r="24" fill="rgba(255,255,255,0)"/>`;});
+  return s;
+}
+function bindLot(){
+  document.querySelectorAll('#lot [data-room]').forEach(el=>{
+    el.onclick=()=>openRoom(el.dataset.room);
+    el.onmouseenter=()=>{const r=ROOMS[el.dataset.room];showTip(r?r.emoji+' '+r.title:'✉️ Mailbox', r?r.eye:'REMINDERS');};
+    el.onmousemove=moveTip;el.onmouseleave=hideTip;});
+  document.querySelectorAll('#lot [data-goal]').forEach(el=>{const g=GOALS.find(x=>x.id===el.dataset.goal);
+    el.onclick=()=>openGoal(el.dataset.goal);
+    el.onmouseenter=()=>showTip(g.emoji+' '+g.name, Math.round(g.saved/g.target*100)+'% · $'+g.saved.toLocaleString());
+    el.onmousemove=moveTip;el.onmouseleave=hideTip;});
+  document.querySelectorAll('#lot [data-person]').forEach(el=>{const p=PEOPLE[el.dataset.person];
+    el.onclick=()=>selectSim(el.dataset.person);
+    el.onmouseenter=()=>showTip(p.emoji+' '+p.name,'Click to select & edit');
+    el.onmousemove=moveTip;el.onmouseleave=hideTip;});
+}
+
+/* ===================== SEASON COLOURS ===================== */
+let season='summer';
+function seasonGrass(){return {spring:['#9ad36a','#8ecb5e'],summer:['#8ec64f','#83bd45'],fall:['#bdaa55','#b09f49'],winter:['#e8eef2','#dfe7ec']}[season];}
+function seasonTree(){return {spring:['#f7c6dd','#ffd6e6','#f3b8d2'],summer:['#7bb86a','#86c074','#6fae5e'],fall:['#e6a14b','#d9663b','#f0b541'],winter:['#cfe0d6','#dbe8e0','#c5d8cd']}[season];}
+
+/* ===================== NEEDS / MOOD ===================== */
+function renderNeeds(){
+  const mood=NEEDS.reduce((a,n)=>a+n.v,0)/NEEDS.length;
+  const col=v=>v>0.7?'#46c46a':v>0.45?'#ecae3e':'#e3675f';
+  G('needcol').innerHTML=NEEDS.map(n=>`<div class="need hit" data-room="${n.room}"><div class="track"><i style="height:${n.v*100}%;background:${col(n.v)}"></i></div><span class="em">${n.em}</span><span class="lab">${n.k}</span></div>`).join('');
+  document.querySelectorAll('#needcol .need').forEach(el=>el.onclick=()=>openRoom(el.dataset.room));
+  const mc=col(mood);
+  G('plumbMood').style.borderBottomColor=mc;G('plumbMood').style.filter=`drop-shadow(0 0 10px ${mc}aa)`;
+  G('moodTxt').textContent=mood>0.78?'Happy':mood>0.6?'Fine':mood>0.45?'Tense':'Stressed';
+}
+
+/* ===================== PANEL + GOALS ===================== */
+function openRoom(key){
+  if(key==='office'){openStudy();return;}
+  if(key==='mailbox'){G('pEye').textContent='REMINDERS & BILLS';G('pEmoji').textContent='✉️';G('pTitle').textContent='The Mailbox';
+    G('pHead').style.background='linear-gradient(135deg,rgba(47,155,216,.25),rgba(47,155,216,.05))';
+    G('pBody').innerHTML=`<p>The little red flag is up. <b>2 reminders:</b> Canadian Tire MC payment in 6 days, and Holly's RRSP top-up before March 1. No bills overdue.</p>`;
+    G('panel').classList.add('show');return;}
+  const r=ROOMS[key];if(!r)return;
+  G('pEye').textContent=r.eye;G('pEmoji').textContent=r.emoji;G('pTitle').textContent=r.title;
+  G('pHead').style.background=`linear-gradient(135deg, ${hexA(r.color,.26)}, ${hexA(r.color,.05)})`;
+  let h=`<p>${r.body}</p><div style="margin-top:12px">`;
+  r.stats.forEach(s=>h+=`<div class="srow"><span class="k">${s[0]}</span><span class="v ${s[2]||''}">${s[1]}</span></div>`);
+  h+=`</div><div style="margin-top:12px"><span class="chip">open module ›</span></div>`;
+  G('pBody').innerHTML=h;G('panel').classList.add('show');
+}
+function openGoal(id){const g=GOALS.find(x=>x.id===id);if(!g)return;const pct=Math.min(g.saved/g.target,1),rem=Math.max(g.target-g.saved,0);
+  G('pEye').textContent='GARDEN · SAVINGS GOAL';G('pEmoji').textContent=g.emoji;G('pTitle').textContent=g.name;
+  G('pHead').style.background=`linear-gradient(135deg, ${hexA(g.color,.26)}, ${hexA(g.color,.05)})`;
+  G('pBody').innerHTML=`<p>This plant grows as you fund the goal. ${pct>=1?'<b>In full bloom — funded! 🌸</b>':'Keep it watered.'}</p>
+    <div style="margin-top:12px"><div class="srow"><span class="k">Saved</span><span class="v pos">$${g.saved.toLocaleString()}</span></div>
+    <div class="srow"><span class="k">Target</span><span class="v">$${g.target.toLocaleString()}</span></div>
+    <div class="srow"><span class="k">Remaining</span><span class="v ${rem?'':'pos'}">${rem?('$'+rem.toLocaleString()):'✓ funded'}</span></div></div>
+    <div style="margin-top:8px;font-weight:800;font-size:12px;color:#6b7a88">${Math.round(pct*100)}% GROWN</div><div class="pbar"><i style="width:${pct*100}%"></i></div>
+    <div style="margin-top:12px"><span class="chip" onclick="water('${g.id}')">💧 water +$500</span></div>`;
+  G('panel').classList.add('show');}
+function water(id){const g=GOALS.find(x=>x.id===id);if(!g)return;g.saved=Math.min(g.target,g.saved+500);buildLot();openGoal(id);toast('💧','Watered '+g.name,'+$500 added');}
+window.water=water;
+function hexA(h,a){const c=hex2rgb(h);return `rgba(${c[0]},${c[1]},${c[2]},${a})`;}
+G('pClose').onclick=()=>G('panel').classList.remove('show');
+
+/* ===================== PEOPLE / SELECT / TRAY ===================== */
+function selectSim(id){activeSim=id;buildLot();renderTray();openPerson(id);}
+function openPerson(id){const p=PEOPLE[id];
+  G('pEye').textContent='HOUSEHOLD MEMBER';G('pEmoji').textContent=p.emoji;G('pTitle').textContent=p.name;
+  G('pHead').style.background=`linear-gradient(135deg, ${hexA(p.color,.26)}, ${hexA(p.color,.05)})`;
+  G('pBody').innerHTML=`<p style="margin-bottom:8px">Selected — wears the plumbob. Edit details used across budgeting, the income split and Ontario tax estimates.</p>
+    <label class="fld">Name<input id="pf_name" value="${p.name}"></label>
+    <label class="fld">Role<input id="pf_role" value="${p.role}"></label>
+    <label class="fld">Income type<input id="pf_income" value="${p.income}"></label>
+    <label class="fld">Colour<input id="pf_color" type="color" value="${p.color}"></label>
+    <div style="margin-top:14px"><span class="chip" onclick="savePerson('${id}')">💾 Save</span></div>`;
+  G('panel').classList.add('show');}
+function savePerson(id){const p=PEOPLE[id];p.name=G('pf_name').value||p.name;p.role=G('pf_role').value;p.income=G('pf_income').value;p.color=G('pf_color').value;
+  buildLot();renderTray();toast('✅',p.name+' updated','household saved');G('panel').classList.remove('show');}
+window.savePerson=savePerson;
+function renderTray(){
+  G('tray').innerHTML=['matt','holly','pet'].map(id=>{const p=PEOPLE[id];
+    return `<button class="port ${id===activeSim?'on':''}" data-sel="${id}"><span class="pav" style="background:${p.color}">${p.emoji}</span><span class="pnm">${p.name}</span></button>`;}).join('');
+  document.querySelectorAll('#tray .port').forEach(b=>b.onclick=()=>selectSim(b.dataset.sel));
+}
+
+/* ===================== FINANCE DESK ===================== */
+const ACCOUNTS=[{nm:'BMO Chequing',sub:'everyday',bal:4210,col:'#2f9bd8'},{nm:'Alterna Savings',sub:'high-interest',bal:61940,col:'#46c46a'},{nm:'Canadian Tire MC',sub:'credit · due 6d',bal:-890,col:'#e0729a'}];
+const CATS={income:{e:'💰',bg:'#d8f0de',label:'Income'},tips:{e:'🪙',bg:'#fdeccd',label:'Tips'},grocery:{e:'🛒',bg:'#e3f1d8',label:'Groceries'},dining:{e:'🍽️',bg:'#fde3d4',label:'Dining'},coffee:{e:'☕',bg:'#efe1d0',label:'Coffee'},gas:{e:'⛽',bg:'#e1ecf2',label:'Gas'},housing:{e:'🏠',bg:'#e7e3f2',label:'Housing'},utilities:{e:'💡',bg:'#fbf0cf',label:'Utilities'},pets:{e:'🐾',bg:'#e3f1d8',label:'Pets'},fun:{e:'🎬',bg:'#f7e0e8',label:'Entertainment'},shopping:{e:'🛍️',bg:'#e1ecf2',label:'Shopping'},health:{e:'🏥',bg:'#fde3d4',label:'Health'}};
+let TX=[{d:'Jun 19',desc:'Loblaws',cat:'grocery',amt:-84.20,acct:'BMO'},{d:'Jun 19',desc:'Tim Hortons',cat:'coffee',amt:-6.45,acct:'CT MC'},{d:'Jun 18',desc:'Holly · declared tips',cat:'tips',amt:120,acct:'BMO'},{d:'Jun 18',desc:'Esso',cat:'gas',amt:-62.10,acct:'CT MC'},{d:'Jun 17',desc:'Matt · salary',cat:'income',amt:2180,acct:'BMO'},{d:'Jun 16',desc:'Hydro One',cat:'utilities',amt:-142,acct:'BMO'},{d:'Jun 15',desc:'Pet Valu',cat:'pets',amt:-38.50,acct:'CT MC'},{d:'Jun 15',desc:'The Keg',cat:'dining',amt:-96.30,acct:'CT MC'},{d:'Jun 14',desc:'Netflix',cat:'fun',amt:-16.99,acct:'BMO'},{d:'Jun 14',desc:'Holly · cash tips',cat:'tips',amt:85,acct:'Cash'},{d:'Jun 13',desc:'Canadian Tire',cat:'shopping',amt:-54.20,acct:'CT MC'},{d:'Jun 12',desc:'Mortgage payment',cat:'housing',amt:-1650,acct:'BMO'}];
+const BUDGETS=[{cat:'grocery',spent:430,limit:600},{cat:'dining',spent:196,limit:250},{cat:'gas',spent:124,limit:200},{cat:'fun',spent:67,limit:80},{cat:'shopping',spent:168,limit:150},{cat:'pets',spent:38,limit:60}];
+const INCOME={matt:4360,hollyDecl:980,hollyCash:640};
+const SAMPLE={fmt:'BMO Chequing · CSV',dup:1,rows:[{d:'Jun 11',desc:'Sobeys',cat:'grocery',amt:-71.34,acct:'BMO'},{d:'Jun 11',desc:'Holly · declared tips',cat:'tips',amt:96,acct:'BMO'},{d:'Jun 10',desc:'Bell Canada',cat:'utilities',amt:-88,acct:'BMO'},{d:'Jun 10',desc:'Starbucks',cat:'coffee',amt:-5.80,acct:'BMO'},{d:'Jun 09',desc:'Shoppers Drug Mart',cat:'health',amt:-32.45,acct:'BMO'},{d:'Jun 12',desc:'Mortgage payment',cat:'housing',amt:-1650,acct:'BMO'}]};
+let activeFilter='all';
+function money(n){return (n<0?'-$':'$')+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function renderAccounts(){let net=0;ACCOUNTS.forEach(a=>net+=a.bal);G('netLine').textContent='net '+money(net);
+  G('accts').innerHTML=ACCOUNTS.map(a=>`<div class="acct"><span class="nm"><span class="ad" style="background:${a.col}"></span><span>${a.nm}<small>${a.sub}</small></span></span><span class="ba ${a.bal<0?'neg':''}">${money(a.bal)}</span></div>`).join('');}
+function renderSplit(){const tot=INCOME.matt+INCOME.hollyDecl+INCOME.hollyCash,h=INCOME.hollyDecl+INCOME.hollyCash;
+  G('splitWrap').innerHTML=`<div class="row"><span class="who">Matt</span><div class="stk"><div class="seg-s" style="width:100%;background:var(--sims-blue)"></div></div><span class="tot">${money(INCOME.matt)}</span></div>
+  <div class="row"><span class="who">Holly</span><div class="stk"><div class="seg-s" style="width:${INCOME.hollyDecl/h*100}%;background:var(--honey)"></div><div class="seg-s" style="width:${INCOME.hollyCash/h*100}%;background:var(--coral)"></div></div><span class="tot">${money(h)}</span></div>
+  <div style="margin-top:8px;font-size:12px;color:var(--ink-soft);font-weight:700">Household ${money(tot)} · Holly's tips are ${Math.round(h/tot*100)}% of income (${money(INCOME.hollyCash)} cash)</div>`;}
+function renderEnvs(){G('envs').innerHTML=BUDGETS.map(b=>{const c=CATS[b.cat],pct=Math.min(b.spent/b.limit,1),over=b.spent>b.limit,col=pct<0.75?'linear-gradient(90deg,var(--sims-green),#a9cf6a)':'linear-gradient(90deg,var(--honey),#e8a04b)';
+  return `<div class="env ${over?'over':''}"><div class="lab"><span>${c.e} ${c.label}</span><span>${money(b.spent).replace('.00','')} / ${money(b.limit).replace('.00','')}</span></div><div class="track"><i style="width:${pct*100}%;background:${col}"></i></div></div>`;}).join('');}
+function renderLedger(){const list=TX.filter(t=>activeFilter==='all'?1:activeFilter==='in'?t.amt>0:activeFilter==='out'?t.amt<0:t.cat===activeFilter);
+  G('txCount').textContent=list.length+' shown';
+  G('ledger').innerHTML=list.map(t=>{const c=CATS[t.cat];return `<div class="tx ${t._new?'in':''}"><div class="ic" style="background:${c.bg}">${c.e}</div><div class="meta"><div class="d">${t.desc}</div><small>${t.d} · ${t.acct}</small></div><div class="cat">${c.label}</div><div class="amt ${t.amt>0?'pos':''}">${t.amt>0?'+':''}${money(t.amt)}</div></div>`;}).join('');}
+function renderFilters(){const cats=[...new Set(TX.map(t=>t.cat))];const chips=[['all','All'],['in','In'],['out','Out'],...cats.map(c=>[c,CATS[c].e+' '+CATS[c].label])];
+  G('filterbar').innerHTML=chips.map(([k,l])=>`<span class="fchip ${k===activeFilter?'on':''}" data-f="${k}">${l}</span>`).join('');
+  document.querySelectorAll('#filterbar .fchip').forEach(ch=>ch.onclick=()=>{activeFilter=ch.dataset.f;renderFilters();renderLedger();});}
+function renderStudy(){renderAccounts();renderSplit();renderEnvs();renderFilters();renderLedger();}
+function openStudy(){G('panel').classList.remove('show');renderStudy();G('study').classList.add('show');}
+function closeStudy(){G('study').classList.remove('show');resetUpload();}
+G('studyBack').onclick=closeStudy;
+let pending=null;
+function resetUpload(){pending=null;G('preview').classList.remove('show');G('scanbar').classList.remove('go');}
+function startScan(){G('preview').classList.remove('show');const sb=G('scanbar');sb.classList.remove('go');void sb.offsetWidth;sb.classList.add('go');
+  setTimeout(()=>{pending=SAMPLE.rows.map(r=>({...r}));
+    G('previewHead').innerHTML=`✅ Detected <b style="margin:0 4px">${SAMPLE.fmt}</b> · ${pending.length} transactions <span class="dup">⚠ ${SAMPLE.dup} possible duplicate</span>`;
+    G('previewList').innerHTML=pending.map(t=>{const c=CATS[t.cat];const dup=TX.some(x=>x.d===t.d&&x.amt===t.amt&&x.desc===t.desc);
+      return `<div class="tx"><div class="ic" style="background:${c.bg}">${c.e}</div><div class="meta"><div class="d">${t.desc} ${dup?'<span style="color:var(--warn);font-size:11px">· duplicate</span>':''}</div><small>${t.d} · auto-categorised</small></div><div class="cat">${c.label}</div><div class="amt ${t.amt>0?'pos':''}">${t.amt>0?'+':''}${money(t.amt)}</div></div>`;}).join('');
+    G('preview').classList.add('show');},1650);}
+function importPending(){if(!pending)return;let added=0;pending.forEach(t=>{const dup=TX.some(x=>x.d===t.d&&x.amt===t.amt&&x.desc===t.desc);if(!dup){TX.unshift({...t,_new:true});added++;}});resetUpload();renderStudy();setTimeout(()=>TX.forEach(t=>delete t._new),700);toast('📥',added+' transactions imported',SAMPLE.dup+' duplicate skipped');}
+G('importBtn').onclick=importPending;G('cancelBtn').onclick=resetUpload;
+G('sampleBtn').onclick=e=>{e.stopPropagation();startScan();};
+const drop=G('drop');drop.onclick=()=>startScan();
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',()=>startScan());
+
+/* ===================== TOOLTIP / TOAST ===================== */
+const tip=G('tip');
+function showTip(t,s){G('tipT').textContent=t;G('tipS').textContent=s;tip.style.opacity=1;}
+function moveTip(e){tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';}
+function hideTip(){tip.style.opacity=0;}
+function toast(e,x,d){G('toastE').textContent=e;G('toastX').textContent=x;G('toastD').textContent=d;const t=G('toast');t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
+let hT;function hint(t){const h=G('hint');h.textContent=t;h.classList.add('show');clearTimeout(hT);hT=setTimeout(()=>h.classList.remove('show'),5500);}
+
+/* ===================== SKY / TIME ===================== */
+const SKYK=[{h:0,top:'#101a35',mid:'#1c2b50',bot:'#2b3a67',sun:'#cdd7ff',br:0.05},{h:5,top:'#3a4a7a',mid:'#7a6a9a',bot:'#e9a78c',sun:'#ffd9a0',br:0.3},{h:7,top:'#9fc4e8',mid:'#cfe6f2',bot:'#ffe7c4',sun:'#ffe08a',br:0.7},{h:12,top:'#a9dbf0',mid:'#d6f0ec',bot:'#fff4d9',sun:'#ffd36b',br:1},{h:17,top:'#bfe0ef',mid:'#ffe6cf',bot:'#ffd9a8',sun:'#ffc878',br:0.85},{h:19,top:'#6f6aa0',mid:'#e7896a',bot:'#ffb27a',sun:'#ff9d5c',br:0.45},{h:21,top:'#2e3566',mid:'#4a3f74',bot:'#a86a7e',sun:'#ffcaa0',br:0.18},{h:24,top:'#101a35',mid:'#1c2b50',bot:'#2b3a67',sun:'#cdd7ff',br:0.05}];
+function skyAt(hr){let a=SKYK[0],b=SKYK[SKYK.length-1];for(let i=0;i<SKYK.length-1;i++){if(hr>=SKYK[i].h&&hr<=SKYK[i+1].h){a=SKYK[i];b=SKYK[i+1];break;}}const t=(hr-a.h)/((b.h-a.h)||1);
+  return {top:lerpHex(a.top,b.top,t),mid:lerpHex(a.mid,b.mid,t),bot:lerpHex(a.bot,b.bot,t),sun:lerpHex(a.sun,b.sun,t),br:a.br+(b.br-a.br)*t};}
+const root=document.documentElement;let minutes=840,live=false,liveTimer=null;
+function applyTime(min){const hr=min/60,s=skyAt(hr);root.style.setProperty('--sky-top',s.top);root.style.setProperty('--sky-mid',s.mid);root.style.setProperty('--sky-bot',s.bot);root.style.setProperty('--sun-col',s.sun);
+  const dayT=(hr-6)/12,x=150+dayT*1300,y=520-Math.sin(Math.max(0,Math.min(1,dayT))*Math.PI)*380,isDay=hr>=6&&hr<=18;
+  G('sun').setAttribute('cx',x);G('sun').setAttribute('cy',y);G('sunHalo').setAttribute('cx',x);G('sunHalo').setAttribute('cy',y);
+  G('sun').style.opacity=isDay?1:0;G('sunHalo').style.opacity=isDay?(0.4+s.br*0.5):0;
+  const nT=hr>18?(hr-18)/12:(hr+6)/12,mx=150+nT*1300,my=520-Math.sin(Math.max(0,Math.min(1,nT))*Math.PI)*340;
+  G('moon').setAttribute('transform',`translate(${mx-300},${my-220})`);G('moon').style.opacity=isDay?0:1;
+  G('stars').style.opacity=isDay?0:Math.min(1,(1-s.br)*1.4);
+  G('clock').textContent=fmtC(min,false);G('tnow').textContent=fmtC(min,true);}
+function fmtC(min,ap){let h=Math.floor(min/60)%24,m=min%60;const a=h<12?'am':'pm';let hh=h%12;if(hh===0)hh=12;return ap?`${hh}:${('0'+m).slice(-2)} ${a}`:`${hh}:${('0'+m).slice(-2)}`;}
+
+/* stars + clouds */
+(function(){let s='';for(let i=0;i<90;i++){const x=Math.random()*1600,y=Math.random()*520,r=Math.random()*1.5+0.4;s+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(1)}" fill="#fff" opacity="${(0.4+Math.random()*0.6).toFixed(2)}"><animate attributeName="opacity" values="${(0.2+Math.random()*0.3).toFixed(2)};1;${(0.2+Math.random()*0.3).toFixed(2)}" dur="${(2+Math.random()*3).toFixed(1)}s" repeatCount="indefinite"/></circle>`;}G('stars').innerHTML=s;})();
+(function(){let s='';for(let i=0;i<5;i++){const y=50+Math.random()*220,sc=0.6+Math.random()*0.8,dur=80+Math.random()*70,delay=-Math.random()*dur,op=0.75+Math.random()*0.2;s+=`<g class="cloud" style="animation-duration:${dur}s;animation-delay:${delay}s" transform="translate(0,${y}) scale(${sc})" opacity="${op}"><ellipse cx="0" cy="0" rx="70" ry="38" fill="#fff"/><ellipse cx="58" cy="10" rx="58" ry="32" fill="#fff"/><ellipse cx="-54" cy="12" rx="48" ry="28" fill="#fff"/><ellipse cx="8" cy="-20" rx="44" ry="28" fill="#fff"/></g>`;}G('clouds').innerHTML=s;})();
+
+/* ===================== WEATHER ===================== */
+let weather='sun',autoWeather=true;
+function setWeather(w,fromUser){weather=w;if(fromUser)autoWeather=false;document.querySelectorAll('#weatherSeg button').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
+  const map={sun:['☀️','Clear'],cloud:['⛅','Cloudy'],rain:['🌧️','Light rain'],snow:['❄️','Snow']};G('wEmoji').textContent=map[w][0];G('wSub').textContent=map[w][1];refreshFX();}
+function refreshFX(){let s='';
+  if(weather==='rain')for(let i=0;i<70;i++){const x=Math.random()*1600,d=0.5+Math.random()*0.5;s+=`<line x1="${x}" y1="-20" x2="${x-8}" y2="10" stroke="#9cc4e0" stroke-width="2" opacity="0.6"><animate attributeName="y1" values="-40;1040" dur="${d}s" repeatCount="indefinite"/><animate attributeName="y2" values="-10;1070" dur="${d}s" repeatCount="indefinite"/></line>`;}
+  if(weather==='snow')for(let i=0;i<60;i++){const x=Math.random()*1600,d=4+Math.random()*4,r=1.5+Math.random()*2.5,sx=Math.random()*40-20;s+=`<circle cx="${x}" cy="-10" r="${r}" fill="#fff" opacity="0.9"><animate attributeName="cy" values="-10;1020" dur="${d}s" repeatCount="indefinite"/><animate attributeName="cx" values="${x};${x+sx};${x}" dur="${d}s" repeatCount="indefinite"/></circle>`;}
+  if(season==='fall')for(let i=0;i<22;i++){const x=Math.random()*1600,d=5+Math.random()*5,col=['#e6a14b','#d9663b','#f0b541'][i%3];s+=`<path d="M0,0 q6,-8 12,0 q-6,8 -12,0Z" fill="${col}" opacity="0.85"><animateTransform attributeName="transform" type="translate" values="${x},-20;${x-60},1020" dur="${d}s" repeatCount="indefinite"/></path>`;}
+  G('weatherFX').innerHTML=s;}
+
+/* ===================== LIVE WEATHER ===================== */
+function codeToWeather(c){if(c<=2)return 'sun';if(c===3||c===45||c===48)return 'cloud';if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95)return 'rain';if((c>=71&&c<=77)||c===85||c===86)return 'snow';return 'cloud';}
+async function fetchWeather(lat,lon){try{const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`);const j=await r.json();G('wText').textContent=Math.round(j.current.temperature_2m)+'°';if(autoWeather)setWeather(codeToWeather(j.current.weather_code),false);}catch(e){}}
+function initWeather(){const fb=()=>fetchWeather(43.65,-79.38);if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>fetchWeather(p.coords.latitude,p.coords.longitude),fb,{timeout:6000,maximumAge:600000});else fb();}
+
+/* ===================== CONTROLS ===================== */
+G('timeSlider').addEventListener('input',e=>{minutes=+e.target.value;if(live){live=false;G('liveBtn').classList.remove('on');clearInterval(liveTimer);}applyTime(minutes);});
+document.querySelectorAll('#seasonSeg button').forEach(b=>b.onclick=()=>{season=b.dataset.s;document.querySelectorAll('#seasonSeg button').forEach(x=>x.classList.toggle('on',x===b));buildLot();renderNeeds();refreshFX();});
+G('liveBtn').onclick=()=>{live=!live;G('liveBtn').classList.toggle('on',live);if(live){autoWeather=true;syncLive();initWeather();liveTimer=setInterval(syncLive,30000);toast('🕑','Live mode on','time & weather are now real');}else clearInterval(liveTimer);};
+function syncLive(){const d=new Date();minutes=d.getHours()*60+d.getMinutes();G('timeSlider').value=minutes;applyTime(minutes);}
+
+/* ===================== INIT ===================== */
+buildLot();
+renderNeeds();
+renderTray();
+applyTime(minutes);
+refreshFX();
+live=true;G('liveBtn').classList.add('on');syncLive();liveTimer=setInterval(syncLive,30000);
+initWeather();setInterval(initWeather,600000);
+setTimeout(()=>{G('boot').classList.add('gone');G('top').classList.add('show');G('needs').classList.add('show');G('tray').classList.add('show');G('dock').classList.add('show');
+  hint('CLICK A SIM TO SELECT & EDIT · CLICK A ROOM OR PLANT · MAILBOX SHOWS NEW MAIL · WEATHER IS LIVE');},2400);
+</script>
+</body>
+</html>
