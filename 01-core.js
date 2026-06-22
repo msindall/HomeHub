@@ -303,7 +303,9 @@ function defaultState() {
     theme: null,
     startingBalances: {},
     accounts: [],
-    features: { calendar:true, tips:true, grocery:true, pets:true, upload:true, wedding:true, house:true, bills:true, networth:true, carfunds:true, maintenance:true, tax:true, retirement:true, career:true },
+    cashflowConfig: { horizonDays: 60, primaryAccountId: '', buffer: 0, seeded: false, incomes: [] },
+    lotPrefs: { defaultView: 'lot', weatherFX: true, treeType: 'maple' },
+    features: { calendar:true, tips:true, grocery:true, pets:true, upload:true, wedding:true, house:true, bills:true, networth:true, carfunds:true, maintenance:true, tax:true, retirement:true, career:true, cashflow:true },
     maintenanceTasks: [],
     carFunds: [],
     taxData: {},
@@ -407,6 +409,8 @@ let state = loadState();
   if (state.weatherLocationIndex === undefined) { state.weatherLocationIndex = 0; saveState(); }
   if (!state.petFeeding) { state.petFeeding = {}; saveState(); }
   if (!state.startingBalances) { state.startingBalances = {}; saveState(); }
+  if (!state.cashflowConfig) { state.cashflowConfig = { horizonDays: 60, primaryAccountId: '', buffer: 0, seeded: false, incomes: [] }; saveState(); }
+  if (!state.lotPrefs) { state.lotPrefs = { defaultView: 'lot', weatherFX: true, treeType: 'maple' }; saveState(); }
   if (!state.accounts) { state.accounts = []; saveState(); }
   if (!state.wedding) { state.wedding = { budget: 0, date: '', venue: '', notes: '' }; saveState(); }
   if (!state.weddingVendors) { state.weddingVendors = []; saveState(); }
@@ -562,14 +566,14 @@ function showPage(id) {
   if (pageEl) pageEl.classList.add('active');
   var activeBtn = document.getElementById('nav-'+id+'-btn');
   if (activeBtn) activeBtn.classList.add('active');
-  var PAGE_TITLES = { dashboard:'🏠 Home', calendar:'📅 Calendar', transactions:'📋 Transactions', budget:'💰 Budget', goals:'🎯 Goals', tips:'💵 Tips', grocery:'🛒 Grocery', upload:'📤 Upload', career:'💼 Career Planner' };
+  var PAGE_TITLES = { dashboard:'🏠 Home', calendar:'📅 Calendar', transactions:'📋 Transactions', budget:'💰 Budget', goals:'🎯 Goals', tips:'💵 Tips', grocery:'🛒 Grocery', upload:'📤 Upload', career:'💼 Career Planner', cashflow:'🔮 Cashflow Advisor' };
   var tbTitle = document.getElementById('topbar-title');
   if (tbTitle) {
     var tipsM = getTipsMember();
     if (id==='tips' && tipsM) { tbTitle.textContent = '💵 ' + tipsM.name + "'s Tips"; }
     else { tbTitle.textContent = PAGE_TITLES[id] || id; }
   }
-  const renders = { dashboard:renderDashboard, calendar:renderCalendar, transactions:renderTransactions, budget:renderBudget, goals:renderGoals, wedding:renderWedding, house:renderHouse, pets:renderPetsPage, bills:renderBills, networth:renderNetWorth, cars:renderCarFunds, maintenance:renderMaintenance, tax:renderTax, retirement:renderRetirement, tips:renderTipsPage, grocery:renderGrocery, upload:renderStatements, career:renderCareer };
+  const renders = { dashboard:renderDashboard, calendar:renderCalendar, transactions:renderTransactions, budget:renderBudget, goals:renderGoals, wedding:renderWedding, house:renderHouse, pets:renderPetsPage, bills:renderBills, cashflow:renderCashflow, networth:renderNetWorth, cars:renderCarFunds, maintenance:renderMaintenance, tax:renderTax, retirement:renderRetirement, tips:renderTipsPage, grocery:renderGrocery, upload:renderStatements, career:renderCareer };
   if (renders[id]) renders[id]();
   if (id === 'calendar') {
     setTimeout(function() { autoSyncAllCalendars(true); }, 300);
@@ -662,9 +666,27 @@ function populateCatSelect(id, includeGoals) {
 }
 function clearGoalForm() {
   ['goal-name','goal-emoji','goal-target','goal-current','goal-date','goal-link','goal-notes','goal-account'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
+  var gf=document.getElementById('goal-flower');if(gf)gf.value='auto';
   document.getElementById('goal-edit-id').value='';
 }
 function clearTipsForm() { document.getElementById('tips-edit-id').value=''; }
+function openLotSettings() {
+  var p = state.lotPrefs || {};
+  var dv = document.getElementById('lot-default-view'); if (dv) dv.value = p.defaultView || 'lot';
+  var wx = document.getElementById('lot-weather-fx');   if (wx) wx.checked = p.weatherFX !== false;
+  var tt = document.getElementById('lot-tree-type');    if (tt) tt.value = p.treeType || 'maple';
+  openModal('lot-settings-modal');
+}
+function saveLotSettings() {
+  if (!state.lotPrefs) state.lotPrefs = {};
+  var dv = document.getElementById('lot-default-view'); if (dv) state.lotPrefs.defaultView = dv.value;
+  var wx = document.getElementById('lot-weather-fx');   if (wx) state.lotPrefs.weatherFX = wx.checked;
+  var tt = document.getElementById('lot-tree-type');    if (tt) state.lotPrefs.treeType = tt.value;
+  saveState();
+  closeModal('lot-settings-modal');
+  try { if (window.HHHome && HHHome.refresh) HHHome.refresh(); } catch(e){}
+  hhToast('Lot settings saved!', '🏡');
+}
 function clearEventForm(withDate) {
   ['event-title','event-start','event-end','event-notes'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('event-edit-id').value='';

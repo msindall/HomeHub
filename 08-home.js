@@ -86,22 +86,65 @@
       +'<g transform="translate('+b[0]+','+(b[1]+14)+')"><rect x="-26" y="0" width="52" height="17" rx="8" fill="#ffffff" opacity="0.92"/><text x="0" y="12" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="10" fill="#33414e">'+name+'</text></g>'
       +'</g>';
     push(k, wanderWrap(k,s));}
+  // Species-aware flower head, drawn centred at (cx,cy). grow scales with goal %.
+  function flowerHead(type,cx,cy,grow,fl,cc,full){
+    var i,a,s='',ANG5=[0,72,144,216,288];
+    var spark=full?'<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-size="'+(13*grow)+'">✨</text>':'';
+    function petal(ang,rad,prx,pry,fill){var rx=Math.cos(ang*Math.PI/180)*rad*grow,ry=Math.sin(ang*Math.PI/180)*rad*grow;
+      return '<ellipse cx="'+(cx+rx)+'" cy="'+(cy+ry)+'" rx="'+(prx*grow)+'" ry="'+(pry*grow)+'" fill="'+fill+'" transform="rotate('+ang+' '+(cx+rx)+' '+(cy+ry)+')"/>';}
+    switch(type){
+      case 'rose':
+        s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(12*grow)+'" fill="'+fl+'"/>';
+        for(i=0;i<5;i++){s+=petal(ANG5[i],6,5,7,shade(fl,0.14));}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(4*grow)+'" fill="'+shade(fl,-0.2)+'"/>'+spark;
+      case 'tulip':
+        s+='<path d="M'+(cx-9*grow)+','+(cy+2*grow)+' Q'+(cx-11*grow)+','+(cy-14*grow)+' '+cx+','+(cy-15*grow)+' Q'+(cx+11*grow)+','+(cy-14*grow)+' '+(cx+9*grow)+','+(cy+2*grow)+' Z" fill="'+fl+'"/>';
+        return s+'<path d="M'+(cx-3.5*grow)+','+(cy+1*grow)+' Q'+(cx-4*grow)+','+(cy-15*grow)+' '+cx+','+(cy-16*grow)+' Q'+(cx+4*grow)+','+(cy-15*grow)+' '+(cx+3.5*grow)+','+(cy+1*grow)+' Z" fill="'+shade(fl,0.18)+'"/>'+spark;
+      case 'sunflower':
+        for(i=0;i<12;i++){s+=petal(i*30,12,4,8,'#f3b53a');}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(7*grow)+'" fill="#7a4a1e"/>'+spark;
+      case 'daisy':
+        for(i=0;i<10;i++){s+=petal(i*36,11,3.5,8,'#ffffff');}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(5*grow)+'" fill="#f5c542"/>'+spark;
+      case 'lavender':
+        for(i=0;i<6;i++){var yy=cy+i*5*grow,off=(i%2?3:-3)*grow;s+='<circle cx="'+(cx+off)+'" cy="'+yy+'" r="'+(3.4*grow)+'" fill="'+(i%2?'#9b7fd0':'#7d5bbf')+'"/>';}
+        return s+spark;
+      default:
+        for(i=0;i<5;i++){var rx=Math.cos(ANG5[i]*Math.PI/180)*11*grow,ry=Math.sin(ANG5[i]*Math.PI/180)*11*grow;
+          s+='<ellipse cx="'+(cx+rx)+'" cy="'+(cy+ry)+'" rx="'+(8*grow)+'" ry="'+(11*grow)+'" fill="'+fl+'"/>';}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(8*grow)+'" fill="'+cc+'"/>'+spark;
+    }
+  }
   function plant(x,y,goal){var pct=goal.target?Math.min(goal.saved/goal.target,1):0, b=prj(x+0.5,y+0.5,0);
-    var grow=0.5+pct*0.9, stemH=22+pct*46, bloom=pct>0.25, full=pct>=0.999, fl=goal.flower, cc=goal.color, petals='', a, rx, ry, i, ANG=[0,72,144,216,288];
-    if(bloom){for(i=0;i<ANG.length;i++){a=ANG[i];rx=Math.cos(a*Math.PI/180)*11*grow;ry=Math.sin(a*Math.PI/180)*11*grow;petals+='<ellipse cx="'+(b[0]+rx)+'" cy="'+(b[1]-stemH+ry)+'" rx="'+(8*grow)+'" ry="'+(11*grow)+'" fill="'+fl+'"/>';}}
+    var grow=0.5+pct*0.9, stemH=22+pct*46, bloom=pct>0.25, full=pct>=0.999, fl=goal.flower, cc=goal.color;
+    var head = bloom ? flowerHead(goal.flowerType||'auto', b[0], b[1]-stemH, grow, fl, cc, full)
+                     : '<circle cx="'+b[0]+'" cy="'+(b[1]-stemH)+'" r="'+(6*grow)+'" fill="#7cc063"/>';
     var s='<g>'
       +'<ellipse cx="'+b[0]+'" cy="'+(b[1]+2)+'" rx="'+(16*grow)+'" ry="6" fill="#000" opacity="0.14"/>'
       +'<path d="M'+(b[0]-9)+','+(b[1]+4)+' L'+(b[0]+9)+','+(b[1]+4)+' L'+(b[0]+6)+','+(b[1]-8)+' L'+(b[0]-6)+','+(b[1]-8)+' Z" fill="#c98a5a"/>'
       +'<rect x="'+(b[0]-2.5)+'" y="'+(b[1]-stemH)+'" width="5" height="'+stemH+'" rx="2.5" fill="#4f9a44"/>'
       +'<ellipse cx="'+(b[0]-10*grow)+'" cy="'+(b[1]-stemH*0.6)+'" rx="'+(10*grow)+'" ry="5" fill="#5fae4f" transform="rotate(-25 '+b[0]+' '+(b[1]-stemH*0.6)+')"/>'
       +'<ellipse cx="'+(b[0]+10*grow)+'" cy="'+(b[1]-stemH*0.78)+'" rx="'+(10*grow)+'" ry="5" fill="#6cba5b" transform="rotate(25 '+b[0]+' '+(b[1]-stemH*0.78)+')"/>'
-      +(bloom?petals+'<circle cx="'+b[0]+'" cy="'+(b[1]-stemH)+'" r="'+(8*grow)+'" fill="'+cc+'"/>'+(full?'<text x="'+b[0]+'" y="'+(b[1]-stemH+5)+'" text-anchor="middle" font-size="'+(13*grow)+'">✨</text>':''):'<circle cx="'+b[0]+'" cy="'+(b[1]-stemH)+'" r="'+(6*grow)+'" fill="#7cc063"/>')
+      +head
       +'<g transform="translate('+b[0]+','+(b[1]+18)+')"><rect x="-26" y="0" width="52" height="22" rx="6" fill="#fff" stroke="'+cc+'" stroke-width="1.5"/>'
       +'<text x="0" y="11" text-anchor="middle" font-size="11">'+goal.emoji+'</text><text x="0" y="19" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="8" fill="#6b7a88">'+Math.round(pct*100)+'%</text></g></g>';
     push(500+(x+y), s);}
-  function treeAt(x,y){var t=prj(x,y,0), col=seasonTree();
-    push((x+y)+0.65, '<g class="hh-sim" style="animation-duration:6s"><rect x="'+(t[0]-7)+'" y="'+(t[1]-50)+'" width="14" height="56" rx="6" fill="#8a5f3c"/>'
-      +'<circle cx="'+t[0]+'" cy="'+(t[1]-60)+'" r="30" fill="'+col[0]+'"/><circle cx="'+(t[0]-22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[1]+'"/><circle cx="'+(t[0]+22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[2]+'"/></g>');}
+  function treeAt(x,y){var t=prj(x,y,0), type=(LP().treeType)||'maple', col=seasonTree();
+    var trunk='<rect x="'+(t[0]-7)+'" y="'+(t[1]-50)+'" width="14" height="56" rx="6" fill="#8a5f3c"/>';
+    var crown;
+    if(type==='pine'){var g='#3f8f57';
+      trunk='<rect x="'+(t[0]-6)+'" y="'+(t[1]-18)+'" width="12" height="24" rx="4" fill="#7a5230"/>';
+      crown='<polygon points="'+t[0]+','+(t[1]-94)+' '+(t[0]-26)+','+(t[1]-50)+' '+(t[0]+26)+','+(t[1]-50)+'" fill="'+g+'"/>'
+        +'<polygon points="'+t[0]+','+(t[1]-74)+' '+(t[0]-30)+','+(t[1]-34)+' '+(t[0]+30)+','+(t[1]-34)+'" fill="'+shade(g,0.08)+'"/>'
+        +'<polygon points="'+t[0]+','+(t[1]-56)+' '+(t[0]-34)+','+(t[1]-14)+' '+(t[0]+34)+','+(t[1]-14)+'" fill="'+shade(g,-0.06)+'"/>';
+    } else if(type==='oak'){
+      crown='<circle cx="'+t[0]+'" cy="'+(t[1]-66)+'" r="36" fill="'+col[0]+'"/><circle cx="'+(t[0]-28)+'" cy="'+(t[1]-46)+'" r="26" fill="'+col[1]+'"/><circle cx="'+(t[0]+28)+'" cy="'+(t[1]-46)+'" r="26" fill="'+col[2]+'"/>';
+    } else if(type==='cherry'){
+      crown='<circle cx="'+t[0]+'" cy="'+(t[1]-60)+'" r="30" fill="#f7b8d2"/><circle cx="'+(t[0]-22)+'" cy="'+(t[1]-44)+'" r="22" fill="#ffc9de"/><circle cx="'+(t[0]+22)+'" cy="'+(t[1]-44)+'" r="22" fill="#f0a6c6"/>';
+    } else {
+      crown='<circle cx="'+t[0]+'" cy="'+(t[1]-60)+'" r="30" fill="'+col[0]+'"/><circle cx="'+(t[0]-22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[1]+'"/><circle cx="'+(t[0]+22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[2]+'"/>';
+    }
+    push((x+y)+0.65, '<g class="hh-sim" style="animation-duration:6s">'+trunk+crown+'</g>');}
 
   /* ===================== DATA (from real state with fallbacks) ===================== */
   var GOALS=[], PEOPLE={}, SIMS=[], activeSim=null;
@@ -120,6 +163,8 @@
   function clamp01(x){return x<0?0:x>1?1:x;}
   function avgParts(parts){var d=parts.filter(function(p){return p.v!=null;});if(!d.length)return null;return d.reduce(function(a,p){return a+p.v;},0)/d.length;}
   function S(){return (typeof state==='object'&&state)?state:{};}
+  function LP(){var p=S().lotPrefs;return p||{defaultView:'lot',weatherFX:true,treeType:'maple'};}
+  function reducedMotion(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
   function txnsInLastDays(n){var cut=Date.now()-n*86400000;return (S().transactions||[]).filter(function(t){var d=new Date(t.date);return !isNaN(d.getTime())&&d.getTime()>=cut;});}
   function liquidBalance(){var accts=S().accounts||[];if(!accts.length)return null;var sum=0;accts.forEach(function(a){var debt=(typeof ACCT_IS_DEBT==='object'&&ACCT_IS_DEBT)?ACCT_IS_DEBT[a.type]:false;if(!debt&&typeof getAccountBalance==='function'){var b=getAccountBalance(a.id);if(b!=null)sum+=Math.max(0,b);}});return sum;}
   function goalsScore(){var gs=(S().goals||[]).filter(function(g){return g.target>0;});if(!gs.length)return null;var ps=gs.map(function(g){var sv=(typeof goalSavedAmount==='function')?goalSavedAmount(g):((g.current||0)+(typeof getGoalContributions==='function'?getGoalContributions(g.id):0));return clamp01(sv/g.target);});return ps.reduce(function(a,b){return a+b;},0)/ps.length;}
@@ -172,7 +217,7 @@
   function loadData(){
     var st=(typeof state==='object'&&state)?state:{};
     // goals -> plants (cap 5) — saved reads the linked account balance (Phase B)
-    GOALS=(st.goals||[]).slice(0,5).map(function(g,i){var sv=(typeof goalSavedAmount==='function')?goalSavedAmount(g):(+g.current||0);return {id:g.id||('g'+i),emoji:g.emoji||'🎯',name:g.name||'Goal',saved:sv,target:+g.target||0,date:g.date||'',color:PALETTE[i%PALETTE.length],flower:FLOWERS[i%FLOWERS.length]};});
+    GOALS=(st.goals||[]).slice(0,5).map(function(g,i){var sv=(typeof goalSavedAmount==='function')?goalSavedAmount(g):(+g.current||0);return {id:g.id||('g'+i),emoji:g.emoji||'🎯',name:g.name||'Goal',saved:sv,target:+g.target||0,date:g.date||'',color:PALETTE[i%PALETTE.length],flower:FLOWERS[i%FLOWERS.length],flowerType:g.flowerType||'auto'};});
     // members + pets -> sims/tray
     PEOPLE={}; SIMS=[];
     var positions=[{x:1.5,y:1.9},{x:4.5,y:2.0},{x:7.3,y:2.0},{x:1.6,y:4.6},{x:4.6,y:4.0},{x:7.4,y:4.6}];
@@ -449,13 +494,16 @@
 
   /* ===================== WEATHER ===================== */
   var weather='sun', autoWeather=true;
-  function setWeather(w){weather=w;var map={sun:['☀️','Clear'],cloud:['⛅','Cloudy'],rain:['🌧️','Light rain'],snow:['❄️','Snow']};G('hhWEmoji').textContent=map[w][0];G('hhWSub').textContent=map[w][1];refreshFX();}
+  function setWeather(w){weather=w;var map={sun:['☀️','Clear'],cloud:['⛅','Cloudy'],fog:['🌫️','Fog'],rain:['🌧️','Light rain'],snow:['❄️','Snow']};var m=map[w]||map.cloud;G('hhWEmoji').textContent=m[0];G('hhWSub').textContent=m[1];refreshFX();}
   function refreshFX(){var s='',i,x,d,r,sx,col;
+    var fxOn=(LP().weatherFX!==false)&&!reducedMotion();
+    if(!fxOn){var fxe0=G('hhWeatherFX');if(fxe0)fxe0.innerHTML='';return;}
+    if(weather==='fog')for(i=0;i<5;i++){var fy=120+i*90,fd=26+i*6,fop=(0.10+Math.random()*0.10).toFixed(2);s+='<ellipse cx="0" cy="'+fy+'" rx="360" ry="46" fill="#e8eef3" opacity="'+fop+'"><animateTransform attributeName="transform" type="translate" values="-200,0;1700,0" dur="'+fd+'s" repeatCount="indefinite"/></ellipse>';}
     if(weather==='rain')for(i=0;i<70;i++){x=Math.random()*1600;d=0.5+Math.random()*0.5;s+='<line x1="'+x+'" y1="-20" x2="'+(x-8)+'" y2="10" stroke="#9cc4e0" stroke-width="2" opacity="0.6"><animate attributeName="y1" values="-40;1040" dur="'+d+'s" repeatCount="indefinite"/><animate attributeName="y2" values="-10;1070" dur="'+d+'s" repeatCount="indefinite"/></line>';}
     if(weather==='snow')for(i=0;i<60;i++){x=Math.random()*1600;d=4+Math.random()*4;r=1.5+Math.random()*2.5;sx=Math.random()*40-20;s+='<circle cx="'+x+'" cy="-10" r="'+r+'" fill="#fff" opacity="0.9"><animate attributeName="cy" values="-10;1020" dur="'+d+'s" repeatCount="indefinite"/><animate attributeName="cx" values="'+x+';'+(x+sx)+';'+x+'" dur="'+d+'s" repeatCount="indefinite"/></circle>';}
     if(season==='fall')for(i=0;i<22;i++){x=Math.random()*1600;d=5+Math.random()*5;col=['#e6a14b','#d9663b','#f0b541'][i%3];s+='<path d="M0,0 q6,-8 12,0 q-6,8 -12,0Z" fill="'+col+'" opacity="0.85"><animateTransform attributeName="transform" type="translate" values="'+x+',-20;'+(x-60)+',1020" dur="'+d+'s" repeatCount="indefinite"/></path>';}
     G('hhWeatherFX').innerHTML=s;}
-  function codeToWeather(c){if(c<=2)return 'sun';if(c===3||c===45||c===48)return 'cloud';if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95)return 'rain';if((c>=71&&c<=77)||c===85||c===86)return 'snow';return 'cloud';}
+  function codeToWeather(c){if(c<=2)return 'sun';if(c===45||c===48)return 'fog';if(c===3)return 'cloud';if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95)return 'rain';if((c>=71&&c<=77)||c===85||c===86)return 'snow';return 'cloud';}
   var PROV_CAPITALS={ON:['Toronto','ON'],QC:['Quebec City','QC'],BC:['Vancouver','BC'],AB:['Edmonton','AB'],MB:['Winnipeg','MB'],SK:['Regina','SK'],NS:['Halifax','NS'],NB:['Fredericton','NB'],NL:["St. John's",'NL'],PE:['Charlottetown','PE'],YT:['Whitehorse','YT'],NT:['Yellowknife','NT'],NU:['Iqaluit','NU']};
   function lotWeatherLocation(){var st=S();var locs=st.weatherLocations||[];var idx=st.weatherLocationIndex||0;if(idx>=locs.length)idx=0;
     if(locs[idx]&&locs[idx].city)return {city:locs[idx].city,province:locs[idx].province||'ON'};
@@ -507,8 +555,10 @@
     if(mq.matches){ hide(); return; }                  // mobile -> classic view
     var st=(typeof state==='object'&&state)?state:{};
     if(!st.household || !st.household.setupComplete){ hide(); return; } // let wizard run
+    if((LP().defaultView)==='classic'){ hide(); return; } // user prefers classic dashboard
     show();
   }
 
-  window.HHHome = { init:init, show:show, hide:hide, go:go };
+  function refresh(){ if(!built) return; try{ loadData(); buildLot(); refreshFX(); }catch(e){} }
+  window.HHHome = { init:init, show:show, hide:hide, go:go, refresh:refresh };
 })();

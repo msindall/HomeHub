@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Home Hub V7.0</title>
+<title>Home Hub V7.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Nunito:wght@300;400;500;600;700;800&display=swap');
 :root {
@@ -1046,6 +1046,7 @@ body.hh-home-open{overflow:hidden}
     <button class="nav-btn" id="nav-house-btn" onclick="showPage('house')"><span class="nav-icon">🏡</span><span class="nav-label">House</span></button>
     <button class="nav-btn" id="nav-pets-btn" onclick="showPage('pets')"><span class="nav-icon">🐾</span><span class="nav-label">Pets</span></button>
     <button class="nav-btn" id="nav-bills-btn" onclick="showPage('bills')"><span class="nav-icon">🧾</span><span class="nav-label">Bills</span></button>
+    <button class="nav-btn" id="nav-cashflow-btn" onclick="showPage('cashflow')"><span class="nav-icon">🔮</span><span class="nav-label">Cashflow</span></button>
     <button class="nav-btn" id="nav-networth-btn" onclick="showPage('networth')"><span class="nav-icon">📈</span><span class="nav-label">Net Worth</span></button>
     <button class="nav-btn" id="nav-cars-btn" onclick="showPage('cars')"><span class="nav-icon">🚗</span><span class="nav-label">Cars</span></button>
     <button class="nav-btn" id="nav-maintenance-btn" onclick="showPage('maintenance')"><span class="nav-icon">🔧</span><span class="nav-label">Maintenance</span></button>
@@ -1063,6 +1064,7 @@ body.hh-home-open{overflow:hidden}
     <button class="nav-btn" onclick="openModal('theme-modal')"><span class="nav-icon">🎨</span><span class="nav-label">Theme</span></button>
     <button class="nav-btn" onclick="openSetupWizard(true)"><span class="nav-icon">⚙️</span><span class="nav-label">Setup</span></button>
     <button class="nav-btn" onclick="openFeaturesModal()"><span class="nav-icon">🔧</span><span class="nav-label">Features</span></button>
+    <button class="nav-btn" onclick="openLotSettings()"><span class="nav-icon">🏡</span><span class="nav-label">Lot View</span></button>
     <button class="nav-btn" onclick="openModal('api-key-modal')" id="api-key-btn"><span class="nav-icon">🔑</span><span class="nav-label">API Key</span></button>
     <button class="nav-btn" onclick="exportData()"><span class="nav-icon">💾</span><span class="nav-label">Backup</span></button>
     <label class="nav-btn" style="cursor:pointer"><span class="nav-icon">📂</span><span class="nav-label">Restore</span><input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
@@ -1668,6 +1670,20 @@ body.hh-home-open{overflow:hidden}
     <div id="bills-by-category-card"></div>
   </div>
   <div id="bills-list-card"></div>
+</div>
+
+<!-- CASHFLOW ADVISOR -->
+<div class="page" id="page-cashflow">
+  <div class="section-header">
+    <div class="section-title">🔮 Cashflow Advisor</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="openCashflowSettings()">⚙️ Settings</button>
+    </div>
+  </div>
+  <div id="cf-alert" style="margin-bottom:14px"></div>
+  <div class="grid-4" id="cf-stats" style="margin-bottom:16px"></div>
+  <div id="cf-chart-card" style="margin-bottom:16px"></div>
+  <div id="cf-timeline-card"></div>
 </div>
 
 <!-- NET WORTH TIMELINE -->
@@ -2304,6 +2320,14 @@ body.hh-home-open{overflow:hidden}
     <div class="form-row"><label>Link to webpage (optional)</label><input type="url" id="goal-link" placeholder="https://..."></div>
     <div class="form-row"><label>Notes (e.g. account type)</label><input type="text" id="goal-notes" placeholder="e.g. In FHSA account"></div>
     <div class="form-row"><label>Linked account (progress tracks this balance)</label><select id="goal-account"><option value="">— None (track manually) —</option></select></div>
+    <div class="form-row"><label>🌷 Garden flower (shown on the Home lot)</label><select id="goal-flower">
+      <option value="auto">Auto</option>
+      <option value="rose">🌹 Rose</option>
+      <option value="tulip">🌷 Tulip</option>
+      <option value="sunflower">🌻 Sunflower</option>
+      <option value="daisy">🌼 Daisy</option>
+      <option value="lavender">💜 Lavender</option>
+    </select></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('goal-modal');clearGoalForm()">Cancel</button>
       <button class="btn btn-primary" onclick="saveGoal()">Save Goal</button>
@@ -2554,7 +2578,7 @@ body.hh-home-open{overflow:hidden}
     <div class="form-group">
       <div class="form-row">
         <label>Account Type</label>
-        <select id="edit-acct-type">
+        <select id="edit-acct-type" onchange="toggleEditAcctCardDetails()">
           <option value="Chequing">🏦 Chequing</option>
           <option value="Savings">💰 Savings</option>
           <option value="TFSA">🛡️ TFSA</option>
@@ -2575,9 +2599,109 @@ body.hh-home-open{overflow:hidden}
       <input type="checkbox" id="edit-acct-joint" style="width:auto;margin:0">
       <label style="margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:700">Joint account</label>
     </div>
+    <div id="edit-acct-card-details" style="display:none;border-top:2px solid var(--border);margin-top:6px;padding-top:12px">
+      <div class="form-row">
+        <label>Card / Account Link</label>
+        <div style="display:flex;gap:8px">
+          <input type="url" id="edit-acct-cardurl" placeholder="Paste the card's web page link" style="flex:1">
+          <button class="btn btn-ghost btn-sm" id="edit-acct-lookup-btn" onclick="lookupCardDetails()" style="white-space:nowrap">🔎 Look up</button>
+        </div>
+        <div id="edit-acct-lookup-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div class="form-group">
+        <div class="form-row">
+          <label>Annual Fee ($)</label>
+          <input type="number" id="edit-acct-annualfee" placeholder="e.g. 120" min="0" step="1">
+        </div>
+        <div class="form-row">
+          <label>Rewards Rate</label>
+          <input type="text" id="edit-acct-rewardsrate" placeholder="e.g. 1.25 pts / $1 or 2% cash back">
+        </div>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('edit-account-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditAccount()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CASHFLOW ADVISOR SETTINGS MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="cashflow-settings-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-title">⚙️ Cashflow Settings</div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>Account to forecast</label>
+        <select id="cf-primary-account"></select>
+      </div>
+      <div class="form-row">
+        <label>Forecast horizon</label>
+        <select id="cf-horizon">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+          <option value="180">180 days</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Safety buffer ($) — warn if balance drops below this</label>
+      <input type="number" id="cf-buffer" placeholder="0" min="0" step="50">
+    </div>
+    <div style="border-top:2px solid var(--border);margin-top:8px;padding-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="margin:0">Income lines</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="cfReseedIncomes()">🔄 From members</button>
+          <button class="btn btn-ghost btn-sm" onclick="cfAddIncomeRow()">+ Add</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.4fr 0.9fr 1fr 1fr auto;gap:6px;font-size:10px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">
+        <div>Label</div><div>Amount</div><div>Frequency</div><div>Next date</div><div></div>
+      </div>
+      <div id="cf-incomes-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cashflow-settings-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCashflowSettings()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     LOT & SCENERY SETTINGS MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="lot-settings-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">🏡 Home Lot & Scenery</div>
+    <div class="form-row">
+      <label>Default view on desktop</label>
+      <select id="lot-default-view">
+        <option value="lot">🏡 Home lot (isometric)</option>
+        <option value="classic">📋 Classic dashboard</option>
+      </select>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px;margin-bottom:2px">
+      <input type="checkbox" id="lot-weather-fx" style="width:auto;margin:0">
+      <label style="margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:700">Animated weather effects (rain, snow, fog)</label>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:0 0 10px">Effects automatically pause when your system has "reduce motion" enabled.</div>
+    <div class="form-row">
+      <label>🌳 Lot tree type</label>
+      <select id="lot-tree-type">
+        <option value="maple">🍁 Maple</option>
+        <option value="oak">🌳 Oak</option>
+        <option value="pine">🌲 Pine</option>
+        <option value="cherry">🌸 Cherry blossom</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Tip: pick each goal's flower species in the goal editor — plants grow as you fund the goal.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lot-settings-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLotSettings()">💾 Save</button>
     </div>
   </div>
 </div>
@@ -2942,7 +3066,9 @@ function defaultState() {
     theme: null,
     startingBalances: {},
     accounts: [],
-    features: { calendar:true, tips:true, grocery:true, pets:true, upload:true, wedding:true, house:true, bills:true, networth:true, carfunds:true, maintenance:true, tax:true, retirement:true, career:true },
+    cashflowConfig: { horizonDays: 60, primaryAccountId: '', buffer: 0, seeded: false, incomes: [] },
+    lotPrefs: { defaultView: 'lot', weatherFX: true, treeType: 'maple' },
+    features: { calendar:true, tips:true, grocery:true, pets:true, upload:true, wedding:true, house:true, bills:true, networth:true, carfunds:true, maintenance:true, tax:true, retirement:true, career:true, cashflow:true },
     maintenanceTasks: [],
     carFunds: [],
     taxData: {},
@@ -3046,6 +3172,8 @@ let state = loadState();
   if (state.weatherLocationIndex === undefined) { state.weatherLocationIndex = 0; saveState(); }
   if (!state.petFeeding) { state.petFeeding = {}; saveState(); }
   if (!state.startingBalances) { state.startingBalances = {}; saveState(); }
+  if (!state.cashflowConfig) { state.cashflowConfig = { horizonDays: 60, primaryAccountId: '', buffer: 0, seeded: false, incomes: [] }; saveState(); }
+  if (!state.lotPrefs) { state.lotPrefs = { defaultView: 'lot', weatherFX: true, treeType: 'maple' }; saveState(); }
   if (!state.accounts) { state.accounts = []; saveState(); }
   if (!state.wedding) { state.wedding = { budget: 0, date: '', venue: '', notes: '' }; saveState(); }
   if (!state.weddingVendors) { state.weddingVendors = []; saveState(); }
@@ -3201,14 +3329,14 @@ function showPage(id) {
   if (pageEl) pageEl.classList.add('active');
   var activeBtn = document.getElementById('nav-'+id+'-btn');
   if (activeBtn) activeBtn.classList.add('active');
-  var PAGE_TITLES = { dashboard:'🏠 Home', calendar:'📅 Calendar', transactions:'📋 Transactions', budget:'💰 Budget', goals:'🎯 Goals', tips:'💵 Tips', grocery:'🛒 Grocery', upload:'📤 Upload', career:'💼 Career Planner' };
+  var PAGE_TITLES = { dashboard:'🏠 Home', calendar:'📅 Calendar', transactions:'📋 Transactions', budget:'💰 Budget', goals:'🎯 Goals', tips:'💵 Tips', grocery:'🛒 Grocery', upload:'📤 Upload', career:'💼 Career Planner', cashflow:'🔮 Cashflow Advisor' };
   var tbTitle = document.getElementById('topbar-title');
   if (tbTitle) {
     var tipsM = getTipsMember();
     if (id==='tips' && tipsM) { tbTitle.textContent = '💵 ' + tipsM.name + "'s Tips"; }
     else { tbTitle.textContent = PAGE_TITLES[id] || id; }
   }
-  const renders = { dashboard:renderDashboard, calendar:renderCalendar, transactions:renderTransactions, budget:renderBudget, goals:renderGoals, wedding:renderWedding, house:renderHouse, pets:renderPetsPage, bills:renderBills, networth:renderNetWorth, cars:renderCarFunds, maintenance:renderMaintenance, tax:renderTax, retirement:renderRetirement, tips:renderTipsPage, grocery:renderGrocery, upload:renderStatements, career:renderCareer };
+  const renders = { dashboard:renderDashboard, calendar:renderCalendar, transactions:renderTransactions, budget:renderBudget, goals:renderGoals, wedding:renderWedding, house:renderHouse, pets:renderPetsPage, bills:renderBills, cashflow:renderCashflow, networth:renderNetWorth, cars:renderCarFunds, maintenance:renderMaintenance, tax:renderTax, retirement:renderRetirement, tips:renderTipsPage, grocery:renderGrocery, upload:renderStatements, career:renderCareer };
   if (renders[id]) renders[id]();
   if (id === 'calendar') {
     setTimeout(function() { autoSyncAllCalendars(true); }, 300);
@@ -3301,9 +3429,27 @@ function populateCatSelect(id, includeGoals) {
 }
 function clearGoalForm() {
   ['goal-name','goal-emoji','goal-target','goal-current','goal-date','goal-link','goal-notes','goal-account'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
+  var gf=document.getElementById('goal-flower');if(gf)gf.value='auto';
   document.getElementById('goal-edit-id').value='';
 }
 function clearTipsForm() { document.getElementById('tips-edit-id').value=''; }
+function openLotSettings() {
+  var p = state.lotPrefs || {};
+  var dv = document.getElementById('lot-default-view'); if (dv) dv.value = p.defaultView || 'lot';
+  var wx = document.getElementById('lot-weather-fx');   if (wx) wx.checked = p.weatherFX !== false;
+  var tt = document.getElementById('lot-tree-type');    if (tt) tt.value = p.treeType || 'maple';
+  openModal('lot-settings-modal');
+}
+function saveLotSettings() {
+  if (!state.lotPrefs) state.lotPrefs = {};
+  var dv = document.getElementById('lot-default-view'); if (dv) state.lotPrefs.defaultView = dv.value;
+  var wx = document.getElementById('lot-weather-fx');   if (wx) state.lotPrefs.weatherFX = wx.checked;
+  var tt = document.getElementById('lot-tree-type');    if (tt) state.lotPrefs.treeType = tt.value;
+  saveState();
+  closeModal('lot-settings-modal');
+  try { if (window.HHHome && HHHome.refresh) HHHome.refresh(); } catch(e){}
+  hhToast('Lot settings saved!', '🏡');
+}
 function clearEventForm(withDate) {
   ['event-title','event-start','event-end','event-notes'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('event-edit-id').value='';
@@ -5468,7 +5614,87 @@ function openEditAccount(id) {
   personSel.innerHTML = (state.members||[]).map(function(m){
     return '<option value="' + m.name + '"' + (m.name === a.person ? ' selected' : '') + '>' + m.name + '</option>';
   }).join('');
+  var urlEl  = document.getElementById('edit-acct-cardurl');
+  var feeEl  = document.getElementById('edit-acct-annualfee');
+  var rateEl = document.getElementById('edit-acct-rewardsrate');
+  if (urlEl)  urlEl.value  = a.cardUrl || '';
+  if (feeEl)  feeEl.value  = (a.annualFee != null ? a.annualFee : '');
+  if (rateEl) rateEl.value = a.rewardsRate || '';
+  var statusEl = document.getElementById('edit-acct-lookup-status');
+  if (statusEl) statusEl.textContent = '';
+  toggleEditAcctCardDetails();
   openModal('edit-account-modal');
+}
+
+var CARD_DETAIL_TYPES = ['Credit Card', 'Loan', 'Line of Credit', 'Investment'];
+
+function toggleEditAcctCardDetails() {
+  var box = document.getElementById('edit-acct-card-details');
+  if (!box) return;
+  var type = document.getElementById('edit-acct-type').value;
+  box.style.display = (CARD_DETAIL_TYPES.indexOf(type) !== -1) ? '' : 'none';
+}
+
+var CARD_LOOKUP_URL = 'https://mattjsindall.wixsite.com/homehub/_functions/cardLookup';
+
+async function lookupCardDetails() {
+  var urlEl    = document.getElementById('edit-acct-cardurl');
+  var feeEl    = document.getElementById('edit-acct-annualfee');
+  var rateEl   = document.getElementById('edit-acct-rewardsrate');
+  var nickEl   = document.getElementById('edit-acct-nickname');
+  var statusEl = document.getElementById('edit-acct-lookup-status');
+  var btn      = document.getElementById('edit-acct-lookup-btn');
+  var target   = (urlEl && urlEl.value || '').trim();
+
+  if (!target) {
+    if (statusEl) { statusEl.style.color = 'var(--danger)'; statusEl.textContent = 'Paste a card link first.'; }
+    return;
+  }
+  if (!/^https?:\/\//i.test(target)) {
+    if (statusEl) { statusEl.style.color = 'var(--danger)'; statusEl.textContent = 'Link must start with http:// or https://'; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; }
+  if (statusEl) { statusEl.style.color = 'var(--muted)'; statusEl.textContent = 'Looking up… (fetched server-side, no login)'; }
+
+  try {
+    var res  = await fetch(CARD_LOOKUP_URL + '?url=' + encodeURIComponent(target));
+    var data = await res.json();
+    if (!data || data.ok !== true) {
+      throw new Error(data && data.error ? data.error : 'Lookup failed');
+    }
+
+    var filled = [];
+    if (data.title && nickEl && !nickEl.value.trim()) {
+      nickEl.value = String(data.title).slice(0, 60);
+      filled.push('nickname');
+    }
+    if (data.annualFee != null && feeEl) {
+      feeEl.value = data.annualFee;
+      filled.push('annual fee');
+    }
+    if (data.rewardsRate && rateEl && !rateEl.value.trim()) {
+      rateEl.value = data.rewardsRate;
+      filled.push('rewards rate');
+    }
+
+    if (statusEl) {
+      statusEl.style.color = 'var(--muted)';
+      if (filled.length) {
+        statusEl.textContent = '✓ Filled ' + filled.join(', ') + '. Check & edit before saving.';
+      } else {
+        statusEl.textContent = '✓ Page read, but no fields auto-filled (often JS-only). Enter details manually.';
+      }
+    }
+  } catch (err) {
+    if (statusEl) {
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = 'Lookup failed: ' + (err && err.message ? err.message : err) + '. Enter details manually.';
+    }
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
 }
 
 function saveEditAccount() {
@@ -5479,6 +5705,15 @@ function saveEditAccount() {
   a.type     = document.getElementById('edit-acct-type').value;
   a.isJoint  = document.getElementById('edit-acct-joint').checked;
   a.person   = a.isJoint ? '' : document.getElementById('edit-acct-person').value;
+  var urlEl  = document.getElementById('edit-acct-cardurl');
+  var feeEl  = document.getElementById('edit-acct-annualfee');
+  var rateEl = document.getElementById('edit-acct-rewardsrate');
+  if (CARD_DETAIL_TYPES.indexOf(a.type) !== -1) {
+    a.cardUrl     = urlEl ? urlEl.value.trim() : '';
+    a.rewardsRate = rateEl ? rateEl.value.trim() : '';
+    var feeVal    = feeEl ? parseFloat(feeEl.value) : NaN;
+    a.annualFee   = isNaN(feeVal) ? null : feeVal;
+  }
   saveState();
   closeModal('edit-account-modal');
   renderAccountsList();
@@ -5736,7 +5971,7 @@ function renderGoals(){
 }
 function saveGoal(){
   const editId=document.getElementById('goal-edit-id').value;
-  const g={id:editId||uid(),name:document.getElementById('goal-name').value,emoji:document.getElementById('goal-emoji').value||'🎯',target:parseFloat(document.getElementById('goal-target').value)||0,current:parseFloat(document.getElementById('goal-current').value)||0,date:document.getElementById('goal-date').value,link:document.getElementById('goal-link').value,notes:document.getElementById('goal-notes').value,accountId:document.getElementById('goal-account').value||''};
+  const g={id:editId||uid(),name:document.getElementById('goal-name').value,emoji:document.getElementById('goal-emoji').value||'🎯',target:parseFloat(document.getElementById('goal-target').value)||0,current:parseFloat(document.getElementById('goal-current').value)||0,date:document.getElementById('goal-date').value,link:document.getElementById('goal-link').value,notes:document.getElementById('goal-notes').value,accountId:document.getElementById('goal-account').value||'',flowerType:(document.getElementById('goal-flower')?document.getElementById('goal-flower').value:'auto')||'auto'};
   if(editId){const idx=state.goals.findIndex(x=>x.id===editId);state.goals[idx]=g;}else state.goals.push(g);
   saveState();closeModal('goal-modal');clearGoalForm();renderGoals();
 }
@@ -5744,6 +5979,7 @@ function editGoal(id){
   const g=state.goals.find(x=>x.id===id);if(!g)return;
   populateGoalAccountSelect();
   document.getElementById('goal-edit-id').value=id;document.getElementById('goal-name').value=g.name;document.getElementById('goal-emoji').value=g.emoji;document.getElementById('goal-target').value=g.target;document.getElementById('goal-current').value=g.current;document.getElementById('goal-date').value=g.date||'';document.getElementById('goal-link').value=g.link||'';document.getElementById('goal-notes').value=g.notes||'';document.getElementById('goal-account').value=g.accountId||'';
+  var gf=document.getElementById('goal-flower');if(gf)gf.value=g.flowerType||'auto';
   openModal('goal-modal');
 }
 function deleteGoal(id) {
@@ -12149,7 +12385,7 @@ function addListItem(){
   renderShoppingList();
 }
 
-var HH_VERSION = '7.0';
+var HH_VERSION = '7.3';
 
 function renderStatements(){
   renderAccountsList();
@@ -14160,6 +14396,7 @@ var FEATURE_DEFS = [
   { id:'wedding',  label:'💍 Wedding Planner',        desc:'Vendor tracking, budget, deposit alerts & countdown' },
   { id:'house',    label:'🏡 Down Payment Planner',    desc:'FHSA, HBP, CMHC, LTT & savings projection for your first home' },
   { id:'bills',    label:'🧾 Bill & Subscription Tracker', desc:'Track recurring bills, get due-date alerts, spot unused subscriptions' },
+  { id:'cashflow', label:'🔮 Cashflow Advisor',            desc:'Forward forecast of money in vs. out, with shortfall warnings before your balance dips below zero' },
   { id:'networth', label:'📈 Net Worth Timeline',          desc:'Month-over-month net worth chart, asset & liability breakdown' },
   { id:'carfunds',     label:'🚗 Car Fund Tracker',            desc:'Save toward one or more vehicle goals with projected purchase dates' },
   { id:'maintenance',  label:'🔧 Household Maintenance',       desc:'Track recurring home tasks, get overdue alerts, never miss a furnace filter again' },
@@ -14186,6 +14423,7 @@ function applyFeatureToggles() {
     { id:'house',    navId:'nav-house-btn',      pageId:'page-house'    },
     { id:'pets',     navId:'nav-pets-btn',        pageId:'page-pets'     },
     { id:'bills',    navId:'nav-bills-btn',       pageId:'page-bills'    },
+    { id:'cashflow', navId:'nav-cashflow-btn',    pageId:'page-cashflow' },
     { id:'networth', navId:'nav-networth-btn',    pageId:'page-networth' },
     { id:'carfunds',    navId:'nav-cars-btn',              pageId:'page-cars'        },
     { id:'maintenance', navId:'nav-maintenance-btn',       pageId:'page-maintenance' },
@@ -14257,7 +14495,7 @@ function saveFeatures() {
   var activePage = document.querySelector('.page.active');
   if (activePage) {
     var pageId = activePage.id.replace('page-','');
-    var featureMap = { calendar:'calendar', tips:'tips', grocery:'grocery', upload:'upload', wedding:'wedding', house:'house', pets:'pets', bills:'bills', networth:'networth', cars:'carfunds', maintenance:'maintenance', tax:'tax', retirement:'retirement', career:'career' };
+    var featureMap = { calendar:'calendar', tips:'tips', grocery:'grocery', upload:'upload', wedding:'wedding', house:'house', pets:'pets', bills:'bills', cashflow:'cashflow', networth:'networth', cars:'carfunds', maintenance:'maintenance', tax:'tax', retirement:'retirement', career:'career' };
     if (featureMap[pageId] && !isFeatureOn(featureMap[pageId])) showPage('dashboard');
   }
   hhToast('Features updated!','✅');
@@ -15058,7 +15296,7 @@ function _initApp() {
     var badge = document.createElement('span');
     badge.className = 'v-badge';
     badge.style.cssText = 'font-size:9px;font-weight:800;background:var(--accent);color:#fff;border-radius:6px;padding:1px 5px;vertical-align:middle;margin-left:4px;opacity:0.7';
-    badge.textContent = 'v7.0';
+    badge.textContent = 'v7.3';
     brand.appendChild(badge);
   }
   try { if (window.HHHome) HHHome.init(); } catch(e) {}
@@ -16163,22 +16401,64 @@ function generateMonthlyReport() {
       +'<g transform="translate('+b[0]+','+(b[1]+14)+')"><rect x="-26" y="0" width="52" height="17" rx="8" fill="#ffffff" opacity="0.92"/><text x="0" y="12" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="10" fill="#33414e">'+name+'</text></g>'
       +'</g>';
     push(k, wanderWrap(k,s));}
+  function flowerHead(type,cx,cy,grow,fl,cc,full){
+    var i,a,s='',ANG5=[0,72,144,216,288];
+    var spark=full?'<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-size="'+(13*grow)+'">✨</text>':'';
+    function petal(ang,rad,prx,pry,fill){var rx=Math.cos(ang*Math.PI/180)*rad*grow,ry=Math.sin(ang*Math.PI/180)*rad*grow;
+      return '<ellipse cx="'+(cx+rx)+'" cy="'+(cy+ry)+'" rx="'+(prx*grow)+'" ry="'+(pry*grow)+'" fill="'+fill+'" transform="rotate('+ang+' '+(cx+rx)+' '+(cy+ry)+')"/>';}
+    switch(type){
+      case 'rose':
+        s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(12*grow)+'" fill="'+fl+'"/>';
+        for(i=0;i<5;i++){s+=petal(ANG5[i],6,5,7,shade(fl,0.14));}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(4*grow)+'" fill="'+shade(fl,-0.2)+'"/>'+spark;
+      case 'tulip':
+        s+='<path d="M'+(cx-9*grow)+','+(cy+2*grow)+' Q'+(cx-11*grow)+','+(cy-14*grow)+' '+cx+','+(cy-15*grow)+' Q'+(cx+11*grow)+','+(cy-14*grow)+' '+(cx+9*grow)+','+(cy+2*grow)+' Z" fill="'+fl+'"/>';
+        return s+'<path d="M'+(cx-3.5*grow)+','+(cy+1*grow)+' Q'+(cx-4*grow)+','+(cy-15*grow)+' '+cx+','+(cy-16*grow)+' Q'+(cx+4*grow)+','+(cy-15*grow)+' '+(cx+3.5*grow)+','+(cy+1*grow)+' Z" fill="'+shade(fl,0.18)+'"/>'+spark;
+      case 'sunflower':
+        for(i=0;i<12;i++){s+=petal(i*30,12,4,8,'#f3b53a');}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(7*grow)+'" fill="#7a4a1e"/>'+spark;
+      case 'daisy':
+        for(i=0;i<10;i++){s+=petal(i*36,11,3.5,8,'#ffffff');}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(5*grow)+'" fill="#f5c542"/>'+spark;
+      case 'lavender':
+        for(i=0;i<6;i++){var yy=cy+i*5*grow,off=(i%2?3:-3)*grow;s+='<circle cx="'+(cx+off)+'" cy="'+yy+'" r="'+(3.4*grow)+'" fill="'+(i%2?'#9b7fd0':'#7d5bbf')+'"/>';}
+        return s+spark;
+      default:
+        for(i=0;i<5;i++){var rx=Math.cos(ANG5[i]*Math.PI/180)*11*grow,ry=Math.sin(ANG5[i]*Math.PI/180)*11*grow;
+          s+='<ellipse cx="'+(cx+rx)+'" cy="'+(cy+ry)+'" rx="'+(8*grow)+'" ry="'+(11*grow)+'" fill="'+fl+'"/>';}
+        return s+'<circle cx="'+cx+'" cy="'+cy+'" r="'+(8*grow)+'" fill="'+cc+'"/>'+spark;
+    }
+  }
   function plant(x,y,goal){var pct=goal.target?Math.min(goal.saved/goal.target,1):0, b=prj(x+0.5,y+0.5,0);
-    var grow=0.5+pct*0.9, stemH=22+pct*46, bloom=pct>0.25, full=pct>=0.999, fl=goal.flower, cc=goal.color, petals='', a, rx, ry, i, ANG=[0,72,144,216,288];
-    if(bloom){for(i=0;i<ANG.length;i++){a=ANG[i];rx=Math.cos(a*Math.PI/180)*11*grow;ry=Math.sin(a*Math.PI/180)*11*grow;petals+='<ellipse cx="'+(b[0]+rx)+'" cy="'+(b[1]-stemH+ry)+'" rx="'+(8*grow)+'" ry="'+(11*grow)+'" fill="'+fl+'"/>';}}
+    var grow=0.5+pct*0.9, stemH=22+pct*46, bloom=pct>0.25, full=pct>=0.999, fl=goal.flower, cc=goal.color;
+    var head = bloom ? flowerHead(goal.flowerType||'auto', b[0], b[1]-stemH, grow, fl, cc, full)
+                     : '<circle cx="'+b[0]+'" cy="'+(b[1]-stemH)+'" r="'+(6*grow)+'" fill="#7cc063"/>';
     var s='<g>'
       +'<ellipse cx="'+b[0]+'" cy="'+(b[1]+2)+'" rx="'+(16*grow)+'" ry="6" fill="#000" opacity="0.14"/>'
       +'<path d="M'+(b[0]-9)+','+(b[1]+4)+' L'+(b[0]+9)+','+(b[1]+4)+' L'+(b[0]+6)+','+(b[1]-8)+' L'+(b[0]-6)+','+(b[1]-8)+' Z" fill="#c98a5a"/>'
       +'<rect x="'+(b[0]-2.5)+'" y="'+(b[1]-stemH)+'" width="5" height="'+stemH+'" rx="2.5" fill="#4f9a44"/>'
       +'<ellipse cx="'+(b[0]-10*grow)+'" cy="'+(b[1]-stemH*0.6)+'" rx="'+(10*grow)+'" ry="5" fill="#5fae4f" transform="rotate(-25 '+b[0]+' '+(b[1]-stemH*0.6)+')"/>'
       +'<ellipse cx="'+(b[0]+10*grow)+'" cy="'+(b[1]-stemH*0.78)+'" rx="'+(10*grow)+'" ry="5" fill="#6cba5b" transform="rotate(25 '+b[0]+' '+(b[1]-stemH*0.78)+')"/>'
-      +(bloom?petals+'<circle cx="'+b[0]+'" cy="'+(b[1]-stemH)+'" r="'+(8*grow)+'" fill="'+cc+'"/>'+(full?'<text x="'+b[0]+'" y="'+(b[1]-stemH+5)+'" text-anchor="middle" font-size="'+(13*grow)+'">✨</text>':''):'<circle cx="'+b[0]+'" cy="'+(b[1]-stemH)+'" r="'+(6*grow)+'" fill="#7cc063"/>')
+      +head
       +'<g transform="translate('+b[0]+','+(b[1]+18)+')"><rect x="-26" y="0" width="52" height="22" rx="6" fill="#fff" stroke="'+cc+'" stroke-width="1.5"/>'
       +'<text x="0" y="11" text-anchor="middle" font-size="11">'+goal.emoji+'</text><text x="0" y="19" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="8" fill="#6b7a88">'+Math.round(pct*100)+'%</text></g></g>';
     push(500+(x+y), s);}
-  function treeAt(x,y){var t=prj(x,y,0), col=seasonTree();
-    push((x+y)+0.65, '<g class="hh-sim" style="animation-duration:6s"><rect x="'+(t[0]-7)+'" y="'+(t[1]-50)+'" width="14" height="56" rx="6" fill="#8a5f3c"/>'
-      +'<circle cx="'+t[0]+'" cy="'+(t[1]-60)+'" r="30" fill="'+col[0]+'"/><circle cx="'+(t[0]-22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[1]+'"/><circle cx="'+(t[0]+22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[2]+'"/></g>');}
+  function treeAt(x,y){var t=prj(x,y,0), type=(LP().treeType)||'maple', col=seasonTree();
+    var trunk='<rect x="'+(t[0]-7)+'" y="'+(t[1]-50)+'" width="14" height="56" rx="6" fill="#8a5f3c"/>';
+    var crown;
+    if(type==='pine'){var g='#3f8f57';
+      trunk='<rect x="'+(t[0]-6)+'" y="'+(t[1]-18)+'" width="12" height="24" rx="4" fill="#7a5230"/>';
+      crown='<polygon points="'+t[0]+','+(t[1]-94)+' '+(t[0]-26)+','+(t[1]-50)+' '+(t[0]+26)+','+(t[1]-50)+'" fill="'+g+'"/>'
+        +'<polygon points="'+t[0]+','+(t[1]-74)+' '+(t[0]-30)+','+(t[1]-34)+' '+(t[0]+30)+','+(t[1]-34)+'" fill="'+shade(g,0.08)+'"/>'
+        +'<polygon points="'+t[0]+','+(t[1]-56)+' '+(t[0]-34)+','+(t[1]-14)+' '+(t[0]+34)+','+(t[1]-14)+'" fill="'+shade(g,-0.06)+'"/>';
+    } else if(type==='oak'){
+      crown='<circle cx="'+t[0]+'" cy="'+(t[1]-66)+'" r="36" fill="'+col[0]+'"/><circle cx="'+(t[0]-28)+'" cy="'+(t[1]-46)+'" r="26" fill="'+col[1]+'"/><circle cx="'+(t[0]+28)+'" cy="'+(t[1]-46)+'" r="26" fill="'+col[2]+'"/>';
+    } else if(type==='cherry'){
+      crown='<circle cx="'+t[0]+'" cy="'+(t[1]-60)+'" r="30" fill="#f7b8d2"/><circle cx="'+(t[0]-22)+'" cy="'+(t[1]-44)+'" r="22" fill="#ffc9de"/><circle cx="'+(t[0]+22)+'" cy="'+(t[1]-44)+'" r="22" fill="#f0a6c6"/>';
+    } else {
+      crown='<circle cx="'+t[0]+'" cy="'+(t[1]-60)+'" r="30" fill="'+col[0]+'"/><circle cx="'+(t[0]-22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[1]+'"/><circle cx="'+(t[0]+22)+'" cy="'+(t[1]-44)+'" r="22" fill="'+col[2]+'"/>';
+    }
+    push((x+y)+0.65, '<g class="hh-sim" style="animation-duration:6s">'+trunk+crown+'</g>');}
 
    
   var GOALS=[], PEOPLE={}, SIMS=[], activeSim=null;
@@ -16197,6 +16477,8 @@ function generateMonthlyReport() {
   function clamp01(x){return x<0?0:x>1?1:x;}
   function avgParts(parts){var d=parts.filter(function(p){return p.v!=null;});if(!d.length)return null;return d.reduce(function(a,p){return a+p.v;},0)/d.length;}
   function S(){return (typeof state==='object'&&state)?state:{};}
+  function LP(){var p=S().lotPrefs;return p||{defaultView:'lot',weatherFX:true,treeType:'maple'};}
+  function reducedMotion(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
   function txnsInLastDays(n){var cut=Date.now()-n*86400000;return (S().transactions||[]).filter(function(t){var d=new Date(t.date);return !isNaN(d.getTime())&&d.getTime()>=cut;});}
   function liquidBalance(){var accts=S().accounts||[];if(!accts.length)return null;var sum=0;accts.forEach(function(a){var debt=(typeof ACCT_IS_DEBT==='object'&&ACCT_IS_DEBT)?ACCT_IS_DEBT[a.type]:false;if(!debt&&typeof getAccountBalance==='function'){var b=getAccountBalance(a.id);if(b!=null)sum+=Math.max(0,b);}});return sum;}
   function goalsScore(){var gs=(S().goals||[]).filter(function(g){return g.target>0;});if(!gs.length)return null;var ps=gs.map(function(g){var sv=(typeof goalSavedAmount==='function')?goalSavedAmount(g):((g.current||0)+(typeof getGoalContributions==='function'?getGoalContributions(g.id):0));return clamp01(sv/g.target);});return ps.reduce(function(a,b){return a+b;},0)/ps.length;}
@@ -16247,7 +16529,7 @@ function generateMonthlyReport() {
 
   function loadData(){
     var st=(typeof state==='object'&&state)?state:{};
-    GOALS=(st.goals||[]).slice(0,5).map(function(g,i){var sv=(typeof goalSavedAmount==='function')?goalSavedAmount(g):(+g.current||0);return {id:g.id||('g'+i),emoji:g.emoji||'🎯',name:g.name||'Goal',saved:sv,target:+g.target||0,date:g.date||'',color:PALETTE[i%PALETTE.length],flower:FLOWERS[i%FLOWERS.length]};});
+    GOALS=(st.goals||[]).slice(0,5).map(function(g,i){var sv=(typeof goalSavedAmount==='function')?goalSavedAmount(g):(+g.current||0);return {id:g.id||('g'+i),emoji:g.emoji||'🎯',name:g.name||'Goal',saved:sv,target:+g.target||0,date:g.date||'',color:PALETTE[i%PALETTE.length],flower:FLOWERS[i%FLOWERS.length],flowerType:g.flowerType||'auto'};});
     PEOPLE={}; SIMS=[];
     var positions=[{x:1.5,y:1.9},{x:4.5,y:2.0},{x:7.3,y:2.0},{x:1.6,y:4.6},{x:4.6,y:4.0},{x:7.4,y:4.6}];
     var pi=0;
@@ -16512,13 +16794,16 @@ function generateMonthlyReport() {
 
    
   var weather='sun', autoWeather=true;
-  function setWeather(w){weather=w;var map={sun:['☀️','Clear'],cloud:['⛅','Cloudy'],rain:['🌧️','Light rain'],snow:['❄️','Snow']};G('hhWEmoji').textContent=map[w][0];G('hhWSub').textContent=map[w][1];refreshFX();}
+  function setWeather(w){weather=w;var map={sun:['☀️','Clear'],cloud:['⛅','Cloudy'],fog:['🌫️','Fog'],rain:['🌧️','Light rain'],snow:['❄️','Snow']};var m=map[w]||map.cloud;G('hhWEmoji').textContent=m[0];G('hhWSub').textContent=m[1];refreshFX();}
   function refreshFX(){var s='',i,x,d,r,sx,col;
+    var fxOn=(LP().weatherFX!==false)&&!reducedMotion();
+    if(!fxOn){var fxe0=G('hhWeatherFX');if(fxe0)fxe0.innerHTML='';return;}
+    if(weather==='fog')for(i=0;i<5;i++){var fy=120+i*90,fd=26+i*6,fop=(0.10+Math.random()*0.10).toFixed(2);s+='<ellipse cx="0" cy="'+fy+'" rx="360" ry="46" fill="#e8eef3" opacity="'+fop+'"><animateTransform attributeName="transform" type="translate" values="-200,0;1700,0" dur="'+fd+'s" repeatCount="indefinite"/></ellipse>';}
     if(weather==='rain')for(i=0;i<70;i++){x=Math.random()*1600;d=0.5+Math.random()*0.5;s+='<line x1="'+x+'" y1="-20" x2="'+(x-8)+'" y2="10" stroke="#9cc4e0" stroke-width="2" opacity="0.6"><animate attributeName="y1" values="-40;1040" dur="'+d+'s" repeatCount="indefinite"/><animate attributeName="y2" values="-10;1070" dur="'+d+'s" repeatCount="indefinite"/></line>';}
     if(weather==='snow')for(i=0;i<60;i++){x=Math.random()*1600;d=4+Math.random()*4;r=1.5+Math.random()*2.5;sx=Math.random()*40-20;s+='<circle cx="'+x+'" cy="-10" r="'+r+'" fill="#fff" opacity="0.9"><animate attributeName="cy" values="-10;1020" dur="'+d+'s" repeatCount="indefinite"/><animate attributeName="cx" values="'+x+';'+(x+sx)+';'+x+'" dur="'+d+'s" repeatCount="indefinite"/></circle>';}
     if(season==='fall')for(i=0;i<22;i++){x=Math.random()*1600;d=5+Math.random()*5;col=['#e6a14b','#d9663b','#f0b541'][i%3];s+='<path d="M0,0 q6,-8 12,0 q-6,8 -12,0Z" fill="'+col+'" opacity="0.85"><animateTransform attributeName="transform" type="translate" values="'+x+',-20;'+(x-60)+',1020" dur="'+d+'s" repeatCount="indefinite"/></path>';}
     G('hhWeatherFX').innerHTML=s;}
-  function codeToWeather(c){if(c<=2)return 'sun';if(c===3||c===45||c===48)return 'cloud';if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95)return 'rain';if((c>=71&&c<=77)||c===85||c===86)return 'snow';return 'cloud';}
+  function codeToWeather(c){if(c<=2)return 'sun';if(c===45||c===48)return 'fog';if(c===3)return 'cloud';if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95)return 'rain';if((c>=71&&c<=77)||c===85||c===86)return 'snow';return 'cloud';}
   var PROV_CAPITALS={ON:['Toronto','ON'],QC:['Quebec City','QC'],BC:['Vancouver','BC'],AB:['Edmonton','AB'],MB:['Winnipeg','MB'],SK:['Regina','SK'],NS:['Halifax','NS'],NB:['Fredericton','NB'],NL:["St. John's",'NL'],PE:['Charlottetown','PE'],YT:['Whitehorse','YT'],NT:['Yellowknife','NT'],NU:['Iqaluit','NU']};
   function lotWeatherLocation(){var st=S();var locs=st.weatherLocations||[];var idx=st.weatherLocationIndex||0;if(idx>=locs.length)idx=0;
     if(locs[idx]&&locs[idx].city)return {city:locs[idx].city,province:locs[idx].province||'ON'};
@@ -16567,11 +16852,406 @@ function generateMonthlyReport() {
     if(mq.matches){ hide(); return; }                  // mobile -> classic view
     var st=(typeof state==='object'&&state)?state:{};
     if(!st.household || !st.household.setupComplete){ hide(); return; } // let wizard run
+    if((LP().defaultView)==='classic'){ hide(); return; } // user prefers classic dashboard
     show();
   }
 
-  window.HHHome = { init:init, show:show, hide:hide, go:go };
+  function refresh(){ if(!built) return; try{ loadData(); buildLot(); refreshFX(); }catch(e){} }
+  window.HHHome = { init:init, show:show, hide:hide, go:go, refresh:refresh };
 })();
+
+ 
+
+var CF_INCOME_FREQS = ['Weekly', 'Bi-weekly', 'Semi-monthly', 'Monthly'];
+
+function getCashflowConfig() {
+  if (!state.cashflowConfig) {
+    state.cashflowConfig = { horizonDays: 60, primaryAccountId: '', buffer: 0, seeded: false, incomes: [] };
+  }
+  var c = state.cashflowConfig;
+  if (c.horizonDays == null) c.horizonDays = 60;
+  if (c.buffer == null) c.buffer = 0;
+  if (!Array.isArray(c.incomes)) c.incomes = [];
+  return c;
+}
+
+function _cfISO(d) {
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
+function _cfStep(d, freq) {
+  switch (freq) {
+    case 'Weekly':      d.setDate(d.getDate() + 7);   break;
+    case 'Bi-weekly':   d.setDate(d.getDate() + 14);  break;
+    case 'Monthly':     d.setMonth(d.getMonth() + 1); break;
+    case 'Bi-monthly':  d.setMonth(d.getMonth() + 2); break;
+    case 'Quarterly':   d.setMonth(d.getMonth() + 3); break;
+    case 'Semi-annual': d.setMonth(d.getMonth() + 6); break;
+    case 'Annual':      d.setFullYear(d.getFullYear() + 1); break;
+    default:            d.setMonth(d.getMonth() + 1);
+  }
+}
+
+function _cfOccurrences(firstISO, freq, startMs, endMs) {
+  var out = [];
+  if (!firstISO) return out;
+  var d = new Date(firstISO + 'T00:00:00');
+  var guard = 0;
+
+  if (freq === 'Semi-monthly') {
+    var baseDay = d.getDate();
+    var cur = new Date(d.getFullYear(), d.getMonth(), 1);
+    while (cur.getTime() <= endMs && guard++ < 480) {
+      [baseDay, baseDay + 15].forEach(function (day) {
+        var dd = new Date(cur.getFullYear(), cur.getMonth(), day);
+        var ms = dd.getTime();
+        if (ms >= startMs && ms <= endMs) out.push(_cfISO(dd));
+      });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return out.sort();
+  }
+
+  while (d.getTime() <= endMs && guard++ < 3000) {
+    if (d.getTime() >= startMs) out.push(_cfISO(d));
+    _cfStep(d, freq);
+  }
+  return out;
+}
+
+function _cfDefaultAccountId() {
+  var accts = state.accounts || [];
+  var chq = accts.find(function (a) { return a.type === 'Chequing'; });
+  if (chq) return chq.id;
+  return accts.length ? accts[0].id : '';
+}
+
+function _cfSeedIncomesIfEmpty() {
+  var c = getCashflowConfig();
+  if (c.seeded || (c.incomes && c.incomes.length)) return;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var firstOfNext = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  (state.members || []).forEach(function (m) {
+    var amt = +m.monthlyIncome || 0;
+    if (amt <= 0) return;
+    c.incomes.push({
+      id: (typeof uid === 'function' ? uid() : 'inc' + Math.random().toString(36).slice(2)),
+      label: (m.name || 'Member') + ' pay',
+      amount: amt,
+      frequency: 'Monthly',
+      nextDate: _cfISO(firstOfNext)
+    });
+  });
+  c.seeded = true;
+  saveState();
+}
+
+ 
+function buildCashflowForecast() {
+  var cfg = getCashflowConfig();
+  var acctId = cfg.primaryAccountId || _cfDefaultAccountId();
+  var startBal = acctId ? getAccountBalance(acctId) : null;
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var startMs = today.getTime();
+  var endMs = startMs + (cfg.horizonDays || 60) * 86400000;
+
+  var events = [];
+
+  (cfg.incomes || []).forEach(function (inc) {
+    if (!inc.amount || !inc.nextDate) return;
+    _cfOccurrences(inc.nextDate, inc.frequency || 'Monthly', startMs, endMs).forEach(function (iso) {
+      events.push({ date: iso, label: inc.label || 'Income', amount: Math.abs(+inc.amount), type: 'in' });
+    });
+  });
+
+  (state.bills || []).forEach(function (b) {
+    if (!b.amount || !b.nextDue) return;
+    _cfOccurrences(b.nextDue, b.frequency || 'Monthly', startMs, endMs).forEach(function (iso) {
+      events.push({ date: iso, label: b.name || 'Bill', amount: -Math.abs(+b.amount), type: 'out', category: b.category });
+    });
+  });
+
+  events.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return b.amount - a.amount;
+  });
+
+  var buffer = +cfg.buffer || 0;
+  var running = (startBal == null ? 0 : startBal);
+  var totalIn = 0, totalOut = 0;
+  var shortfallDays = {};
+  var firstShortfall = null;
+  var lowest = { bal: running, date: _cfISO(today) };
+
+  events.forEach(function (e) {
+    running = Math.round((running + e.amount) * 100) / 100;
+    e.running = running;
+    if (e.amount >= 0) totalIn += e.amount; else totalOut += -e.amount;
+    if (running < lowest.bal) lowest = { bal: running, date: e.date };
+    if (running < buffer) {
+      shortfallDays[e.date] = true;
+      if (!firstShortfall) firstShortfall = { date: e.date, bal: running };
+    }
+  });
+
+  return {
+    acctId: acctId,
+    hasAccount: !!acctId,
+    startBal: startBal,
+    events: events,
+    buffer: buffer,
+    horizonDays: cfg.horizonDays || 60,
+    totalIn: totalIn,
+    totalOut: totalOut,
+    netChange: Math.round((totalIn - totalOut) * 100) / 100,
+    endBal: running,
+    lowest: lowest,
+    firstShortfall: firstShortfall,
+    shortfallCount: Object.keys(shortfallDays).length
+  };
+}
+
+ 
+function _cfFmtDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function _cfSparkline(fc) {
+  var pts = [{ b: (fc.startBal == null ? 0 : fc.startBal) }].concat(
+    fc.events.map(function (e) { return { b: e.running }; })
+  );
+  if (pts.length < 2) return '';
+  var W = 720, H = 120, pad = 6;
+  var vals = pts.map(function (p) { return p.b; }).concat([fc.buffer]);
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  if (max === min) { max += 1; min -= 1; }
+  var x = function (i) { return pad + (i / (pts.length - 1)) * (W - 2 * pad); };
+  var y = function (v) { return pad + (1 - (v - min) / (max - min)) * (H - 2 * pad); };
+
+  var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.b).toFixed(1); }).join(' ');
+  var area = line + ' L' + x(pts.length - 1).toFixed(1) + ' ' + (H - pad) + ' L' + x(0).toFixed(1) + ' ' + (H - pad) + ' Z';
+  var zeroY = y(fc.buffer);
+  var dipped = fc.shortfallCount > 0;
+  var stroke = dipped ? 'var(--red)' : 'var(--green)';
+
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:120px;display:block">' +
+    '<defs><linearGradient id="cfGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.28"/>' +
+    '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0.02"/>' +
+    '</linearGradient></defs>' +
+    '<path d="' + area + '" fill="url(#cfGrad)" stroke="none"/>' +
+    '<line x1="' + pad + '" y1="' + zeroY.toFixed(1) + '" x2="' + (W - pad) + '" y2="' + zeroY.toFixed(1) +
+    '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>' +
+    '<path d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '</svg>';
+}
+
+function renderCashflow() {
+  var page = document.getElementById('page-cashflow');
+  if (!page) return;
+  if (typeof isFeatureOn === 'function' && !isFeatureOn('cashflow')) return;
+
+  _cfSeedIncomesIfEmpty();
+
+  var statsEl = document.getElementById('cf-stats');
+  var alertEl = document.getElementById('cf-alert');
+  var chartEl = document.getElementById('cf-chart-card');
+  var listEl  = document.getElementById('cf-timeline-card');
+
+  if (!(state.accounts || []).length) {
+    if (statsEl) statsEl.innerHTML = '';
+    if (alertEl) alertEl.innerHTML = '';
+    if (chartEl) chartEl.innerHTML = '';
+    if (listEl) listEl.innerHTML = _cfEmpty('No accounts yet', 'Add an account (and a starting balance) on the Upload page, then add some bills. The Cashflow Advisor projects your balance forward from there.');
+    return;
+  }
+
+  var fc = buildCashflowForecast();
+  var acct = getAccountById(fc.acctId);
+  var acctName = acct ? acct.nickname : '—';
+
+  if (statsEl) {
+    var lowColor = fc.lowest.bal < fc.buffer ? 'var(--red)' : 'var(--green)';
+    statsEl.innerHTML =
+      _cfStat('Start Balance', fc.startBal == null ? 'Set one' : fmtC(fc.startBal), acctName) +
+      _cfStat('Lowest Projected', fmtC(fc.lowest.bal), _cfFmtDate(fc.lowest.date), lowColor) +
+      _cfStat('Shortfall Days', String(fc.shortfallCount), 'next ' + fc.horizonDays + ' days', fc.shortfallCount ? 'var(--red)' : 'var(--green)') +
+      _cfStat('Net Change', fmtSigned(fc.netChange), 'in ' + fmtC(fc.totalIn) + ' · out ' + fmtC(fc.totalOut));
+  }
+
+  if (alertEl) {
+    if (fc.startBal == null) {
+      alertEl.innerHTML = _cfBanner('var(--yellow)', '📌',
+        'Set a starting balance for <b>' + acctName + '</b> (Upload → 📌) so the forecast starts from a real number. Projecting from $0 for now.');
+    } else if (fc.firstShortfall) {
+      alertEl.innerHTML = _cfBanner('var(--red)', '⚠️',
+        '<b>' + acctName + '</b> dips to <b>' + fmtC(fc.firstShortfall.bal) + '</b> on <b>' + _cfFmtDate(fc.firstShortfall.date) +
+        '</b>' + (fc.buffer ? ' (below your ' + fmtC(fc.buffer) + ' buffer)' : '') + '. Move a bill, shift a transfer, or top up before then.');
+    } else {
+      alertEl.innerHTML = _cfBanner('var(--green)', '✅',
+        'No shortfalls projected for <b>' + acctName + '</b> in the next ' + fc.horizonDays + ' days. Lowest point: ' +
+        fmtC(fc.lowest.bal) + ' on ' + _cfFmtDate(fc.lowest.date) + '.');
+    }
+  }
+
+  if (chartEl) {
+    if (fc.events.length) {
+      chartEl.innerHTML = '<div class="card" style="margin-bottom:0"><div class="card-title">📉 Projected Balance — ' + acctName +
+        ' (' + fc.horizonDays + ' days)</div>' + _cfSparkline(fc) +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px">' +
+        '<span>Today · ' + fmtC(fc.startBal == null ? 0 : fc.startBal) + '</span>' +
+        '<span>End · ' + fmtC(fc.endBal) + '</span></div></div>';
+    } else {
+      chartEl.innerHTML = '';
+    }
+  }
+
+  if (listEl) {
+    if (!fc.events.length) {
+      listEl.innerHTML = _cfEmpty('Nothing to project yet',
+        'Add recurring bills on the Bills page and at least one income line in ⚙️ Settings. Then this becomes a day-by-day forecast.');
+    } else {
+      var rows = fc.events.map(function (e) {
+        var amtColor = e.amount >= 0 ? 'var(--green)' : 'var(--red)';
+        var runColor = e.running < fc.buffer ? 'var(--red)' : 'var(--text)';
+        var icon = e.type === 'in' ? '💰' : (e.category && typeof getCatById === 'function' ? '' : '🧾');
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border)">' +
+          '<div style="width:84px;font-size:11px;color:var(--muted)">' + _cfFmtDate(e.date) + '</div>' +
+          '<div style="flex:1;font-weight:600;font-size:13px">' + (icon ? icon + ' ' : '') + e.label + '</div>' +
+          '<div style="width:90px;text-align:right;font-weight:700;color:' + amtColor + '">' + fmtSigned(e.amount) + '</div>' +
+          '<div style="width:96px;text-align:right;font-weight:800;color:' + runColor + '">' + fmtC(e.running) + '</div>' +
+          '</div>';
+      }).join('');
+      listEl.innerHTML = '<div class="card"><div class="card-title">🗓️ Forward Timeline</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">' +
+        '<div style="width:84px">Date</div><div style="flex:1">Item</div>' +
+        '<div style="width:90px;text-align:right">Amount</div><div style="width:96px;text-align:right">Balance</div></div>' +
+        rows + '</div>';
+    }
+  }
+}
+
+function _cfStat(label, value, sub, color) {
+  return '<div class="stat"><div class="stat-label">' + label + '</div>' +
+    '<div class="stat-value"' + (color ? ' style="color:' + color + '"' : '') + '>' + value + '</div>' +
+    (sub ? '<div class="stat-sub">' + sub + '</div>' : '') + '</div>';
+}
+
+function _cfBanner(color, icon, html) {
+  return '<div style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--radius-sm);' +
+    'background:var(--surface);border:2px solid ' + color + '">' +
+    '<span style="font-size:20px">' + icon + '</span><div style="font-size:13px;line-height:1.4">' + html + '</div></div>';
+}
+
+function _cfEmpty(title, body) {
+  return '<div class="card" style="text-align:center;padding:36px"><div style="font-size:15px;font-weight:800;margin-bottom:6px">' +
+    title + '</div><div style="color:var(--muted);font-size:13px;max-width:520px;margin:0 auto;line-height:1.5">' + body + '</div></div>';
+}
+
+ 
+function openCashflowSettings() {
+  _cfSeedIncomesIfEmpty();
+  var c = getCashflowConfig();
+
+  var hz = document.getElementById('cf-horizon');
+  if (hz) hz.value = String(c.horizonDays || 60);
+
+  var buf = document.getElementById('cf-buffer');
+  if (buf) buf.value = (c.buffer || 0);
+
+  var sel = document.getElementById('cf-primary-account');
+  if (sel) {
+    var current = c.primaryAccountId || _cfDefaultAccountId();
+    sel.innerHTML = (state.accounts || []).map(function (a) {
+      var lbl = (typeof ACCT_TYPE_ICONS !== 'undefined' && ACCT_TYPE_ICONS[a.type] ? ACCT_TYPE_ICONS[a.type] + ' ' : '') +
+        a.nickname + ' (' + a.type + ')';
+      return '<option value="' + a.id + '"' + (a.id === current ? ' selected' : '') + '>' + lbl + '</option>';
+    }).join('');
+  }
+
+  cfRenderIncomeRows(c.incomes || []);
+  openModal('cashflow-settings-modal');
+}
+
+function cfRenderIncomeRows(incomes) {
+  var box = document.getElementById('cf-incomes-list');
+  if (!box) return;
+  if (!incomes.length) {
+    box.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">No income lines. Add one, or re-seed from members.</div>';
+    return;
+  }
+  box.innerHTML = incomes.map(function (inc, i) {
+    var freqOpts = CF_INCOME_FREQS.map(function (f) {
+      return '<option value="' + f + '"' + ((inc.frequency || 'Monthly') === f ? ' selected' : '') + '>' + f + '</option>';
+    }).join('');
+    return '<div class="cf-income-row" data-i="' + i + '" style="display:grid;grid-template-columns:1.4fr 0.9fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px">' +
+      '<input type="text" class="cf-in-label" placeholder="Label" value="' + (inc.label || '').replace(/"/g, '&quot;') + '">' +
+      '<input type="number" class="cf-in-amount" placeholder="Amount" min="0" step="1" value="' + (inc.amount || '') + '">' +
+      '<select class="cf-in-freq">' + freqOpts + '</select>' +
+      '<input type="date" class="cf-in-date" value="' + (inc.nextDate || '') + '">' +
+      '<button class="btn btn-danger btn-sm" onclick="cfRemoveIncomeRow(' + i + ')">🗑️</button>' +
+      '</div>';
+  }).join('');
+}
+
+function _cfReadIncomeRows() {
+  var rows = document.querySelectorAll('#cf-incomes-list .cf-income-row');
+  var out = [];
+  rows.forEach(function (r) {
+    var label = (r.querySelector('.cf-in-label').value || '').trim();
+    var amount = parseFloat(r.querySelector('.cf-in-amount').value) || 0;
+    var freq = r.querySelector('.cf-in-freq').value;
+    var date = r.querySelector('.cf-in-date').value;
+    if (!label && !amount) return;
+    out.push({ id: (typeof uid === 'function' ? uid() : 'inc' + Math.random().toString(36).slice(2)),
+      label: label || 'Income', amount: amount, frequency: freq, nextDate: date });
+  });
+  return out;
+}
+
+function cfAddIncomeRow() {
+  var current = _cfReadIncomeRows();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  current.push({ label: '', amount: 0, frequency: 'Bi-weekly', nextDate: _cfISO(today) });
+  cfRenderIncomeRows(current);
+}
+
+function cfRemoveIncomeRow(i) {
+  var current = _cfReadIncomeRows();
+  current.splice(i, 1);
+  cfRenderIncomeRows(current);
+}
+
+function cfReseedIncomes() {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var firstOfNext = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  var seeded = (state.members || []).filter(function (m) { return (+m.monthlyIncome || 0) > 0; }).map(function (m) {
+    return { label: (m.name || 'Member') + ' pay', amount: +m.monthlyIncome || 0, frequency: 'Monthly', nextDate: _cfISO(firstOfNext) };
+  });
+  if (!seeded.length) { hhToast('No member salaries set to seed from.', 'ℹ️'); return; }
+  cfRenderIncomeRows(seeded);
+  hhToast('Seeded ' + seeded.length + ' income line' + (seeded.length > 1 ? 's' : '') + ' from members.', '✅');
+}
+
+function saveCashflowSettings() {
+  var c = getCashflowConfig();
+  var hz = document.getElementById('cf-horizon');
+  var buf = document.getElementById('cf-buffer');
+  var sel = document.getElementById('cf-primary-account');
+  if (hz) c.horizonDays = parseInt(hz.value, 10) || 60;
+  if (buf) c.buffer = parseFloat(buf.value) || 0;
+  if (sel) c.primaryAccountId = sel.value;
+  c.incomes = _cfReadIncomeRows();
+  c.seeded = true;
+  saveState();
+  closeModal('cashflow-settings-modal');
+  renderCashflow();
+  hhToast('Cashflow settings saved!', '✅');
+}
 
 
 </script>

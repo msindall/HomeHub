@@ -135,6 +135,14 @@
     <div class="form-row"><label>Link to webpage (optional)</label><input type="url" id="goal-link" placeholder="https://..."></div>
     <div class="form-row"><label>Notes (e.g. account type)</label><input type="text" id="goal-notes" placeholder="e.g. In FHSA account"></div>
     <div class="form-row"><label>Linked account (progress tracks this balance)</label><select id="goal-account"><option value="">— None (track manually) —</option></select></div>
+    <div class="form-row"><label>🌷 Garden flower (shown on the Home lot)</label><select id="goal-flower">
+      <option value="auto">Auto</option>
+      <option value="rose">🌹 Rose</option>
+      <option value="tulip">🌷 Tulip</option>
+      <option value="sunflower">🌻 Sunflower</option>
+      <option value="daisy">🌼 Daisy</option>
+      <option value="lavender">💜 Lavender</option>
+    </select></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('goal-modal');clearGoalForm()">Cancel</button>
       <button class="btn btn-primary" onclick="saveGoal()">Save Goal</button>
@@ -385,7 +393,7 @@
     <div class="form-group">
       <div class="form-row">
         <label>Account Type</label>
-        <select id="edit-acct-type">
+        <select id="edit-acct-type" onchange="toggleEditAcctCardDetails()">
           <option value="Chequing">🏦 Chequing</option>
           <option value="Savings">💰 Savings</option>
           <option value="TFSA">🛡️ TFSA</option>
@@ -406,9 +414,109 @@
       <input type="checkbox" id="edit-acct-joint" style="width:auto;margin:0">
       <label style="margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:700">Joint account</label>
     </div>
+    <div id="edit-acct-card-details" style="display:none;border-top:2px solid var(--border);margin-top:6px;padding-top:12px">
+      <div class="form-row">
+        <label>Card / Account Link</label>
+        <div style="display:flex;gap:8px">
+          <input type="url" id="edit-acct-cardurl" placeholder="Paste the card's web page link" style="flex:1">
+          <button class="btn btn-ghost btn-sm" id="edit-acct-lookup-btn" onclick="lookupCardDetails()" style="white-space:nowrap">🔎 Look up</button>
+        </div>
+        <div id="edit-acct-lookup-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div class="form-group">
+        <div class="form-row">
+          <label>Annual Fee ($)</label>
+          <input type="number" id="edit-acct-annualfee" placeholder="e.g. 120" min="0" step="1">
+        </div>
+        <div class="form-row">
+          <label>Rewards Rate</label>
+          <input type="text" id="edit-acct-rewardsrate" placeholder="e.g. 1.25 pts / $1 or 2% cash back">
+        </div>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('edit-account-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditAccount()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CASHFLOW ADVISOR SETTINGS MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="cashflow-settings-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-title">⚙️ Cashflow Settings</div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>Account to forecast</label>
+        <select id="cf-primary-account"></select>
+      </div>
+      <div class="form-row">
+        <label>Forecast horizon</label>
+        <select id="cf-horizon">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+          <option value="180">180 days</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Safety buffer ($) — warn if balance drops below this</label>
+      <input type="number" id="cf-buffer" placeholder="0" min="0" step="50">
+    </div>
+    <div style="border-top:2px solid var(--border);margin-top:8px;padding-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="margin:0">Income lines</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="cfReseedIncomes()">🔄 From members</button>
+          <button class="btn btn-ghost btn-sm" onclick="cfAddIncomeRow()">+ Add</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.4fr 0.9fr 1fr 1fr auto;gap:6px;font-size:10px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">
+        <div>Label</div><div>Amount</div><div>Frequency</div><div>Next date</div><div></div>
+      </div>
+      <div id="cf-incomes-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cashflow-settings-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCashflowSettings()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     LOT & SCENERY SETTINGS MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="lot-settings-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">🏡 Home Lot & Scenery</div>
+    <div class="form-row">
+      <label>Default view on desktop</label>
+      <select id="lot-default-view">
+        <option value="lot">🏡 Home lot (isometric)</option>
+        <option value="classic">📋 Classic dashboard</option>
+      </select>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px;margin-bottom:2px">
+      <input type="checkbox" id="lot-weather-fx" style="width:auto;margin:0">
+      <label style="margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:700">Animated weather effects (rain, snow, fog)</label>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:0 0 10px">Effects automatically pause when your system has "reduce motion" enabled.</div>
+    <div class="form-row">
+      <label>🌳 Lot tree type</label>
+      <select id="lot-tree-type">
+        <option value="maple">🍁 Maple</option>
+        <option value="oak">🌳 Oak</option>
+        <option value="pine">🌲 Pine</option>
+        <option value="cherry">🌸 Cherry blossom</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Tip: pick each goal's flower species in the goal editor — plants grow as you fund the goal.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lot-settings-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLotSettings()">💾 Save</button>
     </div>
   </div>
 </div>

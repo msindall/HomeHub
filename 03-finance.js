@@ -1273,7 +1273,90 @@ function openEditAccount(id) {
   personSel.innerHTML = (state.members||[]).map(function(m){
     return '<option value="' + m.name + '"' + (m.name === a.person ? ' selected' : '') + '>' + m.name + '</option>';
   }).join('');
+  var urlEl  = document.getElementById('edit-acct-cardurl');
+  var feeEl  = document.getElementById('edit-acct-annualfee');
+  var rateEl = document.getElementById('edit-acct-rewardsrate');
+  if (urlEl)  urlEl.value  = a.cardUrl || '';
+  if (feeEl)  feeEl.value  = (a.annualFee != null ? a.annualFee : '');
+  if (rateEl) rateEl.value = a.rewardsRate || '';
+  var statusEl = document.getElementById('edit-acct-lookup-status');
+  if (statusEl) statusEl.textContent = '';
+  toggleEditAcctCardDetails();
   openModal('edit-account-modal');
+}
+
+// Account types where a card/account link + rewards/fee details make sense.
+var CARD_DETAIL_TYPES = ['Credit Card', 'Loan', 'Line of Credit', 'Investment'];
+
+function toggleEditAcctCardDetails() {
+  var box = document.getElementById('edit-acct-card-details');
+  if (!box) return;
+  var type = document.getElementById('edit-acct-type').value;
+  box.style.display = (CARD_DETAIL_TYPES.indexOf(type) !== -1) ? '' : 'none';
+}
+
+// Live Wix backend proxy (Phase 0 — proven 2026-06-22). Fetches a card page
+// server-side (no CORS) and returns title/description/annualFee/rewardsRate.
+var CARD_LOOKUP_URL = 'https://mattjsindall.wixsite.com/homehub/_functions/cardLookup';
+
+async function lookupCardDetails() {
+  var urlEl    = document.getElementById('edit-acct-cardurl');
+  var feeEl    = document.getElementById('edit-acct-annualfee');
+  var rateEl   = document.getElementById('edit-acct-rewardsrate');
+  var nickEl   = document.getElementById('edit-acct-nickname');
+  var statusEl = document.getElementById('edit-acct-lookup-status');
+  var btn      = document.getElementById('edit-acct-lookup-btn');
+  var target   = (urlEl && urlEl.value || '').trim();
+
+  if (!target) {
+    if (statusEl) { statusEl.style.color = 'var(--danger)'; statusEl.textContent = 'Paste a card link first.'; }
+    return;
+  }
+  if (!/^https?:\/\//i.test(target)) {
+    if (statusEl) { statusEl.style.color = 'var(--danger)'; statusEl.textContent = 'Link must start with http:// or https://'; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; }
+  if (statusEl) { statusEl.style.color = 'var(--muted)'; statusEl.textContent = 'Looking up… (fetched server-side, no login)'; }
+
+  try {
+    var res  = await fetch(CARD_LOOKUP_URL + '?url=' + encodeURIComponent(target));
+    var data = await res.json();
+    if (!data || data.ok !== true) {
+      throw new Error(data && data.error ? data.error : 'Lookup failed');
+    }
+
+    var filled = [];
+    if (data.title && nickEl && !nickEl.value.trim()) {
+      nickEl.value = String(data.title).slice(0, 60);
+      filled.push('nickname');
+    }
+    if (data.annualFee != null && feeEl) {
+      feeEl.value = data.annualFee;
+      filled.push('annual fee');
+    }
+    if (data.rewardsRate && rateEl && !rateEl.value.trim()) {
+      rateEl.value = data.rewardsRate;
+      filled.push('rewards rate');
+    }
+
+    if (statusEl) {
+      statusEl.style.color = 'var(--muted)';
+      if (filled.length) {
+        statusEl.textContent = '✓ Filled ' + filled.join(', ') + '. Check & edit before saving.';
+      } else {
+        statusEl.textContent = '✓ Page read, but no fields auto-filled (often JS-only). Enter details manually.';
+      }
+    }
+  } catch (err) {
+    if (statusEl) {
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = 'Lookup failed: ' + (err && err.message ? err.message : err) + '. Enter details manually.';
+    }
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
 }
 
 function saveEditAccount() {
@@ -1284,6 +1367,15 @@ function saveEditAccount() {
   a.type     = document.getElementById('edit-acct-type').value;
   a.isJoint  = document.getElementById('edit-acct-joint').checked;
   a.person   = a.isJoint ? '' : document.getElementById('edit-acct-person').value;
+  var urlEl  = document.getElementById('edit-acct-cardurl');
+  var feeEl  = document.getElementById('edit-acct-annualfee');
+  var rateEl = document.getElementById('edit-acct-rewardsrate');
+  if (CARD_DETAIL_TYPES.indexOf(a.type) !== -1) {
+    a.cardUrl     = urlEl ? urlEl.value.trim() : '';
+    a.rewardsRate = rateEl ? rateEl.value.trim() : '';
+    var feeVal    = feeEl ? parseFloat(feeEl.value) : NaN;
+    a.annualFee   = isNaN(feeVal) ? null : feeVal;
+  }
   saveState();
   closeModal('edit-account-modal');
   renderAccountsList();
@@ -1549,7 +1641,7 @@ function renderGoals(){
 }
 function saveGoal(){
   const editId=document.getElementById('goal-edit-id').value;
-  const g={id:editId||uid(),name:document.getElementById('goal-name').value,emoji:document.getElementById('goal-emoji').value||'🎯',target:parseFloat(document.getElementById('goal-target').value)||0,current:parseFloat(document.getElementById('goal-current').value)||0,date:document.getElementById('goal-date').value,link:document.getElementById('goal-link').value,notes:document.getElementById('goal-notes').value,accountId:document.getElementById('goal-account').value||''};
+  const g={id:editId||uid(),name:document.getElementById('goal-name').value,emoji:document.getElementById('goal-emoji').value||'🎯',target:parseFloat(document.getElementById('goal-target').value)||0,current:parseFloat(document.getElementById('goal-current').value)||0,date:document.getElementById('goal-date').value,link:document.getElementById('goal-link').value,notes:document.getElementById('goal-notes').value,accountId:document.getElementById('goal-account').value||'',flowerType:(document.getElementById('goal-flower')?document.getElementById('goal-flower').value:'auto')||'auto'};
   if(editId){const idx=state.goals.findIndex(x=>x.id===editId);state.goals[idx]=g;}else state.goals.push(g);
   saveState();closeModal('goal-modal');clearGoalForm();renderGoals();
 }
@@ -1557,6 +1649,7 @@ function editGoal(id){
   const g=state.goals.find(x=>x.id===id);if(!g)return;
   populateGoalAccountSelect();
   document.getElementById('goal-edit-id').value=id;document.getElementById('goal-name').value=g.name;document.getElementById('goal-emoji').value=g.emoji;document.getElementById('goal-target').value=g.target;document.getElementById('goal-current').value=g.current;document.getElementById('goal-date').value=g.date||'';document.getElementById('goal-link').value=g.link||'';document.getElementById('goal-notes').value=g.notes||'';document.getElementById('goal-account').value=g.accountId||'';
+  var gf=document.getElementById('goal-flower');if(gf)gf.value=g.flowerType||'auto';
   openModal('goal-modal');
 }
 function deleteGoal(id) {

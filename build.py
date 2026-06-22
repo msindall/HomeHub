@@ -18,7 +18,7 @@ OUT_DIR = ROOT
 JS_FILES = [
     "01-core.js", "02-dashboard.js", "03-finance.js",
     "04-planning.js", "05-household.js", "06-insights.js", "07-upload.js",
-    "08-home.js",
+    "08-home.js", "09-cashflow.js",
 ]
 
 def read(path):

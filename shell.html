@@ -905,6 +905,7 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
     <button class="nav-btn" id="nav-house-btn" onclick="showPage('house')"><span class="nav-icon">🏡</span><span class="nav-label">House</span></button>
     <button class="nav-btn" id="nav-pets-btn" onclick="showPage('pets')"><span class="nav-icon">🐾</span><span class="nav-label">Pets</span></button>
     <button class="nav-btn" id="nav-bills-btn" onclick="showPage('bills')"><span class="nav-icon">🧾</span><span class="nav-label">Bills</span></button>
+    <button class="nav-btn" id="nav-cashflow-btn" onclick="showPage('cashflow')"><span class="nav-icon">🔮</span><span class="nav-label">Cashflow</span></button>
     <button class="nav-btn" id="nav-networth-btn" onclick="showPage('networth')"><span class="nav-icon">📈</span><span class="nav-label">Net Worth</span></button>
     <button class="nav-btn" id="nav-cars-btn" onclick="showPage('cars')"><span class="nav-icon">🚗</span><span class="nav-label">Cars</span></button>
     <button class="nav-btn" id="nav-maintenance-btn" onclick="showPage('maintenance')"><span class="nav-icon">🔧</span><span class="nav-label">Maintenance</span></button>
@@ -922,6 +923,7 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
     <button class="nav-btn" onclick="openModal('theme-modal')"><span class="nav-icon">🎨</span><span class="nav-label">Theme</span></button>
     <button class="nav-btn" onclick="openSetupWizard(true)"><span class="nav-icon">⚙️</span><span class="nav-label">Setup</span></button>
     <button class="nav-btn" onclick="openFeaturesModal()"><span class="nav-icon">🔧</span><span class="nav-label">Features</span></button>
+    <button class="nav-btn" onclick="openLotSettings()"><span class="nav-icon">🏡</span><span class="nav-label">Lot View</span></button>
     <button class="nav-btn" onclick="openModal('api-key-modal')" id="api-key-btn"><span class="nav-icon">🔑</span><span class="nav-label">API Key</span></button>
     <button class="nav-btn" onclick="exportData()"><span class="nav-icon">💾</span><span class="nav-label">Backup</span></button>
     <label class="nav-btn" style="cursor:pointer"><span class="nav-icon">📂</span><span class="nav-label">Restore</span><input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
@@ -1527,6 +1529,20 @@ hr.divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; 
     <div id="bills-by-category-card"></div>
   </div>
   <div id="bills-list-card"></div>
+</div>
+
+<!-- CASHFLOW ADVISOR -->
+<div class="page" id="page-cashflow">
+  <div class="section-header">
+    <div class="section-title">🔮 Cashflow Advisor</div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" onclick="openCashflowSettings()">⚙️ Settings</button>
+    </div>
+  </div>
+  <div id="cf-alert" style="margin-bottom:14px"></div>
+  <div class="grid-4" id="cf-stats" style="margin-bottom:16px"></div>
+  <div id="cf-chart-card" style="margin-bottom:16px"></div>
+  <div id="cf-timeline-card"></div>
 </div>
 
 <!-- NET WORTH TIMELINE -->

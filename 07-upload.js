@@ -2015,6 +2015,7 @@ var FEATURE_DEFS = [
   { id:'wedding',  label:'💍 Wedding Planner',        desc:'Vendor tracking, budget, deposit alerts & countdown' },
   { id:'house',    label:'🏡 Down Payment Planner',    desc:'FHSA, HBP, CMHC, LTT & savings projection for your first home' },
   { id:'bills',    label:'🧾 Bill & Subscription Tracker', desc:'Track recurring bills, get due-date alerts, spot unused subscriptions' },
+  { id:'cashflow', label:'🔮 Cashflow Advisor',            desc:'Forward forecast of money in vs. out, with shortfall warnings before your balance dips below zero' },
   { id:'networth', label:'📈 Net Worth Timeline',          desc:'Month-over-month net worth chart, asset & liability breakdown' },
   { id:'carfunds',     label:'🚗 Car Fund Tracker',            desc:'Save toward one or more vehicle goals with projected purchase dates' },
   { id:'maintenance',  label:'🔧 Household Maintenance',       desc:'Track recurring home tasks, get overdue alerts, never miss a furnace filter again' },
@@ -2041,6 +2042,7 @@ function applyFeatureToggles() {
     { id:'house',    navId:'nav-house-btn',      pageId:'page-house'    },
     { id:'pets',     navId:'nav-pets-btn',        pageId:'page-pets'     },
     { id:'bills',    navId:'nav-bills-btn',       pageId:'page-bills'    },
+    { id:'cashflow', navId:'nav-cashflow-btn',    pageId:'page-cashflow' },
     { id:'networth', navId:'nav-networth-btn',    pageId:'page-networth' },
     { id:'carfunds',    navId:'nav-cars-btn',              pageId:'page-cars'        },
     { id:'maintenance', navId:'nav-maintenance-btn',       pageId:'page-maintenance' },
@@ -2112,7 +2114,7 @@ function saveFeatures() {
   var activePage = document.querySelector('.page.active');
   if (activePage) {
     var pageId = activePage.id.replace('page-','');
-    var featureMap = { calendar:'calendar', tips:'tips', grocery:'grocery', upload:'upload', wedding:'wedding', house:'house', pets:'pets', bills:'bills', networth:'networth', cars:'carfunds', maintenance:'maintenance', tax:'tax', retirement:'retirement', career:'career' };
+    var featureMap = { calendar:'calendar', tips:'tips', grocery:'grocery', upload:'upload', wedding:'wedding', house:'house', pets:'pets', bills:'bills', cashflow:'cashflow', networth:'networth', cars:'carfunds', maintenance:'maintenance', tax:'tax', retirement:'retirement', career:'career' };
     if (featureMap[pageId] && !isFeatureOn(featureMap[pageId])) showPage('dashboard');
   }
   hhToast('Features updated!','✅');
