@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Home Hub V7.3</title>
+<title>Home Hub V7.8</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Nunito:wght@300;400;500;600;700;800&display=swap');
 :root {
@@ -1066,6 +1066,7 @@ body.hh-home-open{overflow:hidden}
     <button class="nav-btn" onclick="openFeaturesModal()"><span class="nav-icon">🔧</span><span class="nav-label">Features</span></button>
     <button class="nav-btn" onclick="openLotSettings()"><span class="nav-icon">🏡</span><span class="nav-label">Lot View</span></button>
     <button class="nav-btn" onclick="openModal('api-key-modal')" id="api-key-btn"><span class="nav-icon">🔑</span><span class="nav-label">API Key</span></button>
+    <button class="nav-btn" onclick="openSyncModal()" id="sync-nav-btn"><span class="nav-icon">☁️</span><span class="nav-label" id="sync-nav-label">Sync</span></button>
     <button class="nav-btn" onclick="exportData()"><span class="nav-icon">💾</span><span class="nav-label">Backup</span></button>
     <label class="nav-btn" style="cursor:pointer"><span class="nav-icon">📂</span><span class="nav-label">Restore</span><input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
     <button class="nav-btn danger" onclick="resetApp()" style="color:var(--red)"><span class="nav-icon">🔄</span><span class="nav-label">Reset</span></button>
@@ -1683,6 +1684,7 @@ body.hh-home-open{overflow:hidden}
   <div id="cf-alert" style="margin-bottom:14px"></div>
   <div class="grid-4" id="cf-stats" style="margin-bottom:16px"></div>
   <div id="cf-chart-card" style="margin-bottom:16px"></div>
+  <div id="cf-rewards-card" style="margin-bottom:16px"></div>
   <div id="cf-timeline-card"></div>
 </div>
 
@@ -2601,6 +2603,13 @@ body.hh-home-open{overflow:hidden}
     </div>
     <div id="edit-acct-card-details" style="display:none;border-top:2px solid var(--border);margin-top:6px;padding-top:12px">
       <div class="form-row">
+        <label>Quick Fill from Preset</label>
+        <select id="edit-acct-preset" onchange="applyCardPreset()">
+          <option value="">— Pick a Canadian card —</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Auto-fills fee &amp; rewards (editable). Rates are typical published values — verify before saving.</div>
+      </div>
+      <div class="form-row">
         <label>Card / Account Link</label>
         <div style="display:flex;gap:8px">
           <input type="url" id="edit-acct-cardurl" placeholder="Paste the card's web page link" style="flex:1">
@@ -2622,6 +2631,19 @@ body.hh-home-open{overflow:hidden}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('edit-account-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditAccount()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CROSS-DEVICE SYNC MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="sync-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title">☁️ Cross-Device Sync</div>
+    <div id="sync-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('sync-modal')">Close</button>
     </div>
   </div>
 </div>
@@ -5622,11 +5644,96 @@ function openEditAccount(id) {
   if (rateEl) rateEl.value = a.rewardsRate || '';
   var statusEl = document.getElementById('edit-acct-lookup-status');
   if (statusEl) statusEl.textContent = '';
+  populateCardPresetDropdown(a.presetId || '');
   toggleEditAcctCardDetails();
   openModal('edit-account-modal');
 }
 
 var CARD_DETAIL_TYPES = ['Credit Card', 'Loan', 'Line of Credit', 'Investment'];
+
+var CARD_PRESETS = [
+  { id:'cobalt', name:'Amex Cobalt', annualFee:155.88, unit:'points', ptValueCents:1.0,
+    rewardsRate:'5x eats & groceries · 3x streaming · 2x travel/gas · 1x else (MR pts)',
+    earn:{ groceries:5, dining:5, subscriptions:3, entertainment:3, travel:2, gas:2, _default:1 } },
+  { id:'scotia_gold', name:'Scotiabank Gold American Express', annualFee:120, unit:'points', ptValueCents:1.0,
+    rewardsRate:'5x groceries/dining/entertainment · 3x gas/transit/phone · 1x else (Scene+)',
+    earn:{ groceries:5, dining:5, entertainment:5, gas:3, phone:3, subscriptions:3, _default:1 } },
+  { id:'scotia_momentum', name:'Scotiabank Momentum Visa Infinite', annualFee:120, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'4% groceries & recurring · 2% gas & transit · 1% else (cash back)',
+    earn:{ groceries:4, subscriptions:4, phone:2, gas:2, _default:1 } },
+  { id:'cibc_dividend', name:'CIBC Dividend Visa Infinite', annualFee:120, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'4% gas & groceries · 2% dining/recurring · 1% else (cash back)',
+    earn:{ groceries:4, gas:4, dining:2, phone:2, subscriptions:2, _default:1 } },
+  { id:'td_cashback', name:'TD Cash Back Visa Infinite', annualFee:139, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'3% groceries/gas/recurring · 1% else (cash back)',
+    earn:{ groceries:3, gas:3, phone:3, subscriptions:3, _default:1 } },
+  { id:'bmo_cashback_we', name:'BMO CashBack World Elite Mastercard', annualFee:120, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'5% groceries · 4% transit · 3% gas · 0.5% else (cash back)',
+    earn:{ groceries:5, gas:3, _default:0.5 } },
+  { id:'bmo_eclipse', name:'BMO eclipse Visa Infinite', annualFee:120, unit:'points', ptValueCents:0.67,
+    rewardsRate:'5x groceries/dining/gas/transit · 1x else (BMO pts)',
+    earn:{ groceries:5, dining:5, gas:5, _default:1 } },
+  { id:'rbc_avion', name:'RBC Avion Visa Infinite', annualFee:120, unit:'points', ptValueCents:1.5,
+    rewardsRate:'1.25 pts/$1 on eligible travel · 1 pt/$1 else (Avion)',
+    earn:{ travel:1.25, _default:1 } },
+  { id:'tangerine', name:'Tangerine Money-Back Mastercard', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'2% in 3 chosen categories · 0.5% else (cash back)',
+    earn:{ groceries:2, gas:2, dining:2, _default:0.5 } },
+  { id:'rogers_red', name:'Rogers Red World Elite Mastercard', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'1.5% everything (3% on USD purchases) (cash back)',
+    earn:{ _default:1.5 } },
+  { id:'pc_we', name:'PC Financial World Elite Mastercard', annualFee:0, unit:'points', ptValueCents:0.1,
+    rewardsRate:'30 pts/$1 at Loblaw banners · 45 pts/$1 at Shoppers (PC Optimum)',
+    earn:{ groceries:30, health:45, gas:30, _default:10 } },
+  { id:'triangle_we', name:'Canadian Tire Triangle World Elite', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'~3% groceries · ~4% at CT stores & gas bars · 1% else (CT Money)',
+    earn:{ groceries:3, gas:4, _default:1 } },
+  { id:'triangle', name:'Canadian Tire Triangle Mastercard', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'~4% at Canadian Tire family stores · CT Money at Gas+ · modest else (CT Money)',
+    earn:{ gas:2, _default:1 } },
+  { id:'rbc_ion_plus', name:'RBC ION+ Visa', annualFee:48, unit:'points', ptValueCents:1.0,
+    rewardsRate:'3x groceries/gas/dining/rideshare/transit/streaming · 1x else (Avion pts)',
+    earn:{ groceries:3, gas:3, dining:3, subscriptions:3, entertainment:3, _default:1 } },
+  { id:'rbc_ion', name:'RBC ION Visa', annualFee:0, unit:'points', ptValueCents:1.0,
+    rewardsRate:'1.5x groceries/gas/rideshare/streaming · 1x else (Avion pts)',
+    earn:{ groceries:1.5, gas:1.5, subscriptions:1.5, _default:1 } },
+  { id:'capitalone_guaranteed', name:'Capital One Guaranteed Mastercard', annualFee:59, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'No rewards — credit-building card (reports to both bureaus)',
+    earn:{ _default:0 } },
+];
+
+function getCardPresetById(id) {
+  return CARD_PRESETS.filter(function(p){ return p.id === id; })[0] || null;
+}
+
+function populateCardPresetDropdown(selectedId) {
+  var sel = document.getElementById('edit-acct-preset');
+  if (!sel) return;
+  var opts = '<option value="">— Pick a Canadian card —</option>';
+  CARD_PRESETS.forEach(function(p) {
+    var fee = p.annualFee ? ' ($' + p.annualFee + ')' : ' (no fee)';
+    opts += '<option value="' + p.id + '"' + (p.id === selectedId ? ' selected' : '') + '>' + p.name + fee + '</option>';
+  });
+  sel.innerHTML = opts;
+}
+
+function applyCardPreset() {
+  var sel = document.getElementById('edit-acct-preset');
+  if (!sel) return;
+  var p = getCardPresetById(sel.value);
+  if (!p) return;
+  var nickEl = document.getElementById('edit-acct-nickname');
+  var feeEl  = document.getElementById('edit-acct-annualfee');
+  var rateEl = document.getElementById('edit-acct-rewardsrate');
+  var statusEl = document.getElementById('edit-acct-lookup-status');
+  if (nickEl && !nickEl.value.trim()) nickEl.value = p.name;
+  if (feeEl)  feeEl.value  = (p.annualFee != null ? p.annualFee : '');
+  if (rateEl) rateEl.value = p.rewardsRate || '';
+  if (statusEl) {
+    statusEl.style.color = 'var(--muted)';
+    statusEl.textContent = '✓ Filled from “' + p.name + '” preset. Edit any field before saving.';
+  }
+}
 
 function toggleEditAcctCardDetails() {
   var box = document.getElementById('edit-acct-card-details');
@@ -5713,6 +5820,14 @@ function saveEditAccount() {
     a.rewardsRate = rateEl ? rateEl.value.trim() : '';
     var feeVal    = feeEl ? parseFloat(feeEl.value) : NaN;
     a.annualFee   = isNaN(feeVal) ? null : feeVal;
+    var presetSel = document.getElementById('edit-acct-preset');
+    var preset    = presetSel ? getCardPresetById(presetSel.value) : null;
+    if (preset) {
+      a.presetId     = preset.id;
+      a.earn         = preset.earn;
+      a.rewardUnit   = preset.unit;
+      a.ptValueCents = preset.ptValueCents;
+    }
   }
   saveState();
   closeModal('edit-account-modal');
@@ -12385,7 +12500,7 @@ function addListItem(){
   renderShoppingList();
 }
 
-var HH_VERSION = '7.3';
+var HH_VERSION = '7.8';
 
 function renderStatements(){
   renderAccountsList();
@@ -15296,10 +15411,11 @@ function _initApp() {
     var badge = document.createElement('span');
     badge.className = 'v-badge';
     badge.style.cssText = 'font-size:9px;font-weight:800;background:var(--accent);color:#fff;border-radius:6px;padding:1px 5px;vertical-align:middle;margin-left:4px;opacity:0.7';
-    badge.textContent = 'v7.3';
+    badge.textContent = 'v7.8';
     brand.appendChild(badge);
   }
   try { if (window.HHHome) HHHome.init(); } catch(e) {}
+  try { if (window.HHSync) HHSync.init(); } catch(e) {}
 }
 
 var THEMES = {
@@ -17066,6 +17182,8 @@ function renderCashflow() {
     if (statsEl) statsEl.innerHTML = '';
     if (alertEl) alertEl.innerHTML = '';
     if (chartEl) chartEl.innerHTML = '';
+    var rwEl = document.getElementById('cf-rewards-card');
+    if (rwEl) rwEl.innerHTML = '';
     if (listEl) listEl.innerHTML = _cfEmpty('No accounts yet', 'Add an account (and a starting balance) on the Upload page, then add some bills. The Cashflow Advisor projects your balance forward from there.');
     return;
   }
@@ -17110,6 +17228,8 @@ function renderCashflow() {
     }
   }
 
+  renderCfRewards();
+
   if (listEl) {
     if (!fc.events.length) {
       listEl.innerHTML = _cfEmpty('Nothing to project yet',
@@ -17133,6 +17253,93 @@ function renderCashflow() {
         rows + '</div>';
     }
   }
+}
+
+ 
+function _cfCardRate(a, catId) {
+  if (!a || !a.earn) return null;
+  var raw = (a.earn[catId] != null ? a.earn[catId] : a.earn._default);
+  if (raw == null) return null;
+  var unit = a.rewardUnit || 'cashback';
+  var pv = (a.ptValueCents != null ? a.ptValueCents : 1);
+  return unit === 'points' ? raw * pv : raw; // percent
+}
+
+function _cfRewardCards() {
+  return (state.accounts || []).filter(function (a) {
+    return a.earn && (typeof CARD_DETAIL_TYPES === 'undefined' || CARD_DETAIL_TYPES.indexOf(a.type) !== -1);
+  });
+}
+
+function _cfBestCard(cards, catId) {
+  var best = null;
+  cards.forEach(function (a) {
+    var r = _cfCardRate(a, catId);
+    if (r == null) return;
+    if (!best || r > best.rate) best = { acct: a, rate: r };
+  });
+  return best;
+}
+
+function renderCfRewards() {
+  var el = document.getElementById('cf-rewards-card');
+  if (!el) return;
+  var cards = _cfRewardCards();
+  if (cards.length < 1) {
+    el.innerHTML = '';
+    return;
+  }
+
+  var skip = { income: 1, transfer: 1, savings: 1 };
+  var catSet = {};
+  cards.forEach(function (a) {
+    Object.keys(a.earn || {}).forEach(function (k) {
+      if (k !== '_default' && !skip[k]) catSet[k] = 1;
+    });
+  });
+  var catIds = Object.keys(catSet);
+
+  catIds.sort(function (x, y) {
+    var bx = _cfBestCard(cards, x), by = _cfBestCard(cards, y);
+    return (by ? by.rate : 0) - (bx ? bx.rate : 0);
+  });
+
+  function catName(id) {
+    if (typeof getCatById === 'function') { var c = getCatById(id); if (c && c.name) return c.name; }
+    return id;
+  }
+
+  function rowFor(label, best, baseTag) {
+    if (!best) return '';
+    var fee = (best.acct.annualFee ? ' · $' + best.acct.annualFee + '/yr' : '');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border)">' +
+      '<div style="flex:1;font-weight:700;font-size:13px">' + label + (baseTag ? ' <span style="font-weight:500;color:var(--muted);font-size:11px">' + baseTag + '</span>' : '') + '</div>' +
+      '<div style="flex:1.3;font-size:12px;color:var(--muted)">' + best.acct.nickname + fee + '</div>' +
+      '<div style="width:72px;text-align:right;font-weight:800;color:var(--green)">' + best.rate.toFixed(2) + '%</div>' +
+      '</div>';
+  }
+
+  var rows = catIds.map(function (id) { return rowFor(catName(id), _cfBestCard(cards, id)); }).join('');
+  var baseBest = null;
+  cards.forEach(function (a) {
+    var r = _cfCardRate(a, '_default');
+    if (r == null) return;
+    if (!baseBest || r > baseBest.rate) baseBest = { acct: a, rate: r };
+  });
+  rows += rowFor('Everything else', baseBest, 'base rate');
+
+  var legend = cards.map(function (a) {
+    return a.nickname + (a.annualFee ? ' ($' + a.annualFee + ')' : ' (no fee)');
+  }).join(' · ');
+
+  el.innerHTML = '<div class="card" style="margin-bottom:0">' +
+    '<div class="card-title">🎯 Best Card to Use, by Category</div>' +
+    '<div style="font-size:12px;color:var(--muted);margin:-4px 0 8px">Effective return after converting points to cash. Pay the balance in full before the due date so interest never eats the reward.</div>' +
+    '<div style="display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">' +
+    '<div style="flex:1">Category</div><div style="flex:1.3">Use this card</div><div style="width:72px;text-align:right">Return</div></div>' +
+    rows +
+    '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4">Comparing: ' + legend + '. Set a card via Upload → ✏️ Edit Account → “Quick Fill from Preset”. Rates are typical published values — verify on your statement.</div>' +
+    '</div>';
 }
 
 function _cfStat(label, value, sub, color) {
@@ -17252,6 +17459,274 @@ function saveCashflowSettings() {
   renderCashflow();
   hhToast('Cashflow settings saved!', '✅');
 }
+
+ 
+
+var HH_SYNC_BASE = 'https://mattjsindall.wixsite.com/homehub/_functions';
+var HH_SYNC_KEY  = 'hh_sync';          // localStorage record (token + meta)
+var HH_SYNC_PUSH_DELAY = 2500;         // ms debounce after a change
+
+var _hhSyncPushTimer = null;
+var _hhSyncReady = false;              // suppress pushes until the first pull settles
+
+ 
+function hhSyncGet() {
+  try { return JSON.parse(localStorage.getItem(HH_SYNC_KEY)) || null; } catch (e) { return null; }
+}
+function hhSyncSet(obj) {
+  try {
+    if (obj) localStorage.setItem(HH_SYNC_KEY, JSON.stringify(obj));
+    else localStorage.removeItem(HH_SYNC_KEY);
+  } catch (e) {}
+}
+function hhSyncSignedIn() { var s = hhSyncGet(); return !!(s && s.token); }
+
+ 
+async function _hhSyncJson(path, opts) {
+  var res = await fetch(HH_SYNC_BASE + path, opts);
+  return await res.json();
+}
+function hhSyncLogin(email, password) {
+  return _hhSyncJson('/authLogin', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: password })
+  });
+}
+function hhSyncRegister(email, password, mode, joinCode) {
+  return _hhSyncJson('/authRegister', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: password, mode: mode, joinCode: joinCode })
+  });
+}
+
+ 
+async function hhSyncPull(opts) {
+  opts = opts || {};
+  var s = hhSyncGet();
+  if (!s || !s.token) return { ok: false, error: 'Not signed in' };
+
+  var data;
+  try { data = await _hhSyncJson('/syncLoad?token=' + encodeURIComponent(s.token), { method: 'GET' }); }
+  catch (e) { return { ok: false, error: 'Network error reaching the sync server.' }; }
+  if (!data || data.ok !== true) return data || { ok: false, error: 'Sync load failed' };
+
+  if (data.joinCode) s.joinCode = data.joinCode;
+
+  var remoteMs = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+  var seenMs   = s.lastServerAt ? new Date(s.lastServerAt).getTime() : 0;
+  var shouldLoad = !!data.stateJson && (opts.force || remoteMs > seenMs);
+
+  if (shouldLoad) {
+    try { JSON.parse(data.stateJson); }            // validate before adopting
+    catch (e) { return { ok: false, error: 'Cloud data was unreadable; not applied.' }; }
+    s.lastServerAt = data.updatedAt;
+    s.lastSyncAt   = new Date().toISOString();
+    hhSyncSet(s);
+    try { hhStorageSet(KEY, data.stateJson); } catch (e) {}   // write straight to local store
+    setTimeout(function () { window.location.reload(); }, 200);
+    return { ok: true, loaded: true, updatedAt: data.updatedAt, updatedByEmail: data.updatedByEmail };
+  }
+
+  s.lastServerAt = data.updatedAt || s.lastServerAt;
+  hhSyncSet(s);
+  return { ok: true, loaded: false, updatedAt: data.updatedAt, updatedByEmail: data.updatedByEmail };
+}
+
+ 
+function hhSyncSchedulePush() {
+  if (!_hhSyncReady || !hhSyncSignedIn()) return;
+  if (_hhSyncPushTimer) clearTimeout(_hhSyncPushTimer);
+  _hhSyncPushTimer = setTimeout(function () { hhSyncPush(); }, HH_SYNC_PUSH_DELAY);
+}
+async function hhSyncPush() {
+  var s = hhSyncGet();
+  if (!s || !s.token) return { ok: false, error: 'Not signed in' };
+  var payload;
+  try { payload = JSON.stringify(state); } catch (e) { return { ok: false, error: 'Could not serialize state' }; }
+  var data;
+  try {
+    data = await _hhSyncJson('/syncSave', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: s.token, stateJson: payload })
+    });
+  } catch (e) { return { ok: false, error: 'Network error during push.' }; }
+  if (data && data.ok) {
+    s.lastServerAt = data.updatedAt;
+    s.lastSyncAt   = new Date().toISOString();
+    hhSyncSet(s);
+  }
+  hhSyncUpdateBadge();
+  return data || { ok: false, error: 'Push failed' };
+}
+
+ 
+var _hhOrigSaveState = (typeof saveState === 'function') ? saveState : null;
+function saveStateLocalOnly() { if (_hhOrigSaveState) _hhOrigSaveState(); }
+if (_hhOrigSaveState) {
+  saveState = function () { _hhOrigSaveState(); hhSyncSchedulePush(); };
+}
+
+ 
+function hhSyncInit() {
+  hhSyncUpdateBadge();
+  if (!hhSyncSignedIn()) { _hhSyncReady = true; return; }
+  hhSyncPull({}).then(function (r) {
+    _hhSyncReady = true;                 // (if r.loaded, a reload is already queued)
+    hhSyncUpdateBadge();
+  }).catch(function () { _hhSyncReady = true; });
+}
+
+ 
+function hhSyncUpdateBadge() {
+  var lbl = document.getElementById('sync-nav-label');
+  var btn = document.getElementById('sync-nav-btn');
+  if (!lbl) return;
+  if (hhSyncSignedIn()) {
+    lbl.textContent = 'Sync ✓';
+    if (btn) btn.title = 'Synced — ' + (hhSyncGet().email || '');
+  } else {
+    lbl.textContent = 'Sync';
+    if (btn) btn.title = 'Set up cross-device sync';
+  }
+}
+
+ 
+function openSyncModal() {
+  hhSyncRenderModalBody();
+  openModal('sync-modal');
+}
+
+function _hhSyncMsg(html, isErr) {
+  var el = document.getElementById('sync-msg');
+  if (!el) return;
+  el.style.color = isErr ? 'var(--red)' : 'var(--muted)';
+  el.innerHTML = html || '';
+}
+
+function _hhSyncRelTime(iso) {
+  if (!iso) return 'never';
+  var ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60000) return 'just now';
+  var m = Math.round(ms / 60000);
+  if (m < 60) return m + ' min ago';
+  var h = Math.round(m / 60);
+  if (h < 24) return h + ' hr ago';
+  return new Date(iso).toLocaleString();
+}
+
+function hhSyncRenderModalBody() {
+  var el = document.getElementById('sync-modal-body');
+  if (!el) return;
+  var s = hhSyncGet();
+
+  if (s && s.token) {
+    el.innerHTML =
+      '<div style="font-size:13px;line-height:1.5;margin-bottom:12px">Signed in as <b>' + (s.email || '') + '</b>. ' +
+        'This device syncs automatically — it pulls on open and saves changes to the cloud a couple seconds after you make them.</div>' +
+      '<div style="background:var(--surface);border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px">' +
+        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:4px">Household join code</div>' +
+        '<div style="font-size:22px;font-weight:800;letter-spacing:2px">' + (s.joinCode || '—') + '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Have your partner choose <b>Join an existing household</b> and enter this code to share this data.</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Last synced: ' + _hhSyncRelTime(s.lastSyncAt) + '</div>' +
+      '<div id="sync-msg" style="font-size:12px;margin-bottom:10px"></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button class="btn btn-ghost btn-sm" onclick="hhSyncPullNow()">⬇️ Pull now</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="hhSyncPushNow()">⬆️ Push now</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="hhSyncSignOut()" style="margin-left:auto">Sign out</button>' +
+      '</div>';
+    return;
+  }
+
+  el.innerHTML =
+    '<div style="font-size:13px;line-height:1.5;margin-bottom:8px">Sync Home Hub across your devices, or invite your partner with a join code.</div>' +
+    '<div style="font-size:12px;line-height:1.45;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;color:var(--muted)">' +
+      'These are <b>Home Hub sync</b> credentials — a private login for your data, <b>not</b> your Wix.com dashboard. ' +
+      'First time? Pick <b>Create a new household</b> with any email + password you\'ll remember.</div>' +
+    '<div class="form-row"><label>What do you want to do?</label>' +
+      '<select id="sync-mode" onchange="hhSyncModeChanged()">' +
+        '<option value="signin">Sign in (existing account)</option>' +
+        '<option value="create">Create a new household</option>' +
+        '<option value="join">Join an existing household</option>' +
+      '</select></div>' +
+    '<div class="form-row"><label>Email</label><input type="email" id="sync-email" placeholder="you@example.com" autocomplete="username"></div>' +
+    '<div class="form-row"><label>Password</label><input type="password" id="sync-password" placeholder="At least 6 characters" autocomplete="current-password"></div>' +
+    '<div class="form-row" id="sync-joincode-row" style="display:none"><label>Household join code</label>' +
+      '<input type="text" id="sync-joincode" placeholder="e.g. ABC234" style="text-transform:uppercase"></div>' +
+    '<div id="sync-msg" style="font-size:12px;margin:8px 0"></div>' +
+    '<button class="btn btn-primary" style="width:100%" onclick="hhSyncSubmit()">Continue</button>' +
+    '<div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.4">Joining a household adopts that household\'s data on this device. Make a Backup first (Settings → Backup) if this device has data you want to keep.</div>';
+}
+
+function hhSyncModeChanged() {
+  var mode = (document.getElementById('sync-mode') || {}).value;
+  var row = document.getElementById('sync-joincode-row');
+  if (row) row.style.display = (mode === 'join') ? '' : 'none';
+}
+
+async function hhSyncSubmit() {
+  var email = (document.getElementById('sync-email') || {}).value || '';
+  var pw    = (document.getElementById('sync-password') || {}).value || '';
+  var mode  = (document.getElementById('sync-mode') || {}).value || 'signin';
+  var code  = ((document.getElementById('sync-joincode') || {}).value || '').trim().toUpperCase();
+  email = email.trim();
+
+  if (!email || !pw) { _hhSyncMsg('Enter your email and password.', true); return; }
+  if (mode === 'join' && !code) { _hhSyncMsg('Enter the household join code to join.', true); return; }
+
+  _hhSyncMsg('Working…');
+  var data;
+  try {
+    data = (mode === 'signin')
+      ? await hhSyncLogin(email, pw)
+      : await hhSyncRegister(email, pw, mode === 'join' ? 'join' : 'create', code);
+  } catch (e) { _hhSyncMsg('Network error reaching the sync server.', true); return; }
+
+  if (!data || data.ok !== true) { _hhSyncMsg((data && data.error) || 'Could not sign in.', true); return; }
+
+  hhSyncSet({
+    token: data.token, email: data.email, householdId: data.householdId,
+    joinCode: data.joinCode || null, lastServerAt: null, lastSyncAt: new Date().toISOString()
+  });
+  _hhSyncReady = true;
+  _hhSyncMsg('Signed in — syncing…');
+
+  var pull = await hhSyncPull({});
+  if (pull.ok && pull.loaded) return;   // reload is queued; nothing more to do
+  if (!pull.ok) { _hhSyncMsg(pull.error || 'Signed in, but the first sync failed.', true); hhSyncUpdateBadge(); return; }
+
+  var push = await hhSyncPush();
+  hhSyncUpdateBadge();
+  hhSyncRenderModalBody();
+  if (push && push.ok) { try { hhToast('Sync is on for this device.', '☁️'); } catch (e) {} }
+}
+
+async function hhSyncPullNow() {
+  _hhSyncMsg('Pulling…');
+  var r = await hhSyncPull({ force: true });
+  if (r.ok && r.loaded) return;                 // reload queued
+  if (r.ok) _hhSyncMsg('Already up to date (nothing newer in the cloud).');
+  else _hhSyncMsg(r.error || 'Pull failed.', true);
+}
+
+async function hhSyncPushNow() {
+  _hhSyncMsg('Pushing…');
+  var r = await hhSyncPush();
+  if (r && r.ok) { hhSyncRenderModalBody(); try { hhToast('Pushed to the cloud.', '⬆️'); } catch (e) {} }
+  else _hhSyncMsg((r && r.error) || 'Push failed.', true);
+}
+
+function hhSyncSignOut() {
+  hhConfirm('Sign out of sync on this device? Your data stays on this device; it just stops syncing.', '☁️', 'Sign out of Sync').then(function (ok) {
+    if (!ok) return;
+    hhSyncSet(null);
+    _hhSyncReady = false;
+    hhSyncUpdateBadge();
+    hhSyncRenderModalBody();
+  });
+}
+
+window.HHSync = { init: hhSyncInit, pull: hhSyncPull, push: hhSyncPush };
 
 
 </script>

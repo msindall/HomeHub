@@ -1281,12 +1281,119 @@ function openEditAccount(id) {
   if (rateEl) rateEl.value = a.rewardsRate || '';
   var statusEl = document.getElementById('edit-acct-lookup-status');
   if (statusEl) statusEl.textContent = '';
+  populateCardPresetDropdown(a.presetId || '');
   toggleEditAcctCardDetails();
   openModal('edit-account-modal');
 }
 
 // Account types where a card/account link + rewards/fee details make sense.
 var CARD_DETAIL_TYPES = ['Credit Card', 'Loan', 'Line of Credit', 'Investment'];
+
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 3.2 — Curated Canadian card preset library.
+//
+// Picking a preset in the Edit Account modal auto-fills annual fee, a readable
+// rewards-rate string, and a STRUCTURED `earn` map keyed to the app's own
+// category ids (see defaultCategories() in 01-core.js). The structured data is
+// what the Cashflow Advisor (09-cashflow.js) will use later to route spend to
+// the best-earning card per category.
+//
+// earn map: numbers are the PUBLISHED earn for that category —
+//   • unit:'cashback' → the number is a percent (e.g. 4 = 4% back)
+//   • unit:'points'   → the number is points per $1; multiply by `ptValueCents`
+//                       (approx cents per point) to get an effective percent.
+// `_default` is the base/everything-else rate. Category keys map to: groceries,
+// dining, gas, travel, phone, subscriptions, entertainment, shopping, health,
+// auto. Rates change often — these are typical published values and the user
+// can edit every field before saving.
+// ───────────────────────────────────────────────────────────────────────────
+var CARD_PRESETS = [
+  { id:'cobalt', name:'Amex Cobalt', annualFee:155.88, unit:'points', ptValueCents:1.0,
+    rewardsRate:'5x eats & groceries · 3x streaming · 2x travel/gas · 1x else (MR pts)',
+    earn:{ groceries:5, dining:5, subscriptions:3, entertainment:3, travel:2, gas:2, _default:1 } },
+  { id:'scotia_gold', name:'Scotiabank Gold American Express', annualFee:120, unit:'points', ptValueCents:1.0,
+    rewardsRate:'5x groceries/dining/entertainment · 3x gas/transit/phone · 1x else (Scene+)',
+    earn:{ groceries:5, dining:5, entertainment:5, gas:3, phone:3, subscriptions:3, _default:1 } },
+  { id:'scotia_momentum', name:'Scotiabank Momentum Visa Infinite', annualFee:120, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'4% groceries & recurring · 2% gas & transit · 1% else (cash back)',
+    earn:{ groceries:4, subscriptions:4, phone:2, gas:2, _default:1 } },
+  { id:'cibc_dividend', name:'CIBC Dividend Visa Infinite', annualFee:120, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'4% gas & groceries · 2% dining/recurring · 1% else (cash back)',
+    earn:{ groceries:4, gas:4, dining:2, phone:2, subscriptions:2, _default:1 } },
+  { id:'td_cashback', name:'TD Cash Back Visa Infinite', annualFee:139, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'3% groceries/gas/recurring · 1% else (cash back)',
+    earn:{ groceries:3, gas:3, phone:3, subscriptions:3, _default:1 } },
+  { id:'bmo_cashback_we', name:'BMO CashBack World Elite Mastercard', annualFee:120, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'5% groceries · 4% transit · 3% gas · 0.5% else (cash back)',
+    earn:{ groceries:5, gas:3, _default:0.5 } },
+  { id:'bmo_eclipse', name:'BMO eclipse Visa Infinite', annualFee:120, unit:'points', ptValueCents:0.67,
+    rewardsRate:'5x groceries/dining/gas/transit · 1x else (BMO pts)',
+    earn:{ groceries:5, dining:5, gas:5, _default:1 } },
+  { id:'rbc_avion', name:'RBC Avion Visa Infinite', annualFee:120, unit:'points', ptValueCents:1.5,
+    rewardsRate:'1.25 pts/$1 on eligible travel · 1 pt/$1 else (Avion)',
+    earn:{ travel:1.25, _default:1 } },
+  { id:'tangerine', name:'Tangerine Money-Back Mastercard', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'2% in 3 chosen categories · 0.5% else (cash back)',
+    earn:{ groceries:2, gas:2, dining:2, _default:0.5 } },
+  { id:'rogers_red', name:'Rogers Red World Elite Mastercard', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'1.5% everything (3% on USD purchases) (cash back)',
+    earn:{ _default:1.5 } },
+  { id:'pc_we', name:'PC Financial World Elite Mastercard', annualFee:0, unit:'points', ptValueCents:0.1,
+    rewardsRate:'30 pts/$1 at Loblaw banners · 45 pts/$1 at Shoppers (PC Optimum)',
+    earn:{ groceries:30, health:45, gas:30, _default:10 } },
+  { id:'triangle_we', name:'Canadian Tire Triangle World Elite', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'~3% groceries · ~4% at CT stores & gas bars · 1% else (CT Money)',
+    earn:{ groceries:3, gas:4, _default:1 } },
+  { id:'triangle', name:'Canadian Tire Triangle Mastercard', annualFee:0, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'~4% at Canadian Tire family stores · CT Money at Gas+ · modest else (CT Money)',
+    earn:{ gas:2, _default:1 } },
+  { id:'rbc_ion_plus', name:'RBC ION+ Visa', annualFee:48, unit:'points', ptValueCents:1.0,
+    rewardsRate:'3x groceries/gas/dining/rideshare/transit/streaming · 1x else (Avion pts)',
+    earn:{ groceries:3, gas:3, dining:3, subscriptions:3, entertainment:3, _default:1 } },
+  { id:'rbc_ion', name:'RBC ION Visa', annualFee:0, unit:'points', ptValueCents:1.0,
+    rewardsRate:'1.5x groceries/gas/rideshare/streaming · 1x else (Avion pts)',
+    earn:{ groceries:1.5, gas:1.5, subscriptions:1.5, _default:1 } },
+  { id:'capitalone_guaranteed', name:'Capital One Guaranteed Mastercard', annualFee:59, unit:'cashback', ptValueCents:1.0,
+    rewardsRate:'No rewards — credit-building card (reports to both bureaus)',
+    earn:{ _default:0 } },
+];
+
+function getCardPresetById(id) {
+  return CARD_PRESETS.filter(function(p){ return p.id === id; })[0] || null;
+}
+
+// Fill the preset dropdown; preselect the account's saved preset if any.
+function populateCardPresetDropdown(selectedId) {
+  var sel = document.getElementById('edit-acct-preset');
+  if (!sel) return;
+  var opts = '<option value="">— Pick a Canadian card —</option>';
+  CARD_PRESETS.forEach(function(p) {
+    var fee = p.annualFee ? ' ($' + p.annualFee + ')' : ' (no fee)';
+    opts += '<option value="' + p.id + '"' + (p.id === selectedId ? ' selected' : '') + '>' + p.name + fee + '</option>';
+  });
+  sel.innerHTML = opts;
+}
+
+// Apply the chosen preset to the form. Overwrites fee & rewards rate (the whole
+// point of a quick-fill); only fills the nickname if it's still blank so a
+// user-typed name is never clobbered. Structured earn data is committed on save.
+function applyCardPreset() {
+  var sel = document.getElementById('edit-acct-preset');
+  if (!sel) return;
+  var p = getCardPresetById(sel.value);
+  if (!p) return;
+  var nickEl = document.getElementById('edit-acct-nickname');
+  var feeEl  = document.getElementById('edit-acct-annualfee');
+  var rateEl = document.getElementById('edit-acct-rewardsrate');
+  var statusEl = document.getElementById('edit-acct-lookup-status');
+  if (nickEl && !nickEl.value.trim()) nickEl.value = p.name;
+  if (feeEl)  feeEl.value  = (p.annualFee != null ? p.annualFee : '');
+  if (rateEl) rateEl.value = p.rewardsRate || '';
+  if (statusEl) {
+    statusEl.style.color = 'var(--muted)';
+    statusEl.textContent = '✓ Filled from “' + p.name + '” preset. Edit any field before saving.';
+  }
+}
 
 function toggleEditAcctCardDetails() {
   var box = document.getElementById('edit-acct-card-details');
@@ -1375,6 +1482,17 @@ function saveEditAccount() {
     a.rewardsRate = rateEl ? rateEl.value.trim() : '';
     var feeVal    = feeEl ? parseFloat(feeEl.value) : NaN;
     a.annualFee   = isNaN(feeVal) ? null : feeVal;
+    // Persist the chosen preset + its structured earn data for the Cashflow
+    // Advisor's rewards routing (Phase 3.1). Manual edits to fee/rate above are
+    // kept as-is; the earn map is the machine-readable companion.
+    var presetSel = document.getElementById('edit-acct-preset');
+    var preset    = presetSel ? getCardPresetById(presetSel.value) : null;
+    if (preset) {
+      a.presetId     = preset.id;
+      a.earn         = preset.earn;
+      a.rewardUnit   = preset.unit;
+      a.ptValueCents = preset.ptValueCents;
+    }
   }
   saveState();
   closeModal('edit-account-modal');

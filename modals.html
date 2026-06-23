@@ -416,6 +416,13 @@
     </div>
     <div id="edit-acct-card-details" style="display:none;border-top:2px solid var(--border);margin-top:6px;padding-top:12px">
       <div class="form-row">
+        <label>Quick Fill from Preset</label>
+        <select id="edit-acct-preset" onchange="applyCardPreset()">
+          <option value="">— Pick a Canadian card —</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Auto-fills fee &amp; rewards (editable). Rates are typical published values — verify before saving.</div>
+      </div>
+      <div class="form-row">
         <label>Card / Account Link</label>
         <div style="display:flex;gap:8px">
           <input type="url" id="edit-acct-cardurl" placeholder="Paste the card's web page link" style="flex:1">
@@ -437,6 +444,19 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('edit-account-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditAccount()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CROSS-DEVICE SYNC MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="sync-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title">☁️ Cross-Device Sync</div>
+    <div id="sync-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('sync-modal')">Close</button>
     </div>
   </div>
 </div>

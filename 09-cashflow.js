@@ -224,6 +224,8 @@ function renderCashflow() {
     if (statsEl) statsEl.innerHTML = '';
     if (alertEl) alertEl.innerHTML = '';
     if (chartEl) chartEl.innerHTML = '';
+    var rwEl = document.getElementById('cf-rewards-card');
+    if (rwEl) rwEl.innerHTML = '';
     if (listEl) listEl.innerHTML = _cfEmpty('No accounts yet', 'Add an account (and a starting balance) on the Upload page, then add some bills. The Cashflow Advisor projects your balance forward from there.');
     return;
   }
@@ -271,6 +273,10 @@ function renderCashflow() {
     }
   }
 
+  // Rewards routing (best card per category) — only renders if cards have
+  // structured earn data from a 3.2 preset.
+  renderCfRewards();
+
   // Timeline
   if (listEl) {
     if (!fc.events.length) {
@@ -295,6 +301,103 @@ function renderCashflow() {
         rows + '</div>';
     }
   }
+}
+
+/* ---- Rewards routing (Phase 3.2 data → 3.1 advice) -------------------- */
+// Effective % return for a card in a category. Cashback earn is already a
+// percent; points earn is points-per-$ × approx cents-per-point. Falls back to
+// the card's _default rate when the category isn't a bonus category.
+function _cfCardRate(a, catId) {
+  if (!a || !a.earn) return null;
+  var raw = (a.earn[catId] != null ? a.earn[catId] : a.earn._default);
+  if (raw == null) return null;
+  var unit = a.rewardUnit || 'cashback';
+  var pv = (a.ptValueCents != null ? a.ptValueCents : 1);
+  return unit === 'points' ? raw * pv : raw; // percent
+}
+
+// Cards usable for routing: have structured earn data (set via a 3.2 preset).
+function _cfRewardCards() {
+  return (state.accounts || []).filter(function (a) {
+    return a.earn && (typeof CARD_DETAIL_TYPES === 'undefined' || CARD_DETAIL_TYPES.indexOf(a.type) !== -1);
+  });
+}
+
+// Best card for a category across all reward cards.
+function _cfBestCard(cards, catId) {
+  var best = null;
+  cards.forEach(function (a) {
+    var r = _cfCardRate(a, catId);
+    if (r == null) return;
+    if (!best || r > best.rate) best = { acct: a, rate: r };
+  });
+  return best;
+}
+
+function renderCfRewards() {
+  var el = document.getElementById('cf-rewards-card');
+  if (!el) return;
+  var cards = _cfRewardCards();
+  if (cards.length < 1) {
+    el.innerHTML = '';
+    return;
+  }
+
+  // Which categories to show: any category a card gives a bonus on, limited to
+  // real spending categories (skip income/transfer/savings).
+  var skip = { income: 1, transfer: 1, savings: 1 };
+  var catSet = {};
+  cards.forEach(function (a) {
+    Object.keys(a.earn || {}).forEach(function (k) {
+      if (k !== '_default' && !skip[k]) catSet[k] = 1;
+    });
+  });
+  var catIds = Object.keys(catSet);
+
+  // Order categories by the best rate available, most rewarding first.
+  catIds.sort(function (x, y) {
+    var bx = _cfBestCard(cards, x), by = _cfBestCard(cards, y);
+    return (by ? by.rate : 0) - (bx ? bx.rate : 0);
+  });
+
+  function catName(id) {
+    if (typeof getCatById === 'function') { var c = getCatById(id); if (c && c.name) return c.name; }
+    return id;
+  }
+
+  function rowFor(label, best, baseTag) {
+    if (!best) return '';
+    var fee = (best.acct.annualFee ? ' · $' + best.acct.annualFee + '/yr' : '');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border)">' +
+      '<div style="flex:1;font-weight:700;font-size:13px">' + label + (baseTag ? ' <span style="font-weight:500;color:var(--muted);font-size:11px">' + baseTag + '</span>' : '') + '</div>' +
+      '<div style="flex:1.3;font-size:12px;color:var(--muted)">' + best.acct.nickname + fee + '</div>' +
+      '<div style="width:72px;text-align:right;font-weight:800;color:var(--green)">' + best.rate.toFixed(2) + '%</div>' +
+      '</div>';
+  }
+
+  var rows = catIds.map(function (id) { return rowFor(catName(id), _cfBestCard(cards, id)); }).join('');
+  // "Everything else" — best base rate.
+  var baseBest = null;
+  cards.forEach(function (a) {
+    var r = _cfCardRate(a, '_default');
+    if (r == null) return;
+    if (!baseBest || r > baseBest.rate) baseBest = { acct: a, rate: r };
+  });
+  rows += rowFor('Everything else', baseBest, 'base rate');
+
+  // Legend: cards considered, with their fees.
+  var legend = cards.map(function (a) {
+    return a.nickname + (a.annualFee ? ' ($' + a.annualFee + ')' : ' (no fee)');
+  }).join(' · ');
+
+  el.innerHTML = '<div class="card" style="margin-bottom:0">' +
+    '<div class="card-title">🎯 Best Card to Use, by Category</div>' +
+    '<div style="font-size:12px;color:var(--muted);margin:-4px 0 8px">Effective return after converting points to cash. Pay the balance in full before the due date so interest never eats the reward.</div>' +
+    '<div style="display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">' +
+    '<div style="flex:1">Category</div><div style="flex:1.3">Use this card</div><div style="width:72px;text-align:right">Return</div></div>' +
+    rows +
+    '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4">Comparing: ' + legend + '. Set a card via Upload → ✏️ Edit Account → “Quick Fill from Preset”. Rates are typical published values — verify on your statement.</div>' +
+    '</div>';
 }
 
 function _cfStat(label, value, sub, color) {

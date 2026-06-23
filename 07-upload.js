@@ -2919,6 +2919,7 @@ function _initApp() {
     brand.appendChild(badge);
   }
   try { if (window.HHHome) HHHome.init(); } catch(e) {}
+  try { if (window.HHSync) HHSync.init(); } catch(e) {}
 }
 
 var THEMES = {
