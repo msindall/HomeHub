@@ -56,6 +56,30 @@ function hhSyncRegister(email, password, mode, joinCode) {
   });
 }
 
+/* ---- gzip helpers (native CompressionStream) -------------------------- */
+// Wix Data caps a single item at ~500 KB, which the raw state JSON can exceed.
+// We gzip it (text compresses ~5-8x) and base64 it for transport/storage,
+// tagged 'GZ1:' so pull knows to inflate. Untagged payloads (older or fallback)
+// are treated as plain JSON, so this stays backward-compatible.
+async function _hhGzip(str) {
+  var cs = new CompressionStream('gzip');
+  var stream = new Blob([str]).stream().pipeThrough(cs);
+  var buf = new Uint8Array(await new Response(stream).arrayBuffer());
+  var bin = '';
+  for (var i = 0; i < buf.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+async function _hhGunzip(b64) {
+  var bin = atob(b64);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  var ds = new DecompressionStream('gzip');
+  var stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return await new Response(stream).text();
+}
+
 /* ---- pull ------------------------------------------------------------- */
 // opts.force = adopt the cloud copy even if it isn't newer.
 async function hhSyncPull(opts) {
@@ -75,12 +99,17 @@ async function hhSyncPull(opts) {
   var shouldLoad = !!data.stateJson && (opts.force || remoteMs > seenMs);
 
   if (shouldLoad) {
-    try { JSON.parse(data.stateJson); }            // validate before adopting
+    var stateStr = data.stateJson;
+    if (stateStr.indexOf('GZ1:') === 0) {
+      try { stateStr = await _hhGunzip(stateStr.slice(4)); }
+      catch (e) { return { ok: false, error: 'Could not decompress cloud data; not applied.' }; }
+    }
+    try { JSON.parse(stateStr); }                  // validate before adopting
     catch (e) { return { ok: false, error: 'Cloud data was unreadable; not applied.' }; }
     s.lastServerAt = data.updatedAt;
     s.lastSyncAt   = new Date().toISOString();
     hhSyncSet(s);
-    try { hhStorageSet(KEY, data.stateJson); } catch (e) {}   // write straight to local store
+    try { hhStorageSet(KEY, stateStr); } catch (e) {}   // write straight to local store
     // Reload so the new state applies everywhere. The lastServerAt marker we
     // just saved stops the post-reload pull from reloading again.
     setTimeout(function () { window.location.reload(); }, 200);
@@ -101,8 +130,10 @@ function hhSyncSchedulePush() {
 async function hhSyncPush() {
   var s = hhSyncGet();
   if (!s || !s.token) return { ok: false, error: 'Not signed in' };
-  var payload;
-  try { payload = JSON.stringify(state); } catch (e) { return { ok: false, error: 'Could not serialize state' }; }
+  var raw;
+  try { raw = JSON.stringify(state); } catch (e) { return { ok: false, error: 'Could not serialize state' }; }
+  var payload = raw;
+  try { payload = 'GZ1:' + await _hhGzip(raw); } catch (e) { payload = raw; }  // fallback: uncompressed
   var data;
   try {
     data = await _hhSyncJson('/syncSave', {
