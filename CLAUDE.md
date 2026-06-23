@@ -31,6 +31,9 @@ Source files live flat in this folder (the `src/` subdirectory structure describ
 | `05-household.js` | Net worth, car funds, home maintenance, Ontario tax prep, retirement projector, pets page |
 | `06-insights.js` | Tips tracker (Holly), grocery/shopping list, Flipp flyer scanner, pantry, meal planner, recipes, wedding checklist |
 | `07-upload.js` | Bank statement upload (CSV + AI-PDF), career planner, data export/import, setup wizard, theme system, forecast/budget charts, feature toggles, `_initApp()` |
+| `08-home.js` | Home/Lot View (the visual yard: goals-as-plants, trees, weather FX) — `HHHome.init()` |
+| `09-cashflow.js` | Cashflow Advisor — forward forecast, shortfall flags, and **rewards routing** ("Best Card to Use, by Category"). Behind the `cashflow` feature toggle |
+| `10-sync.js` | **Cross-device sync client** — ☁️ Sync panel, login/register/join, auto pull-on-open + debounced push-on-save, gzip payload. `HHSync.init()` called at end of `_initApp()` |
 
 **To build after editing:**
 ```bash
@@ -82,6 +85,20 @@ cmd /c "cd /d D:\Claude\Home Planner && python deploy_github.py"   (updates inde
 cmd /c "cd /d D:\Claude\Home Planner && git add -A && git add -f App_VX_Y.html && git commit -m "Deploy Home Hub vX.Y" && git push"
 ```
 Note: `App_V*.html` is gitignored, so the build file must be force-added with `git add -f`.
+
+**Deploy gotchas (learned v7.1):**
+- **Commit messages run through PowerShell** (Desktop Commander's shell), so `git
+  commit -m "..."` breaks on `(`, `)`, em-dashes, and nested quotes — PowerShell
+  tries to execute the parenthesised text. Keep commit messages to plain words,
+  commas, and hyphens only.
+- **`deploy_github.py` throws a `UnicodeEncodeError`** at the end when it prints a
+  `→` in the one-time GitHub-Pages help text (cp1252 console). This is **harmless** —
+  it already wrote `index.html` before the crash. Don't "fix" it by chasing the
+  traceback.
+- **Release tag ≠ build number.** Git tags use a tidy semver (`v7.0.1`, `v7.1`,
+  `v7.1.1`) while the build file keeps incrementing (`App_V7_3`, `App_V7_8`,
+  `App_V7_9`). e.g. tag `v7.1.1` ↔ build `App_V7_9.html`. Don't rebuild just to make
+  the numbers match — deploy the latest existing build.
 
 ---
 
@@ -145,6 +162,52 @@ The API key is stored in `localStorage` (key `hh_api_key`) and sent only to `api
 When editing AI features: keep `maxTokens` conservative; the app pays per token from Matt's own API key.
 
 ---
+
+## Cross-Device Sync (Phase 0.5, Option A — Wix backend) — shipped v7.1
+
+Home Hub stays a static file; it "phones" a Wix Velo backend to share state across
+devices. **Client:** `10-sync.js`. **Backend:** `wix-backend/http-functions.js`
+(deployed by pasting into the Wix Editor → Backend → http-functions.js, then
+Publish — NOT part of `build.py`). Setup steps: `wix-backend/SYNC_SETUP.md`.
+
+- **Identity:** real Wix Members accounts, but the static file can't use Wix's
+  in-page login, so credentials are POSTed to `authRegister` / `authLogin`, which
+  use `wix-members-backend` to store/verify passwords and return our own opaque
+  session token (localStorage key `hh_sync`, separate from `hh_api_key`).
+- **Data model:** state is shared per **household**, so two people each log in but
+  see one dataset. Create a household → get a 6-char join code; the other person
+  picks "Join an existing household" + that code.
+- **Sync:** auto pull on app open (reloads the page if the cloud copy is newer than
+  this device last saw), debounced push ~2.5 s after every `saveState()` (the wrap
+  is set up in `10-sync.js`). Conflict model: last-write-wins by `updatedAt`.
+- **Payload is gzipped** via native `CompressionStream`, base64'd, tagged `GZ1:`,
+  to stay under Wix Data's **500 KB per-item** cap (this fixed error `WDE0009`).
+  Pull auto-detects `GZ1:` vs raw JSON, so it's backward-compatible.
+
+### Wix gotchas (load-bearing — learned the hard way)
+- **Collection ID ≠ display name.** CSV-imported collections get auto IDs. Ours are
+  `HomeHubHouseholds → Import1`, `HomeHubMembers → Import2`, `HomeHubSessions →
+  Import3`. The backend references the **IDs** (`Import1/2/3`). `wixData` queries by
+  ID, not the friendly name. If a collection is recreated, re-check its ID (via the
+  CMS or the Wix Data REST API `GET /wix-data/v2/collections`).
+- **Backend data calls use `{ suppressAuth: true }`** so they work regardless of
+  collection permissions.
+- **Site owner email can't self-register** as a member — use a distinct email
+  (Gmail `+alias` works) when testing fresh accounts.
+- **Velo HTTP functions** must return `wix-http-functions` builders (`ok`,
+  `badRequest`, …), not plain objects, and need `options_*` CORS preflight handlers
+  for POST endpoints.
+- A live Wix MCP is available in this workspace and can list/inspect the site's
+  collections directly — handy for diagnosing ID mismatches without UI hunting.
+
+## Account Presets (Phase 3.2)
+
+`CARD_PRESETS` in `03-finance.js` is a curated Canadian card/account library. The
+Edit Account modal's "Quick Fill from Preset" dropdown auto-fills annual fee +
+rewards-rate string and persists a structured `earn` map (keyed to category ids),
+plus `rewardUnit` and `ptValueCents`. The Cashflow Advisor (`09-cashflow.js`) reads
+those to compute an effective % return per category. To add a card, append to
+`CARD_PRESETS` (verify rates against the issuer — they change).
 
 ## Feature Toggle System
 

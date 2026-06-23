@@ -1,6 +1,26 @@
 # Home Hub — Feature Roadmap (post-V7)
 
-Last updated: 2026-06-22
+Last updated: 2026-06-23 (release **v7.1.1**, build App_V7_9.html)
+
+> **Shipped since v7.0.1 (this session):**
+> - **Phase 3.2 — Account presets:** curated Canadian card library (16 cards incl.
+>   Amex Cobalt, Scotia Gold/Momentum, CIBC Dividend, TD/BMO cash back, BMO eclipse,
+>   RBC Avion VI + **ION/ION+**, Tangerine, Rogers, PC WE, **Canadian Tire Triangle
+>   (regular + World Elite)**, **Capital One Guaranteed**). "Quick Fill from Preset"
+>   dropdown in Edit Account auto-fills fee/rewards + a structured `earn` map.
+> - **Phase 3.1 — Rewards routing:** Cashflow Advisor now shows "Best Card to Use,
+>   by Category," normalizing cash-back vs points to an effective %. Phase 3 closed.
+> - **Phase 0.5a/b — Cross-device sync + login (Option A):** new `10-sync.js` +
+>   ☁️ Sync sidebar panel. Real Wix Members credentials handled via our own HTTP
+>   functions; state shared per **household** (create / join-by-code). Auto pull on
+>   open + debounced push on save. State is **gzipped** (native CompressionStream,
+>   `GZ1:` tag) to stay under Wix Data's 500 KB/item cap (fixed WDE0009).
+>
+> **Backend reality learned:** the app is a static file, so it can't use Wix's
+> in-page Members login — credentials go through `authRegister`/`authLogin` HTTP
+> functions instead. CSV-imported collections get auto IDs (`Import1/2/3`), not
+> their display names — the backend references the real IDs. Site **owner** email
+> can't self-register as a member; use a Gmail `+alias`.
 
 > **Update (2026-06-22): Phase 0 is no longer hypothetical — the Wix backend is
 > proven and live.** The `cardLookup` proxy fetches an external page server-side
@@ -49,14 +69,14 @@ be some of your best ideas.
 | Flowers & trees (selectable) | ✅ Easy, cosmetic | Phase 1 |
 | Scenery / sky / ponds around the lot | ✅ Moderate, cosmetic | Phase 2 |
 | Achievements & rewards system | ✅ Great fit, pure client-side | Phase 2 |
-| **Cashflow Advisor** | ✅ **Highest value, fully feasible** | Phase 3 |
-| Account rewards/rates (manual + presets) | ✅ via curated DB + manual entry | Phase 3 |
+| **Cashflow Advisor** | ✅ **SHIPPED v7.1** (forecast + rewards routing) | Phase 3 |
+| Account rewards/rates (manual + presets) | ✅ **SHIPPED v7.1** (preset library) | Phase 3 |
 | Receipt scanner (itemized) | ✅ Extends existing Vision pipeline | Phase 4 |
 | Simplified / guided setup wizard | ✅ Feasible (UI work) | Phase 4 |
 | **Wix backend (card-lookup proxy)** | ✅ **PROVEN LIVE (2026-06-22)** | Phase 0 ✔ |
 | Account rewards/rates pulled from a URL | ✅ Now feasible — backend fetches server-side (JS-only fields still need 3.2) | Phase 0/3.2 |
-| Cross-device sync (Matt & Holly) | ✅ Now feasible via Wix Data | Phase 0.5 |
-| Real per-user login | ✅ Now feasible via Wix Members | Phase 0.5 |
+| Cross-device sync (Matt & Holly) | ✅ **SHIPPED v7.1** (per-household, gzipped) | Phase 0.5 |
+| Real per-user login | ✅ **SHIPPED v7.1** (Wix Members via HTTP fns) | Phase 0.5 |
 | Hide Anthropic API key server-side | ✅ Now feasible via Wix Secrets | Phase 0.5 |
 | Basic social (share recipes/achievements) | ✅ Now feasible via shared DB | Later |
 | Google login (basic profile only) | ⚠️ Limited — login yes, data import no | Phase 5 |
@@ -147,14 +167,23 @@ server now exists, so they're real — but each changes the app's data model or 
 so they deserve deliberate design rather than a rushed bolt-on. Sequenced after the
 high-value financial work (Phase 3), not before.
 
-**0.5a Cross-device sync (Matt & Holly).** The biggest life-changing unlock for a
-two-person household — both of you seeing the same data. Store `state` in Wix Data
-behind a Wix Members login; the browser reads/writes through HTTP functions. Needs
-a schema design pass and a conflict/merge strategy (last-write-wins is the simple
-start). Highest value of the Phase 0.5 items.
+**0.5a Cross-device sync (Matt & Holly). ✅ SHIPPED v7.1.** Both of you see the
+same data. `state` is stored per **household** in Wix Data (collection
+`HomeHubHouseholds`, real ID `Import1`); the browser reads/writes via the
+`syncSave`/`syncLoad` HTTP functions. Auto pull on app open (reloads if the cloud
+copy is newer than what this device last saw), debounced push ~2.5 s after any
+`saveState()`. Conflict model: last-write-wins by `updatedAt`. Payload is gzipped
+(`GZ1:` tag) to fit Wix's 500 KB/item cap. Client lives in `10-sync.js`; UI is the
+☁️ Sync sidebar panel. **Still possible later:** `wix-realtime` live push, media
+hosting for big binaries, chunked state if data ever exceeds ~2–3 MB.
 
-**0.5b Real per-user login (Wix Members).** Replaces "whoever opens the file" with
-actual accounts — the prerequisite for 0.5a and any sharing. Do alongside 0.5a.
+**0.5b Real per-user login (Wix Members). ✅ SHIPPED v7.1.** Real accounts via Wix
+Members. Because Home Hub is a static file (not a page on the Wix site), it can't
+use Wix's in-page login — credentials are POSTed to `authRegister`/`authLogin`,
+which use `wix-members-backend` to store/verify the password, then return our own
+opaque session token (stored in localStorage `hh_sync`). Members in `HomeHubMembers`
+(`Import2`), sessions in `HomeHubSessions` (`Import3`). NOTE: the site owner's email
+can't self-register as a member — use a distinct email (Gmail `+alias` works).
 
 **0.5c Move the Anthropic API key server-side (Wix Secrets).** Today the key sits
 in `localStorage` and is sent from the browser. Routing Vision/AI calls through a
@@ -436,17 +465,14 @@ cross-device sync from "impossible" to a real mid-list item.
 1. ~~**Finish card-lookup wiring**~~ ✅ **DONE (V7.1)** — card-link field + "Look up"
    button live in the Edit Account modal, calling the proven proxy end-to-end.
    Phase 0 is fully closed.
-2. **Phase 3 — Cashflow Advisor + account presets** *(the real value)* — still
-   needs no backend; pure logic over data you already hold. Build as `08-cashflow.js`.
-   3.2's presets now get optional auto-fill from step 1.
-3. **Phase 1 — default Lot View, live weather, flowers & trees** *(quick wins)* —
-   no longer have to go first; use them as low-risk palate-cleansers between the
-   heavier financial work.
-4. **Phase 0.5 — cross-device sync + Members login + server-side API key** *(newly
-   feasible)* — the most life-changing newly-unlocked work for a two-person
-   household. Deferred to here because it changes the data model and deserves its
-   own design pass (Wix Data schema, conflict handling).
-5. **Phase 2 — achievements, scenery** *(engagement)*.
+2. ~~**Phase 3 — Cashflow Advisor + account presets**~~ ✅ **DONE (v7.1)** —
+   forecast + shortfall flags (`09-cashflow.js`), account presets, and rewards
+   routing all shipped. Phase 3 closed.
+3. ~~**Phase 1 — default Lot View, live weather, flowers & trees**~~ ✅ **DONE (V7.3)**.
+4. ~~**Phase 0.5a/b — cross-device sync + Members login**~~ ✅ **DONE (v7.1)** —
+   `10-sync.js` + Wix backend. **0.5c (server-side API key)** and **0.5d (basic
+   social)** still open.
+5. **Phase 2 — achievements, scenery** *(engagement)* — NEXT recommended.
 6. **Phase 4 — receipt scanner, guided setup wizard** *(smarter input)*.
 7. **Phase 5 — Google login (basic), deep-link integrations** *(nice-to-haves)*.
    Basic social (0.5d) also slots in around here once sync exists.
