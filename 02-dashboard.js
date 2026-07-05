@@ -110,8 +110,7 @@ function renderDashboard() {
   }).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px 0">No transactions yet — upload a statement!</div>';
 
   document.getElementById('dash-goals').innerHTML = (state.goals||[]).slice(0,4).map(g=>{
-    const contributed = getGoalContributions(g.id);
-    const totalSaved = g.current + contributed;
+    const totalSaved = goalSavedAmount(g);
     const pct=Math.min(100,Math.round((totalSaved/g.target)*100));
     return '<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px"><span>'+g.emoji+' '+g.name+'</span><span style="color:var(--muted)">'+pct+'%</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:var(--accent)"></div></div><div style="font-size:11px;color:var(--muted)">'+fmt(totalSaved)+' of '+fmt(g.target)+'</div></div>';
   }).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px 0">No goals yet — add them in the Goals tab!</div>';
@@ -159,7 +158,7 @@ function renderDashboard() {
   if (dashHouse && isFeatureOn('house')) {
     var h = state.house || {};
     if (h.targetPrice) {
-      var price = h.targetPrice, saved = h.savedAmount||0, monthly = h.monthlyContribution||0;
+      var price = h.targetPrice, saved = houseSavedAmount(h), monthly = h.monthlyContribution||0;
       var pct20 = Math.min(100, Math.round((saved/(price*0.20))*100));
       var months20 = calcHouseProjection(price, saved, monthly, 0.20);
       var nextMilestone = saved < price*0.05 ? '5% Down' : saved < price*0.10 ? '10% Down' : saved < price*0.20 ? '20% Down' : null;
@@ -224,17 +223,17 @@ function renderDashboard() {
   if (dashCars && isFeatureOn('carfunds')) {
     var carFunds = state.carFunds || [];
     if (carFunds.length) {
-      var totalSaved = carFunds.reduce(function(s,c){ return s+(c.savedAmount||0); },0);
+      var totalSaved = carFunds.reduce(function(s,c){ return s+carFundSavedAmount(c); },0);
       var totalTarget = carFunds.reduce(function(s,c){ return s+(c.targetPrice||0); },0);
       var pct = totalTarget > 0 ? Math.min(100, Math.round(totalSaved/totalTarget*100)) : 0;
-      var nearest = carFunds.slice().filter(function(c){ return (c.targetPrice||0)>(c.savedAmount||0); })
+      var nearest = carFunds.slice().filter(function(c){ return (c.targetPrice||0)>carFundSavedAmount(c); })
         .sort(function(a,b){
-          function mo(c){ var rem=Math.max(0,(c.targetPrice||0)-(c.savedAmount||0)); var contrib=c.monthlyContrib||1; return rem/contrib; }
+          function mo(c){ var rem=Math.max(0,(c.targetPrice||0)-carFundSavedAmount(c)); var contrib=c.monthlyContrib||1; return rem/contrib; }
           return mo(a)-mo(b);
         })[0];
       var nearestStr = '';
       if (nearest) {
-        var remMo = Math.max(0,(nearest.targetPrice||0)-(nearest.savedAmount||0));
+        var remMo = Math.max(0,(nearest.targetPrice||0)-carFundSavedAmount(nearest));
         var contrib = nearest.monthlyContrib||0;
         if (contrib > 0) {
           var months = Math.ceil(remMo/contrib);

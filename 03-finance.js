@@ -1699,9 +1699,59 @@ function goalSavedAmount(g) {
   return (g.current || 0) + getGoalContributions(g.id);
 }
 
+// Canonical "saved" figure for the House goal. If a savings goal is linked
+// (state.house.linkedGoalId), defer entirely to that goal's own saved amount
+// (which itself prefers a linked account balance over manual/transaction math).
+// Otherwise fall back to the manual house.savedAmount field.
+function houseSavedAmount(h) {
+  h = h || (state.house || {});
+  if (h.linkedGoalId) {
+    var g = (state.goals || []).find(function(x){ return x.id === h.linkedGoalId; });
+    if (g) return goalSavedAmount(g);
+  }
+  return h.savedAmount || 0;
+}
+
+// Canonical "saved" figure for the Wedding goal. Same precedence as houseSavedAmount:
+// linked goal (account-first) > legacy wedding-categorized transaction total.
+function weddingSavedAmount() {
+  var w = state.wedding || {};
+  if (w.linkedGoalId) {
+    var g = (state.goals || []).find(function(x){ return x.id === w.linkedGoalId; });
+    if (g) return goalSavedAmount(g);
+  }
+  return (typeof getWeddingContributions === 'function') ? getWeddingContributions() : 0;
+}
+
+// Canonical "saved" figure for a Car Fund. Prefers a linked account balance
+// (c.accountId) over the manual savedAmount + car:<id> transaction total.
+function carFundSavedAmount(c) {
+  if (!c) return 0;
+  if (c.accountId) {
+    var bal = getAccountBalance(c.accountId);
+    return bal != null ? Math.max(0, bal) : 0;
+  }
+  return (c.savedAmount || 0) + getCarFundContributions(c.id);
+}
+
 // (Re)populate the goal modal's account picker from state.accounts.
 function populateGoalAccountSelect() {
   var sel = document.getElementById('goal-account');
+  if (!sel) return;
+  var keep = sel.value;
+  var opts = '<option value="">— None (track manually) —</option>';
+  (state.accounts || []).forEach(function(a) {
+    var label = a.nickname || a.name || a.type || 'Account';
+    var who = a.isJoint ? 'Joint' : (a.person || '');
+    opts += '<option value="' + a.id + '">' + label + (who ? ' — ' + who : '') + '</option>';
+  });
+  sel.innerHTML = opts;
+  sel.value = keep;
+}
+
+// (Re)populate the car fund modal's account picker from state.accounts.
+function populateCarAccountSelect() {
+  var sel = document.getElementById('car-account');
   if (!sel) return;
   var keep = sel.value;
   var opts = '<option value="">— None (track manually) —</option>';

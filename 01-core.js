@@ -317,6 +317,7 @@ function defaultState() {
     weddingChecklist: [],
     recipes: [],
     careerData: {},
+    dismissedReminders: {},
   };
 }
 
@@ -462,6 +463,7 @@ let state = loadState();
   if (!state.mealPlanDayOrder)  { state.mealPlanDayOrder  = null; }
   if (!state.mealPlanDates)     { state.mealPlanDates     = {};  }
   if (!state.careerData)        { state.careerData        = {};  saveState(); }
+  if (!state.dismissedReminders){ state.dismissedReminders = {};  saveState(); }
 
   var changed = false;
   state.transactions.forEach(function(t) {
@@ -1116,7 +1118,7 @@ function buildReminders() {
   if ((state.goals||[]).length) {
     var bestGoal = null, bestMsg = '';
     (state.goals||[]).forEach(function(g) {
-      var saved = g.current + getGoalContributions(g.id);
+      var saved = goalSavedAmount(g);
       var pct = g.target > 0 ? Math.round(saved / g.target * 100) : 0;
       var milestones = [25, 50, 75, 90, 100];
       milestones.forEach(function(m) {
@@ -1141,7 +1143,7 @@ function buildReminders() {
 
   if (isFeatureOn('carfunds')) {
     (state.carFunds || []).forEach(function(c) {
-      var saved = (c.savedAmount||0) + getCarFundContributions(c.id);
+      var saved = carFundSavedAmount(c);
       var target = c.financing ? (c.downPayment||0) : (c.targetPrice||0);
       if (!target || !c.monthlyContrib) return;
       var remaining = Math.max(0, target - saved);
@@ -1181,7 +1183,7 @@ function buildReminders() {
 
   if (isFeatureOn('house') && (state.house||{}).targetPrice) {
     var h = state.house;
-    var saved2 = (h.savedAmount||0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
+    var saved2 = houseSavedAmount(h);
     var milestoneAmounts = [h.targetPrice * 0.05, h.targetPrice * 0.10, h.targetPrice * 0.20];
     var milestoneLabels  = ['5% minimum down payment', '10% down payment', '20% down — no CMHC!'];
     for (var mi = 0; mi < milestoneAmounts.length; mi++) {

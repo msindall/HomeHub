@@ -3379,7 +3379,7 @@ function renderForecast(){
     var goalColors = ['#e07a9a','#9b7fbd','#c97d5a','#5a9e7a','#5bb8f7','#f59e0b'];
     (state.goals||[]).forEach(function(g, gi){
       var color = g.color || goalColors[gi % goalColors.length];
-      var currentSaved = g.current + getGoalContributions(g.id);
+      var currentSaved = goalSavedAmount(g);
       var numGoals = Math.max((state.goals||[]).length, 1);
       var monthlyToGoal = Math.max(0, avgSurplus) / numGoals;
       var gData = [];
@@ -3517,14 +3517,14 @@ function renderForecast(){
     });
 
     var activeGoals = (state.goals||[]).filter(function(g){
-      return (g.current + getGoalContributions(g.id)) < g.target;
+      return goalSavedAmount(g) < g.target;
     });
     if(activeGoals.length > 0 && remaining > 0){
       var perGoal = remaining / activeGoals.length;
       activeGoals.forEach(function(g){
         var goalColors2 = {'wedding':'var(--member2)','house':'var(--green)','car':'var(--purple)','travel':'var(--accent)'};
         var gColor = goalColors2[g.name.toLowerCase()] || 'var(--accent)';
-        var saved = g.current + getGoalContributions(g.id);
+        var saved = goalSavedAmount(g);
         var left = g.target - saved;
         var moToGoal = left > 0 ? Math.ceil(left / Math.max(1, perGoal)) : 0;
         alloc.push({ color:gColor, bg:'var(--surface)', border:gColor,
@@ -3563,7 +3563,7 @@ function renderForecast(){
     var numGoals2 = Math.max((state.goals||[]).length, 1);
     var monthlyPerGoal = avgSurplus > 0 ? avgSurplus / numGoals2 : 0;
     (state.goals||[]).forEach(function(g){
-      var saved = g.current + getGoalContributions(g.id);
+      var saved = goalSavedAmount(g);
       var pct = Math.min(100, Math.round(saved/Math.max(1,g.target)*100));
       var left = Math.max(0, g.target - saved);
       var moLeft = left>0 && monthlyPerGoal>0 ? Math.ceil(left/monthlyPerGoal) : 0;
@@ -3897,7 +3897,7 @@ function generateMonthlyReport() {
   var nwChange = (nwCur && nwPrev) ? nwCur.netWorth - nwPrev.netWorth : null;
 
   var goalRows = (state.goals||[]).map(function(g){
-    var saved = (g.current||0) + (typeof getGoalContributions==='function' ? getGoalContributions(g.id) : 0);
+    var saved = (typeof goalSavedAmount==='function') ? goalSavedAmount(g) : (g.current||0);
     var pct = g.target>0 ? Math.round((saved/g.target)*100) : 0;
     return '<tr><td>'+(g.emoji||'')+' '+g.name+'</td><td style="text-align:right">$'+saved.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       +'<td style="text-align:right">$'+g.target.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'

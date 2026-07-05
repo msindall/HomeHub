@@ -174,8 +174,10 @@
   function billsOnTimeScore(){var bs=S().bills||[];if(!bs.length)return null;var t0=new Date();t0.setHours(0,0,0,0);var over=bs.filter(function(b){if(!b.nextDue)return false;return new Date(b.nextDue+'T00:00:00')<t0;}).length;return (bs.length-over)/bs.length;}
   function maintScore(){var ts=(S().maintenanceTasks||[]).filter(function(t){return t.intervalDays;});if(!ts.length)return null;var t0=new Date();t0.setHours(0,0,0,0);var over=ts.filter(function(t){var nd=(typeof getMaintenanceNextDue==='function')?getMaintenanceNextDue(t):null;return nd&&nd<t0;}).length;return (ts.length-over)/ts.length;}
   function petsScore(){var ps=S().pets||[];if(!ps.length)return null;var pf=S().petFeeding||{};var day=new Date().toISOString().split('T')[0];var fed=ps.filter(function(p){var r=pf[p.id];return r&&r.fed&&r.date===day;}).length;return fed/ps.length;}
-  function weddingScore(){var w=S().wedding||{};if(!(w.budget>0))return null;var c=(typeof getWeddingContributions==='function')?getWeddingContributions():0;return clamp01(c/w.budget);}
-  function houseScore(){var h=S().house||{};if(!(h.targetPrice>0))return null;var dp=h.targetPrice*0.2;var fhsa=h.fhsa?((h.fhsa.mattBalance||0)+(h.fhsa.hollyBalance||0)):0;return clamp01(((h.savedAmount||0)+fhsa)/dp);}
+  function weddingScore(){var w=S().wedding||{};var lg=w.linkedGoalId?(S().goals||[]).find(function(g){return g.id===w.linkedGoalId;}):null;
+    if(lg&&lg.target>0){var sv=(typeof weddingSavedAmount==='function')?weddingSavedAmount():((typeof goalSavedAmount==='function')?goalSavedAmount(lg):0);return clamp01(sv/lg.target);}
+    if(!(w.budget>0))return null;var c=(typeof getWeddingContributions==='function')?getWeddingContributions():0;return clamp01(c/w.budget);}
+  function houseScore(){var h=S().house||{};if(!(h.targetPrice>0))return null;var dp=h.targetPrice*0.2;var fhsa=h.fhsa?((h.fhsa.mattBalance||0)+(h.fhsa.hollyBalance||0)):0;var sv=(typeof houseSavedAmount==='function')?houseSavedAmount(h):(h.savedAmount||0);return clamp01((sv+fhsa)/dp);}
   function retirementScore(){try{if(typeof getRetInputs!=='function'||typeof _retCalcMember!=='function'||typeof getHHMembers!=='function')return null;var rd=getRetInputs();var ms=getHHMembers();if(!ms.some(function(m){var d=rd.members[m.id]||{};return d.age&&d.retireAge;}))return null;var gr=rd.growthRate||5;var act=ms.map(function(m,i){return _retCalcMember(m,rd,gr,i);}).filter(function(c){return c.d.age&&c.d.retireAge;});var hhMo=act.reduce(function(s,c){return s+c.totalMonthly;},0);var cur=act.reduce(function(s,c){return s+(c.effSalary||0);},0);if(cur<=0)return null;return clamp01((hhMo/(cur/12))/0.8);}catch(e){return null;}}
 
   function computeNeeds(){
@@ -190,18 +192,23 @@
   }
 
   function fmtDays(days){return days<0?Math.abs(days)+'d overdue':days===0?'today':days===1?'tomorrow':'in '+days+'d';}
+  function isoDay(d){return d.toISOString().split('T')[0];}
   function buildReminders(){
     var st=S(), out=[], DAY=86400000;
     var t0=new Date(); t0.setHours(0,0,0,0);
-    (st.maintenanceTasks||[]).forEach(function(t){if(!t.intervalDays)return;var nd=(typeof getMaintenanceNextDue==='function')?getMaintenanceNextDue(t):null;if(!nd)return;var days=Math.ceil((nd-t0)/DAY);if(days>7)return;out.push({emoji:(t.emoji||'🔧'),text:(t.name||'Maintenance'),sub:fmtDays(days),days:days,urg:days<0?0:1,go:'maintenance'});});
-    (st.bills||[]).forEach(function(b){if(!b.nextDue)return;var d=new Date(b.nextDue+'T00:00:00');var days=Math.ceil((d-t0)/DAY);if(days>7)return;out.push({emoji:'🧾',text:(b.name||'Bill'),sub:((typeof fmt==='function')?fmt(b.amount||0):'$'+(b.amount||0))+' · '+fmtDays(days),days:days,urg:days<0?0:1,go:'bills'});});
-    (st.calEvents||[]).forEach(function(e){var ds=e.date||e.start;if(!ds)return;var d=new Date(ds);if(isNaN(d.getTime()))return;d.setHours(0,0,0,0);var days=Math.round((d-t0)/DAY);if(days<0||days>7)return;out.push({emoji:'📅',text:(e.title||e.summary||'Event'),sub:fmtDays(days),days:days,urg:days<=1?1:2,go:'calendar'});});
-    (function(){var now=new Date(),yr=now.getFullYear(),mar1=new Date(yr,2,1);if(mar1<t0)mar1=new Date(yr+1,2,1);var days=Math.ceil((mar1-t0)/DAY);if(days<=60)out.push({emoji:'🍁',text:'RRSP contribution deadline',sub:'in '+days+'d ('+mar1.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+')',days:days,urg:days<=14?0:2,go:'tax'});})();
-    (function(){var now=new Date(),yr=now.getFullYear(),apr30=new Date(yr,3,30);if(apr30<t0)apr30=new Date(yr+1,3,30);var days=Math.ceil((apr30-t0)/DAY);if(days<=45)out.push({emoji:'🧮',text:'Tax filing deadline',sub:'in '+days+'d ('+apr30.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+')',days:days,urg:days<=14?0:2,go:'tax'});})();
+    (st.maintenanceTasks||[]).forEach(function(t){if(!t.intervalDays)return;var nd=(typeof getMaintenanceNextDue==='function')?getMaintenanceNextDue(t):null;if(!nd)return;var days=Math.ceil((nd-t0)/DAY);if(days>7)return;out.push({key:'maint:'+(t.id||t.name)+':'+isoDay(nd),emoji:(t.emoji||'🔧'),text:(t.name||'Maintenance'),sub:fmtDays(days),days:days,urg:days<0?0:1,go:'maintenance'});});
+    (st.bills||[]).forEach(function(b){if(!b.nextDue)return;var d=new Date(b.nextDue+'T00:00:00');var days=Math.ceil((d-t0)/DAY);if(days>7)return;out.push({key:'bill:'+(b.id||b.name)+':'+b.nextDue,emoji:'🧾',text:(b.name||'Bill'),sub:((typeof fmt==='function')?fmt(b.amount||0):'$'+(b.amount||0))+' · '+fmtDays(days),days:days,urg:days<0?0:1,go:'bills'});});
+    (st.calEvents||[]).forEach(function(e){var ds=e.date||e.start;if(!ds)return;var d=new Date(ds);if(isNaN(d.getTime()))return;d.setHours(0,0,0,0);var days=Math.round((d-t0)/DAY);if(days<0||days>7)return;out.push({key:'cal:'+(e.id||e.title||e.summary)+':'+isoDay(d),emoji:'📅',text:(e.title||e.summary||'Event'),sub:fmtDays(days),days:days,urg:days<=1?1:2,go:'calendar'});});
+    (function(){var now=new Date(),yr=now.getFullYear(),mar1=new Date(yr,2,1);if(mar1<t0)mar1=new Date(yr+1,2,1);var days=Math.ceil((mar1-t0)/DAY);if(days<=60)out.push({key:'tax:rrsp:'+mar1.getFullYear(),emoji:'🍁',text:'RRSP contribution deadline',sub:'in '+days+'d ('+mar1.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+')',days:days,urg:days<=14?0:2,go:'tax'});})();
+    (function(){var now=new Date(),yr=now.getFullYear(),apr30=new Date(yr,3,30);if(apr30<t0)apr30=new Date(yr+1,3,30);var days=Math.ceil((apr30-t0)/DAY);if(days<=45)out.push({key:'tax:filing:'+apr30.getFullYear(),emoji:'🧮',text:'Tax filing deadline',sub:'in '+days+'d ('+apr30.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+')',days:days,urg:days<=14?0:2,go:'tax'});})();
+    var dismissed=st.dismissedReminders||{};
+    out=out.filter(function(r){return !dismissed[r.key];});
     out.sort(function(a,b){return (a.urg-b.urg)||(a.days-b.days);});
     return out;
   }
   function computeNotif(){ NOTIF = buildReminders().length; }
+  function dismissReminder(key){var st=S();if(!st.dismissedReminders)st.dismissedReminders={};st.dismissedReminders[key]=Date.now();if(typeof saveState==='function')saveState();computeNotif();if(typeof buildLot==='function')buildLot();openRoom('mailbox');}
+  function clearAllReminders(){var st=S();if(!st.dismissedReminders)st.dismissedReminders={};buildReminders().forEach(function(r){st.dismissedReminders[r.key]=Date.now();});if(typeof saveState==='function')saveState();computeNotif();if(typeof buildLot==='function')buildLot();openRoom('mailbox');}
 
   function computeSafe(){
     var liquid=liquidBalance();
@@ -350,7 +357,7 @@
       return {tiles:tiles,insight:ins};}
     if(key==='bedroom'){var w=st.wedding||{};var budget=+w.budget||0;
       var lg=w.linkedGoalId?(st.goals||[]).find(function(g){return g.id===w.linkedGoalId;}):null;
-      var contrib=lg?((typeof goalSavedAmount==='function')?goalSavedAmount(lg):((lg.current||0)+(typeof getGoalContributions==='function'?getGoalContributions(lg.id):0))):((typeof getWeddingContributions==='function')?getWeddingContributions():0);
+      var contrib=(typeof weddingSavedAmount==='function')?weddingSavedAmount():(lg?((typeof goalSavedAmount==='function')?goalSavedAmount(lg):0):((typeof getWeddingContributions==='function')?getWeddingContributions():0));
       var pctF=budget>0?clamp01(contrib/budget):null;var days=w.date?Math.ceil((new Date(w.date)-new Date())/86400000):null;
       var tiles=[{label:'Budget',value:budget>0?money(budget):'—'},{label:'Saved',value:budget>0?(money(contrib)+' · '+pctTxt(pctF)):'—',tone:toneFor(pctF)},{label:'Countdown',value:days==null?'No date':days<0?'Past':days+'d'}];
       var ins;if(budget<=0)ins={text:'Set a wedding budget to start tracking funding.',tone:''};else if(days!=null&&days>0){var perMo=Math.max(0,budget-contrib)/Math.max(1,days/30);ins={text:'About '+money(perMo)+'/mo keeps you on pace for the date.',tone:pctF>0.7?'pos':pctF>0.4?'':'neg'};}else ins={text:Math.round((pctF||0)*100)+'% funded.',tone:toneFor(pctF)};
@@ -375,7 +382,7 @@
       var tiles=[{label:'Bills (7d)',value:dueSoon?dueSoon+' due':'Clear',tone:dueSoon?'neg':'pos'},{label:'Maintenance',value:pctTxt(mt),tone:toneFor(mt)},{label:'Pets fed',value:pf==null?'—':pctTxt(pf),tone:toneFor(pf)}];
       var ins=weakest([{l:'bills',v:bo,s:'a bill is overdue — clear it'},{l:'maintenance',v:mt,s:'home upkeep tasks are overdue'},{l:'pets',v:pf,s:'pets aren’t fed yet today'}],'Home and pets are in good shape.');
       return {tiles:tiles,insight:ins};}
-    if(key==='garage'){var funds=st.carFunds||[];var saved=funds.reduce(function(s,c){return s+((c.savedAmount||0)+(typeof getCarFundContributions==='function'?getCarFundContributions(c.id):0));},0);var goal=funds.reduce(function(s,c){return s+(c.financing?(c.downPayment||0):(c.targetPrice||0));},0);var pf=goal>0?clamp01(saved/goal):null;
+    if(key==='garage'){var funds=st.carFunds||[];var saved=funds.reduce(function(s,c){return s+((typeof carFundSavedAmount==='function')?carFundSavedAmount(c):(c.savedAmount||0));},0);var goal=funds.reduce(function(s,c){return s+(c.financing?(c.downPayment||0):(c.targetPrice||0));},0);var pf=goal>0?clamp01(saved/goal):null;
       var tiles=[{label:'Vehicles',value:funds.length?funds.length:'None'},{label:'Car savings',value:funds.length?money(saved):'—',tone:toneFor(pf)},{label:'Funded',value:pctTxt(pf),tone:toneFor(pf)}];
       var ins;if(!funds.length)ins={text:'Add a car fund to plan your next vehicle.',tone:''};else if(pf!=null&&pf>=1)ins={text:'Car fund target reached.',tone:'pos'};else ins={text:money(Math.max(0,goal-saved))+' to go on your car goal.',tone:pf>0.5?'':'neg'};
       return {tiles:tiles,insight:ins};}
@@ -401,8 +408,9 @@
       var ucol=function(u){return u===0?'#e3675f':u===1?'#ecae3e':'#46c46a';};
       var body;
       if(!rem.length){body='<p style="text-align:center;padding:18px 0;color:#6b7a88">All clear ✨<br><small>Nothing due in the next week.</small></p>';}
-      else{body='<p style="margin:0 0 10px;font-size:12px;color:#6b7a88">'+rem.length+' thing'+(rem.length!==1?'s':'')+' needing attention — click to jump there.</p>'
-        +rem.map(function(r){return '<div class="hh-rem" data-go="'+r.go+'" style="border-left:3px solid '+ucol(r.urg)+'"><span class="hh-rem-em">'+r.emoji+'</span><span class="hh-rem-tx"><b>'+r.text+'</b><small>'+r.sub+'</small></span><span class="hh-rem-go">›</span></div>';}).join('');}
+      else{body='<p style="margin:0 0 10px;font-size:12px;color:#6b7a88">'+rem.length+' thing'+(rem.length!==1?'s':'')+' needing attention — click to jump there, or ✕ to clear.</p>'
+        +'<div style="text-align:right;margin-bottom:8px"><span class="hh-chip" data-clearall="1">Clear all</span></div>'
+        +rem.map(function(r){return '<div class="hh-rem" data-go="'+r.go+'" style="border-left:3px solid '+ucol(r.urg)+';position:relative"><span class="hh-rem-em">'+r.emoji+'</span><span class="hh-rem-tx"><b>'+r.text+'</b><small>'+r.sub+'</small></span><span class="hh-rem-go">›</span><span class="hh-rem-x" data-dismiss="'+r.key.replace(/"/g,'&quot;')+'" title="Dismiss" style="margin-left:6px;padding:2px 7px;border-radius:6px;color:#8a97a3;cursor:pointer">✕</span></div>';}).join('');}
       G('hhPBody').innerHTML=body;bindChips();G('hhPanel').classList.add('show');return;}
     if(!r)return;
     G('hhPEye').textContent=r.eye;G('hhPEmoji').textContent=r.emoji;G('hhPTitle').textContent=r.title;
@@ -466,7 +474,9 @@
   function bindChips(){
     document.querySelectorAll('#hhPanel [data-go]').forEach(function(c){c.onclick=function(){go(c.dataset.go);};});
     document.querySelectorAll('#hhPanel [data-setup]').forEach(function(c){c.onclick=function(){hide();if(typeof openSetupWizard==='function')openSetupWizard(true);};});
-    document.querySelectorAll('#hhPanel [data-assets]').forEach(function(c){c.onclick=function(){hide();if(typeof showPage==='function')showPage('networth');if(typeof openManualAssetModal==='function')setTimeout(openManualAssetModal,200);};});}
+    document.querySelectorAll('#hhPanel [data-assets]').forEach(function(c){c.onclick=function(){hide();if(typeof showPage==='function')showPage('networth');if(typeof openManualAssetModal==='function')setTimeout(openManualAssetModal,200);};});
+    document.querySelectorAll('#hhPanel [data-dismiss]').forEach(function(c){c.onclick=function(e){e.stopPropagation();dismissReminder(c.dataset.dismiss);};});
+    document.querySelectorAll('#hhPanel [data-clearall]').forEach(function(c){c.onclick=function(e){e.stopPropagation();clearAllReminders();};});}
 
   /* ===================== TOOLTIP / TOAST / HINT ===================== */
   function showTip(t,s){G('hhTipT').textContent=t;G('hhTipS').textContent=s;G('hhTip').style.opacity=1;}

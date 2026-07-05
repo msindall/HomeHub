@@ -13,7 +13,7 @@ function renderWedding() {
   var barColor = pct > 95 ? 'var(--red)' : pct > 80 ? 'var(--yellow)' : 'var(--green)';
 
   var linkedGoal = w.linkedGoalId ? (state.goals||[]).find(function(g){return g.id===w.linkedGoalId;}) : null;
-  var goalSaved  = linkedGoal ? (linkedGoal.current + getGoalContributions(linkedGoal.id)) : 0;
+  var goalSaved  = weddingSavedAmount();
   var goalTarget = linkedGoal ? linkedGoal.target : 0;
   var savingsPct = goalTarget > 0 ? Math.min(100, Math.round(goalSaved/goalTarget*100)) : 0;
   var savingsBarColor = savingsPct >= 100 ? 'var(--green)' : savingsPct >= 50 ? 'var(--accent)' : 'var(--accent2)';
@@ -248,7 +248,7 @@ function openWeddingSettingsModal() {
   if (sel) {
     sel.innerHTML = '<option value="">None — enter savings manually</option>' +
       (state.goals||[]).map(function(g){
-        return '<option value="'+g.id+'"'+(g.id===w.linkedGoalId?' selected':'')+'>'+g.emoji+' '+g.name+' ('+fmt(g.current + getGoalContributions(g.id))+' / '+fmt(g.target)+')</option>';
+        return '<option value="'+g.id+'"'+(g.id===w.linkedGoalId?' selected':'')+'>'+g.emoji+' '+g.name+' ('+fmt(goalSavedAmount(g))+' / '+fmt(g.target)+')</option>';
       }).join('');
   }
   openModal('wedding-settings-modal');
@@ -447,7 +447,7 @@ function selectHouseDownScenario(key) {
   state.house.mortgage.selectedScenario = key;
   var h     = state.house;
   var price = h.targetPrice || 0;
-  var saved = (h.savedAmount || 0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
+  var saved = houseSavedAmount(h);
   var down  = 0;
   if      (key === '5')    down = Math.ceil(price * 0.05);
   else if (key === '10')   down = Math.ceil(price * 0.10);
@@ -464,7 +464,7 @@ function renderHouseComparison() {
   var h     = state.house || {};
   var price = h.targetPrice || 0;
   var mort  = h.mortgage    || {};
-  var saved = (h.savedAmount || 0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
+  var saved = houseSavedAmount(h);
   var isFTHB = (state.members||[]).length > 0 && (state.members||[]).every(function(m){ return m.isFirstTimeBuyer; });
   var selected = mort.selectedScenario || 'saved';
 
@@ -669,7 +669,7 @@ function calcMortgageContext(priceOverride, downOverrideParam) {
   var h    = state.house || {};
   var mort = h.mortgage  || {};
   var price   = (priceOverride !== undefined) ? priceOverride : (h.targetPrice || 0);
-  var saved   = (h.savedAmount || 0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
+  var saved   = houseSavedAmount(h);
   var rate    = mort.rate      || 4.99;
   var amort   = mort.amort     || 25;
   var freq    = mort.frequency || 'monthly';
@@ -906,7 +906,7 @@ function openHouseUnifiedModal(tab) {
   var h    = state.house   || {};
   var mort = h.mortgage    || {};
   var price = h.targetPrice || 0;
-  var saved = (h.savedAmount || 0) + (h.linkedGoalId ? getGoalContributions(h.linkedGoalId) : 0);
+  var saved = houseSavedAmount(h);
   var minDown = calcMinDown(price);
   var pct20   = price ? Math.ceil(price * 0.20) : 0;
 
@@ -919,7 +919,7 @@ function openHouseUnifiedModal(tab) {
   if (sel) {
     sel.innerHTML = '<option value="">None — enter savings manually</option>' +
       (state.goals||[]).map(function(g){
-        return '<option value="'+g.id+'"'+(g.id===h.linkedGoalId?' selected':'')+'>'+g.emoji+' '+g.name+' ('+fmt(g.current+getGoalContributions(g.id))+' / '+fmt(g.target)+')</option>';
+        return '<option value="'+g.id+'"'+(g.id===h.linkedGoalId?' selected':'')+'>'+g.emoji+' '+g.name+' ('+fmt(goalSavedAmount(g))+' / '+fmt(g.target)+')</option>';
       }).join('');
   }
 
@@ -1419,7 +1419,7 @@ function calcCurrentNetWorth() {
     else totalAssets += (a.value||0);
   });
   (state.carFunds||[]).forEach(function(c){
-    var saved = (c.savedAmount||0) + getCarFundContributions(c.id);
+    var saved = carFundSavedAmount(c);
     if (saved > 0) totalAssets += saved;
   });
   return { assets: totalAssets, debts: totalDebts, netWorth: totalAssets - totalDebts };
@@ -1477,7 +1477,7 @@ function renderNWProjection() {
   var milestoneDatasets=[];
   var milestoneColors=['rgba(250,180,50,0.8)','rgba(100,180,255,0.8)','rgba(200,130,255,0.8)','rgba(80,220,160,0.8)'];
   (state.goals||[]).forEach(function(g,gi){
-    var saved=(g.current||0)+getGoalContributions(g.id);
+    var saved=goalSavedAmount(g);
     if(saved>=g.target)return;
     var col=milestoneColors[gi%milestoneColors.length];
     var lineData=data.map(function(){ return g.target; });

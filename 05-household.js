@@ -57,7 +57,7 @@ function renderNetWorth() {
   if (!assetLines.length && !(state.manualAssets||[]).filter(function(a){return !a.isDebt;}).length)
     assetsHtml += '<div style="color:var(--muted);font-size:13px;padding:8px 0">No asset accounts yet.</div>';
   (state.carFunds||[]).forEach(function(c){
-    var saved = (c.savedAmount||0) + getCarFundContributions(c.id);
+    var saved = carFundSavedAmount(c);
     if (saved <= 0) return;
     displayAssets += saved;
     assetsHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface);border-radius:8px">' +
@@ -158,6 +158,9 @@ function openCarModal(id) {
   document.getElementById('car-emoji').value        = fund ? fund.emoji          : '🚗';
   document.getElementById('car-target').value       = fund ? fund.targetPrice    : '';
   document.getElementById('car-saved').value        = fund ? fund.savedAmount    : '';
+  if (typeof populateCarAccountSelect === 'function') populateCarAccountSelect();
+  var acctSel = document.getElementById('car-account');
+  if (acctSel) acctSel.value = fund ? (fund.accountId || '') : '';
   document.getElementById('car-monthly').value      = fund ? fund.monthlyContrib : '';
   document.getElementById('car-color').value        = fund ? (fund.color||'#4f8ef7') : '#4f8ef7';
   document.getElementById('car-notes').value        = fund ? (fund.notes||'')    : '';
@@ -193,11 +196,13 @@ function saveCarFund() {
   var tradein = parseFloat(document.getElementById('car-tradein').value) || 0;
   var rate    = parseFloat(document.getElementById('car-rate').value)    || 0;
   var term    = parseInt(document.getElementById('car-term').value)      || 60;
+  var acctEl  = document.getElementById('car-account');
+  var acctId  = acctEl ? (acctEl.value || '') : '';
   if (!name)   { hhAlert('Please enter a vehicle name.','⚠️'); return; }
   if (!target) { hhAlert('Please enter a target price.','⚠️'); return; }
   if (fin && down <= 0) { hhAlert('Please enter a down payment amount for financing.','⚠️'); return; }
   var record = { name:name, emoji:emoji, targetPrice:target, savedAmount:saved, monthlyContrib:monthly, color:color, notes:notes,
-    financing:fin, downPayment:fin?down:0, tradeIn:fin?tradein:0, interestRate:fin?rate:0, loanTerm:fin?term:60 };
+    financing:fin, downPayment:fin?down:0, tradeIn:fin?tradein:0, interestRate:fin?rate:0, loanTerm:fin?term:60, accountId:acctId };
   if (!state.carFunds) state.carFunds = [];
   if (_carModalId) {
     var idx = state.carFunds.findIndex(function(c){return c.id===_carModalId;});
@@ -274,7 +279,7 @@ function renderCarFunds() {
   if (emptyEl)  emptyEl.style.display  = 'none';
   if (tipsCard) tipsCard.style.display = '';
 
-  var totalSaved = funds.reduce(function(s,c){return s+(c.savedAmount||0);},0);
+  var totalSaved = funds.reduce(function(s,c){return s+carFundSavedAmount(c);},0);
   var totalGoal  = funds.reduce(function(s,c){return s+(c.financing?(c.downPayment||0):(c.targetPrice||0));},0);
   var pct = totalGoal>0 ? Math.min(100,Math.round(totalSaved/totalGoal*100)) : 0;
   if (summaryEl) {
@@ -294,7 +299,8 @@ function renderCarFunds() {
   listEl.innerHTML = funds.map(function(fund) {
     var manualSaved = fund.savedAmount    || 0;
     var txnContrib  = getCarFundContributions(fund.id);
-    var saved   = manualSaved + txnContrib;
+    var linkedAcct  = fund.accountId ? getAccountById(fund.accountId) : null;
+    var saved   = carFundSavedAmount(fund);
     var target  = fund.targetPrice    || 0;
     var monthly = fund.monthlyContrib || 0;
     var color   = fund.color   || '#4f8ef7';
@@ -321,7 +327,7 @@ function renderCarFunds() {
       var sc = pctF>=100?'var(--green)':pctF>=50?'var(--yellow)':'var(--accent)';
       html = _carHeader(fund,emoji,color,false)
         + _carBar(saved,target,pctF,sc,color,'saved','goal')
-        + (txnContrib > 0 ? '<div style="font-size:12px;color:var(--green);margin-bottom:10px">✅ ' + fmt(txnContrib) + ' from linked transactions  +  ' + fmt(manualSaved) + ' manual</div>' : '')
+        + (linkedAcct ? '<div style="font-size:12px;color:var(--accent);margin-bottom:10px">Tracking ' + (linkedAcct.name||linkedAcct.type||'account') + ' balance</div>' : (txnContrib > 0 ? '<div style="font-size:12px;color:var(--green);margin-bottom:10px">✅ ' + fmt(txnContrib) + ' from linked transactions  +  ' + fmt(manualSaved) + ' manual</div>' : ''))
         + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px">'
         + _cstat(fmt(rem),'Still Needed')
         + _cstat(monthly>0?fmt(monthly):'-','Monthly Contribution')
@@ -359,7 +365,7 @@ function renderCarFunds() {
       html = _carHeader(fund,emoji,color,true)
         + '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Down Payment Progress</div>'
         + _carBar(saved,down,pctDown,sc2,color,'saved toward down payment','down payment target')
-        + (txnContrib > 0 ? '<div style="font-size:12px;color:var(--green);margin-bottom:10px">✅ ' + fmt(txnContrib) + ' from linked transactions  +  ' + fmt(manualSaved) + ' manual</div>' : '')
+        + (linkedAcct ? '<div style="font-size:12px;color:var(--accent);margin-bottom:10px">Tracking ' + (linkedAcct.name||linkedAcct.type||'account') + ' balance</div>' : (txnContrib > 0 ? '<div style="font-size:12px;color:var(--green);margin-bottom:10px">✅ ' + fmt(txnContrib) + ' from linked transactions  +  ' + fmt(manualSaved) + ' manual</div>' : ''))
         + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px">'
         + _cstat(fmt(down),'Down Payment ('+(downPct>0?downPct+'%':'--')+')')
         + (tradein>0?_cstat(fmt(tradein),'Trade-In Value'):'')
